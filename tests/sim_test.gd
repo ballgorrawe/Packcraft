@@ -1,23 +1,43 @@
 extends SceneTree
-## Headless smoke test: plays full runs with a greedy bot for every hero.
+## Headless smoke + balance test: plays full runs with a simple bot for every hero.
 ## Run: godot --headless --path . --script res://tests/sim_test.gd
-## Add `-- --greedy` to make the bot take Elite/Ambush fights whenever offered (snowball check).
+## Options after `--`:  --greedy  take Elite/Ambush fights whenever offered (snowball check)
+##                      --runs=N  runs per class (default 5)
+##                      --quiet   only print the summary
+
+var greedy := false
+var quiet := false
+
 
 func _init() -> void:
 	GameData.ensure_loaded()
-	var greedy := OS.get_cmdline_user_args().has("--greedy")
-	var wins := 0
+	I18n.setup("en")
+	var runs := 5
+	for a in OS.get_cmdline_user_args():
+		if a == "--greedy":
+			greedy = true
+		elif a == "--quiet":
+			quiet = true
+		elif a.begins_with("--runs="):
+			runs = int(a.trim_prefix("--runs="))
+	var total_w := 0
 	var total := 0
-	var el_take := 0
-	var el_win := 0
-	var hearts_used := 0
+	var summary := []
 	for cls in GameData.class_keys:
-		for trial in 4:
-			var pet: String = GameData.classes[cls].pets[trial % 2]
-			var r := RunState.new(cls, pet)
+		var w := 0
+		var days := 0
+		var caps := 0
+		var evos := 0
+		var ults := 0
+		var fights := 0
+		for trial in runs:
+			var r := RunState.new(cls)
 			var guard := 0
+			var got_cap := false
 			while r.end_state == "" and guard < 60:
 				guard += 1
+				if r.needs_path():
+					r.choose_path(r.cls_def().paths[trial % 2])
 				_bot_morning(r)
 				r.travel()
 				var best := 0
@@ -31,48 +51,61 @@ func _init() -> void:
 				if cs != null:
 					cs.skip_to_end()
 					assert(cs.done, "combat did not finish")
-					if r.nodes[best].k == "elite" or r.nodes[best].k == "ambush":
-						el_take += 1
-						el_win += 1 if cs.won else 0
-					var res0 := r.res
+					ults += cs.ults
+					fights += 1
 					r.go_night(r.nodes[best], cs.won, cs)
-					hearts_used += res0 - r.res
+				for l in r.result.lines:
+					if l.begins_with("✨ Evolution"):
+						evos += 1
+				if r.items.any(func(i): return i.def().tier == 4):
+					got_cap = true
 				r.next_day()
-			total += 1
+			if got_cap:
+				caps += 1
+			days += r.day
 			if r.end_state == "win":
-				wins += 1
-			print("%-6s %-8s -> %-4s day %2d  gold %3d  items %2d  tiles %2d" % [cls, pet, r.end_state, r.day, r.gold, r.items.size(), r.tiles.size()])
-	print("bot wins: %d / %d" % [wins, total])
-	print("elite/ambush fights: %d, won %d  ·  hearts spent: %d" % [el_take, el_win, hearts_used])
+				w += 1
+			if not quiet:
+				print("%-7s %-11s -> %-4s day %2d  gold %3d  items %2d  tiles %2d" % [cls, r.path, r.end_state, r.day, r.gold, r.items.size(), r.tiles.size()])
+		total_w += w
+		total += runs
+		summary.append("%-7s wins %d/%d · avg day %.1f · capstone runs %d · evolutions %d · ults/fight %.1f" % [cls, w, runs, float(days) / runs, caps, evos, float(ults) / maxi(1, fights)])
+	for s in summary:
+		print(s)
+	print("bot wins: %d / %d" % [total_w, total])
 	quit()
 
 
 func _bot_morning(r: RunState) -> void:
-	# unlock tiles
+	# unlock tiles next to the pack
 	var tries := 0
-	while r.expand > 0 and tries < 200:
+	while r.expand > 0 and tries < 300:
 		tries += 1
-		var c := Vector2i(randi() % GameData.W, randi() % GameData.H)
-		r.unlock(c)
-	# buy what we can afford and try to place it
-	for _n in 4:
+		r.unlock(Vector2i(randi() % GameData.W, randi() % GameData.H))
+	# relic straight into the pack
+	for it in r.storage_items():
+		if it.def().relic:
+			it.loc = "held"
+			if not _place_best(r, it):
+				it.loc = "storage"
+	# buy what we can afford, preferring recipe/evolution partners
+	for _n in 5:
 		var idx := -1
 		for i in r.shop.size():
 			var e: Dictionary = r.shop[i]
-			if e.has("bag"):
+			if e.has("bag") or e.price > r.gold:
 				continue
-			if e.price <= r.gold:
+			if idx < 0 or r.recipe_partner_owned(e.id):
 				idx = i
-				break
 		if idx < 0:
 			break
 		var it := r.buy_item(idx)
-		if not _place_anywhere(r, it):
+		if not _place_best(r, it):
 			it.loc = "storage"
 	# move storage items into the pack where possible
 	for it in r.storage_items():
 		it.loc = "held"
-		if not _place_anywhere(r, it):
+		if not _place_best(r, it):
 			it.loc = "storage"
 	if r.gold >= 8:
 		for i in r.shop.size():
@@ -81,7 +114,10 @@ func _bot_morning(r: RunState) -> void:
 				break
 
 
-func _place_anywhere(r: RunState, it: PItem) -> bool:
+## Places `it` where it touches the most recipe/evolution partners (else anywhere).
+func _place_best(r: RunState, it: PItem) -> bool:
+	var best := {}
+	var best_score := -1
 	for rot in 4:
 		it.rot = rot
 		for y in GameData.H:
@@ -90,6 +126,21 @@ func _place_anywhere(r: RunState, it: PItem) -> bool:
 					it.loc = "grid"
 					it.x = x
 					it.y = y
-					return true
-	it.rot = 0
-	return false
+					var s := 0
+					for o in r.neighbours(it):
+						for rc in GameData.recipes:
+							if r.recipe_ok(rc) and ((rc.a == it.id and rc.b == o.id) or (rc.b == it.id and rc.a == o.id)):
+								s += 3
+						s += 1
+					it.loc = "held"
+					if s > best_score:
+						best_score = s
+						best = {"x": x, "y": y, "rot": rot}
+	if best.is_empty():
+		it.rot = 0
+		return false
+	it.loc = "grid"
+	it.x = best.x
+	it.y = best.y
+	it.rot = best.rot
+	return true

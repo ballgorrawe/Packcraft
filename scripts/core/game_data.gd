@@ -1,22 +1,25 @@
 class_name GameData
 extends RefCounted
 ## Static game content loaded from res://data/game_data.json.
-## Items, recipes, heroes, companions, bosses, modifiers and sets all live there,
-## so content can be balanced without touching code.
+## Items, recipes, classes, paths, statuses, bosses and modifiers all live there,
+## so content can be balanced (or new statuses added) without touching code.
 
 const DATA_PATH := "res://data/game_data.json"
-const ELEMENTS := ["Fire", "Ice", "Physical", "Arcane", "Nature"]
+const ELEMENTS := ["Fire", "Nature", "Physical", "Shock"]
 const FOE_NAMES := ["Cave Rat", "Goblin", "Bandit", "Slime", "Skeleton"]
+## Buff keys an `adj` / `all` entry may use.
+const BUFF_KEYS := ["dmg", "cdr", "crit", "shield", "heal", "burn", "poison", "thorns"]
 
 static var loaded := false
 static var items := {}
-static var recipes: Array = []          # [ingredient_a, ingredient_b, result]
+static var recipes: Array = []          # {a, b, r, path}; evolutions are added as {a: x, b: x, r: evo, evo: true}
 static var classes := {}
 static var class_keys: Array = []
-static var pets := {}
+static var paths := {}
+static var statuses := {}
+static var path_day := 4
 static var bosses: Array = []
 static var mods: Array = []
-static var sets: Array = []
 static var traits := {}
 static var hazards: Array = []
 static var rarity_table: Array = []
@@ -39,34 +42,43 @@ static func ensure_loaded() -> void:
 	var f := FileAccess.open(DATA_PATH, FileAccess.READ)
 	assert(f != null, "Missing " + DATA_PATH)
 	var d: Dictionary = JSON.parse_string(f.get_as_text())
+	for k in d.statuses:
+		var s: Dictionary = d.statuses[k]
+		statuses[k] = {
+			"n": s.n, "ic": s.ic, "col": Color(s.col), "side": s.side, "el": str(s.get("el", "")),
+			"tick": float(s.get("tick", 0.0)), "dmg": float(s.get("dmg", 0.0)), "decay": int(s.get("decay", 0)),
+			"max": int(s.get("max", 99)), "reflect": float(s.get("reflect", 0.0)), "d": s.get("d", ""),
+		}
 	for k in d.items:
 		items[k] = _norm_item(d.items[k])
 	for r in d.recipes:
-		recipes.append([str(r[0]), str(r[1]), str(r[2])])
+		recipes.append({"a": str(r.a), "b": str(r.b), "r": str(r.r), "path": str(r.get("path", "")), "evo": false})
+	for k in items:
+		if items[k].evo != "":
+			recipes.append({"a": k, "b": k, "r": items[k].evo, "path": "", "evo": true})
 	for k in d.classes:
 		var c: Dictionary = d.classes[k]
-		var bag: Dictionary = c.bag
+		var st := []
+		for s in c.st:
+			st.append([str(s[0]), int(s[1]), int(s[2])])
+		var res: Dictionary = c.res
 		classes[k] = {
-			"n": c.n, "ic": c.ic, "d": c.d,
-			"st": [str(c.st[0]), int(c.st[1]), int(c.st[2])],
-			"bag": {
-				"t": _cells(bag.t), "tag": bag.tag, "label": bag.label,
-				"cd": float(bag.get("cd", 1.0)), "dmg": float(bag.get("dmg", 1.0)), "blk": float(bag.get("blk", 1.0)),
+			"n": c.n, "ic": c.ic, "hero": c.hero, "d": c.d, "st": st, "bag": _cells(c.bag),
+			"res": {
+				"id": res.id, "n": res.n, "ic": res.ic, "gain": res.gain, "tag": str(res.get("tag", "")),
+				"per": float(res.per), "eff": res.eff, "etag": str(res.get("etag", "")), "v": float(res.v),
+				"cap": float(res.get("cap", 99.0)), "d": res.d,
 			},
-			"pets": c.pets,
+			"ult": {"n": c.ult.n, "ic": c.ult.ic, "need": int(c.ult.need), "on": _norm_on(c.ult.get("on", {})), "sp": str(c.ult.get("sp", "")), "d": c.ult.d},
+			"paths": c.paths,
 		}
 		class_keys.append(k)
-	for k in d.pets:
-		var p: Dictionary = d.pets[k]
-		pets[k] = {"ic": p.ic, "n": p.n, "d": p.d, "k": p.k, "v": float(p.v), "cd": float(p.get("cd", 0.0)), "dt": str(p.get("dt", ""))}
+	for k in d.paths:
+		paths[k] = d.paths[k]
+	path_day = int(d.get("path_day", 4))
 	for b in d.bosses:
 		bosses.append({"d": int(b.d), "n": b.n, "hp": float(b.hp), "atk": float(b.atk), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": ""})
 	mods = d.mods
-	for s in d.sets:
-		var each := {}
-		for k in s.each:
-			each[k] = float(s.each[k])
-		sets.append({"id": s.id, "n": s.n, "parts": s.parts, "txt": s.txt, "hp": float(s.get("hp", 0.0)), "rg": float(s.get("rg", 0.0)), "each": each})
 	traits = d.traits
 	for h in d.hazards:
 		hazards.append({"id": h.id, "ic": h.ic, "n": h.n, "d": h.d, "hp": float(h.get("hp", 1.0)), "cd": float(h.get("cd", 1.0)), "atk": float(h.get("atk", 1.0))})
@@ -94,41 +106,53 @@ static func _cells(arr) -> Array:
 	return out
 
 
-static func _norm_item(src: Dictionary) -> Dictionary:
-	var it := {
-		"n": src.n, "ic": src.ic, "tier": int(src.tier), "cost": int(src.cost),
-		"shop": src.has("s"), "c": _cells(src.c), "tags": src.tags, "type": src.type,
-		"dt": str(src.get("dt", "")), "dmg": float(src.get("dmg", 0.0)), "cd": float(src.get("cd", 0.0)),
-		"blk": float(src.get("blk", 0.0)), "heal": float(src.get("heal", 0.0)), "hp": float(src.get("hp", 0.0)),
-		"rg": float(src.get("rg", 0.0)), "ls": float(src.get("ls", 0.0)), "cl": str(src.get("cl", "")),
-		"fx": {}, "st": [],
+static func _norm_on(src: Dictionary) -> Dictionary:
+	var on := {
+		"dmg": float(src.get("dmg", 0.0)), "el": str(src.get("el", "")), "crit": float(src.get("crit", 0.0)),
+		"critx": float(src.get("critx", 2.0)), "shield": float(src.get("shield", 0.0)), "heal": float(src.get("heal", 0.0)),
+		"charge": float(src.get("charge", 0.0)), "ramp": float(src.get("ramp", 0.0)),
+		"dmg_per_res": float(src.get("dmg_per_res", 0.0)), "haste": [], "st": {},
 	}
-	var fx: Dictionary = src.get("fx", {})
-	for k in fx:
-		if k == "haste":
-			it.fx[k] = [float(fx[k][0]), float(fx[k][1])]
-		else:
-			it.fx[k] = float(fx[k])
-	for s in src.get("st", []):
-		it.st.append({"p": Vector2i(int(s[0]), int(s[1])), "tag": s[2], "key": s[3], "val": float(s[4])})
-	return it
+	if src.has("haste"):
+		on.haste = [float(src.haste[0]), float(src.haste[1])]
+	var st: Dictionary = src.get("st", {})
+	for k in st:
+		on.st[k] = float(st[k])
+	return on
+
+
+static func _buffs(arr) -> Array:
+	var out := []
+	for b in arr:
+		assert(BUFF_KEYS.has(b.k), "Unknown buff key: " + str(b.k))
+		out.append({"tag": str(b.tag), "k": str(b.k), "v": float(b.v)})
+	return out
+
+
+static func _norm_item(src: Dictionary) -> Dictionary:
+	var ps: Dictionary = src.get("pass", {})
+	return {
+		"n": src.n, "ic": src.ic, "tier": int(src.t), "lv": int(src.get("lv", 1)), "cost": int(src.cost),
+		"cl": str(src.get("cl", "")), "shop": int(src.get("shop", 0)) == 1, "relic": int(src.get("relic", 0)) == 1,
+		"c": _cells(src.c), "tags": src.tags, "cd": float(src.get("cd", 0.0)), "once": int(src.get("once", 0)) == 1,
+		"on": _norm_on(src.get("on", {})), "adj": _buffs(src.get("adj", [])), "all": _buffs(src.get("all", [])),
+		"pass": {
+			"hp": float(ps.get("hp", 0.0)), "regen": float(ps.get("regen", 0.0)), "thorns": float(ps.get("thorns", 0.0)),
+			"shield": float(ps.get("shield", 0.0)), "income": int(ps.get("income", 0)),
+		},
+		"sp": str(src.get("sp", "")), "evo": str(src.get("evo", "")), "d": str(src.get("d", "")),
+	}
 
 
 ## Item shape after `rot` quarter turns clockwise, normalised so the top-left cell is (0,0).
-## Returns {"c": Array[Vector2i] occupied cells, "s": Array of star slots {p, tag, key, val}}.
+## Returns {"c": Array[Vector2i] occupied cells}.
 static func shape(id: String, rot: int) -> Dictionary:
 	var key := id + ":" + str(rot)
 	if _shape_cache.has(key):
 		return _shape_cache[key]
-	var d: Dictionary = items[id]
-	var c: Array = d.c.duplicate()
-	var s: Array = []
-	for st in d.st:
-		s.append(st.duplicate())
+	var c: Array = items[id].c.duplicate()
 	for _r in rot:
 		c = c.map(func(p): return Vector2i(-p.y, p.x))
-		for st in s:
-			st.p = Vector2i(-st.p.y, st.p.x)
 	var mx := 999
 	var my := 999
 	for p in c:
@@ -136,9 +160,7 @@ static func shape(id: String, rot: int) -> Dictionary:
 		my = mini(my, p.y)
 	var off := Vector2i(mx, my)
 	c = c.map(func(p): return p - off)
-	for st in s:
-		st.p -= off
-	var res := {"c": c, "s": s}
+	var res := {"c": c}
 	_shape_cache[key] = res
 	return res
 
@@ -153,51 +175,104 @@ static func tier_color(id: String) -> Color:
 	return tier_colors[items[id].tier]
 
 
-static func stat_text(tag: String, key: String, v: float) -> String:
-	var n := _num(v)
-	match key:
-		"dmg": return tag + " +" + n + " dmg"
-		"blk": return tag + " +" + n + " block"
-		"cdr": return tag + " −" + n + "s cooldown"
-		"burn": return tag + " +" + n + " 🔥Burn"
-		"pois": return tag + " +" + n + " ☠️Poison"
-		"chill": return tag + " +" + n + "s ❄️Chill"
+static func elem_icon(el: String) -> String:
+	return elem_icons.get(el, "")
+
+
+## Short one-line stats for cards: "⚔ 5 ⏱ 2s 🔥1".
+static func short_stats(id: String) -> String:
+	var d: Dictionary = items[id]
+	var on: Dictionary = d.on
+	var p := []
+	if on.dmg > 0:
+		p.append("%s%s" % [elem_icon(on.el) if on.el != "" else "⚔", _num(on.dmg)])
+	if on.shield > 0:
+		p.append("🛡%s" % _num(on.shield))
+	if on.heal > 0:
+		p.append("💚%s" % _num(on.heal))
+	for k in on.st:
+		p.append(statuses[k].ic + _num(on.st[k]))
+	if on.charge > 0:
+		p.append("🔋%ss" % _num(on.charge))
+	if not on.haste.is_empty():
+		p.append("💨%d%%" % roundi(on.haste[0] * 100))
+	if d.cd > 0:
+		p.append("⏱%ss" % _num(d.cd))
+	elif d.once:
+		p.append(I18n.t("once"))
+	if p.is_empty() or d.cd == 0 and not d.once:
+		if not d.adj.is_empty():
+			p.append("✦ " + I18n.t("aura"))
+		elif d.pass.hp > 0:
+			p.append("❤️+%s" % _num(d.pass.hp))
+		elif d.pass.income > 0:
+			p.append("🪙+%d" % d.pass.income)
+		elif p.is_empty():
+			p.append("✦ " + I18n.t("passive"))
+	return " ".join(p)
+
+
+static func buff_text(b: Dictionary) -> String:
+	var tag := I18n.t(b.tag)
+	var v: String = _num(b.v)
+	match b.k:
+		"dmg": return I18n.t("%s items +%s damage") % [tag, v]
+		"cdr": return I18n.t("%s items charge %d%% faster") % [tag, roundi(b.v * 100)]
+		"crit": return I18n.t("%s items +%d%% crit") % [tag, roundi(b.v * 100)]
+		"shield": return I18n.t("%s items +%s Shield") % [tag, v]
+		"heal": return I18n.t("%s items +%s heal") % [tag, v]
+	if statuses.has(b.k):
+		return I18n.t("%s items +%s %s") % [tag, v, I18n.t(statuses[b.k].n)]
 	return tag
 
 
-static func fx_text(f: Dictionary) -> String:
-	var parts := []
-	if f.has("burn"): parts.append("🔥Burn " + _num(f.burn))
-	if f.has("pois"): parts.append("☠️Poison " + _num(f.pois))
-	if f.has("chill"): parts.append("❄️Chill " + _num(f.chill) + "s")
-	if f.has("frz"): parts.append("🧊Freeze " + _num(f.frz) + "s")
-	if f.has("haste"): parts.append("⚡Haste +" + str(roundi(f.haste[0] * 100)) + "% for " + _num(f.haste[1]) + "s")
-	return " · ".join(parts)
-
-
-static func fx_icons(f: Dictionary) -> String:
-	var parts := []
-	if f.has("burn"): parts.append("🔥" + _num(f.burn))
-	if f.has("pois"): parts.append("☠️" + _num(f.pois))
-	if f.has("chill"): parts.append("❄️")
-	if f.has("frz"): parts.append("🧊")
-	if f.has("haste"): parts.append("⚡")
-	return " ".join(parts)
-
-
-static func describe(id: String) -> String:
+## Full description lines for the inspector.
+static func describe_lines(id: String) -> Array:
 	var d: Dictionary = items[id]
-	var s := ""
-	match d.type:
-		"atk": s = "%s %s dmg · %ss" % [d.dt, _num(d.dmg), _num(d.cd)]
-		"def": s = "+%s block · %ss" % [_num(d.blk), _num(d.cd)]
-		"heal": s = "Heals %s below 50%% HP, used up" % _num(d.heal)
-		_: s = "Passive"
-	if d.st.size() > 0:
-		s += " · ✦ " + stat_text(d.st[0].tag, d.st[0].key, d.st[0].val)
-	if not d.fx.is_empty():
-		s += " · " + fx_text(d.fx)
-	return s
+	var on: Dictionary = d.on
+	var out := []
+	var when := ""
+	if d.once:
+		when = I18n.t("Once, below 50% HP:")
+	elif d.cd > 0:
+		when = I18n.t("Every %ss:") % _num(d.cd)
+	var acts := []
+	if on.dmg > 0:
+		acts.append(I18n.t("deal %s %s damage") % [_num(on.dmg), I18n.t(on.el)])
+	if on.shield > 0:
+		acts.append(I18n.t("gain %s Shield") % _num(on.shield))
+	if on.heal > 0:
+		acts.append(I18n.t("heal %s") % _num(on.heal))
+	for k in on.st:
+		acts.append(I18n.t("apply %s %s") % [_num(on.st[k]), I18n.t(statuses[k].n)] if statuses[k].side == "foe" else I18n.t("gain %s %s") % [_num(on.st[k]), I18n.t(statuses[k].n)])
+	if on.charge > 0:
+		acts.append(I18n.t("charge touching items by %ss") % _num(on.charge))
+	if not on.haste.is_empty():
+		acts.append(I18n.t("+%d%% Haste for %ss") % [roundi(on.haste[0] * 100), _num(on.haste[1])])
+	if not acts.is_empty():
+		out.append((when + " " if when != "" else "") + ", ".join(acts) + ".")
+	if on.crit > 0:
+		out.append(I18n.t("%d%% crit chance (×%s damage).") % [roundi(on.crit * 100), _num(on.critx)])
+	if on.ramp > 0:
+		out.append(I18n.t("+%s damage after every hit this fight.") % _num(on.ramp))
+	for b in d.adj:
+		out.append("✦ " + I18n.t("Touching: ") + buff_text(b))
+	for b in d.all:
+		out.append("🌐 " + I18n.t("Whole pack: ") + buff_text(b))
+	var ps: Dictionary = d.pass
+	if ps.hp > 0:
+		out.append("❤️ " + I18n.t("+%s Max HP") % _num(ps.hp))
+	if ps.regen > 0:
+		out.append("💚 " + I18n.t("Regenerate %s HP per second") % _num(ps.regen))
+	if ps.thorns > 0:
+		out.append("🌵 " + I18n.t("Start fights with %s Thorns") % _num(ps.thorns))
+	if ps.income > 0:
+		out.append("🪙 " + I18n.t("+%d gold every morning") % ps.income)
+	if d.d != "":
+		out.append("⭐ " + I18n.t(d.d))
+	if out.is_empty():
+		out.append(I18n.t("No effect on its own."))
+	return out
 
 
 static func _num(v: float) -> String:

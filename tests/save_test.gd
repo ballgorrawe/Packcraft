@@ -7,7 +7,7 @@ func _init() -> void:
 	var fails := 0
 	var checks := 0
 	for cls in GameData.class_keys:
-		var r := RunState.new(cls, GameData.classes[cls].pets[0])
+		var r := RunState.new(cls)
 		for day in 6:
 			for phase_step in 3:
 				var a := JSON.stringify(r.to_dict())
@@ -30,6 +30,8 @@ func _init() -> void:
 				if not is_equal_approx(r.pack_rates().x, b.pack_rates().x) or r.links().size() != b.links().size():
 					fails += 1
 					print("FAIL derived ", cls, " day ", r.day)
+				if r.needs_path():
+					r.choose_path(r.cls_def().paths[1])
 				match phase_step:
 					0:
 						r.gold += 10

@@ -1,16 +1,17 @@
 class_name RunState
 extends RefCounted
-## All rules for one run: day loop, shop, backpack grid, stars, sets, Golden Link fusion, nodes and night resolution.
-## Pure logic, no UI, so it can be tested headless.
+## All rules for one run: day loop, shop, backpack grid, adjacency buffs, evolutions and recipes,
+## class paths, nodes and night resolution. Pure logic, no UI, so it can be tested headless.
 
 const RESIST := 0.2          # damage multiplier when the foe resists that element (80% less)
 const MAX_HEARTS := 3
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
 const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
+const SAVE_VERSION := 2
 
 var cls := ""
-var pet := ""
+var path := ""                  # chosen class path id, "" until path day
 var day := 1
 var gold := 8
 var res := MAX_HEARTS
@@ -34,21 +35,19 @@ var cur_node := -1              # index of the node chosen this afternoon
 var end_state := ""             # "", "win", "over"
 var msg := ""
 var seen := {}                  # item ids the player has owned (unlocks recipe book entries)
-var active_sets: Array = []
 
 
-func _init(c: String, p: String) -> void:
+func _init(c: String) -> void:
 	GameData.ensure_loaded()
 	cls = c
-	pet = p
 	mhp = GameData.base_hp
 	hp = mhp
 	mod = GameData.mods.pick_random()
-	for t in cls_def().bag.t:
+	for t in cls_def().bag:
 		tiles[t] = true
 		start[t] = true
-	var st: Array = cls_def().st
-	items.append(make_item(st[0], "grid", st[1], st[2], true))
+	for st in cls_def().st:
+		items.append(make_item(st[0], "grid", st[1], st[2], true))
 	begin_day()
 
 
@@ -56,8 +55,22 @@ func cls_def() -> Dictionary:
 	return GameData.classes[cls]
 
 
-func pet_def() -> Dictionary:
-	return GameData.pets[pet]
+func path_def() -> Dictionary:
+	return GameData.paths.get(path, {})
+
+
+## True on the path day until the player has picked one of the two class paths.
+func needs_path() -> bool:
+	return path == "" and day >= GameData.path_day and phase == "morning"
+
+
+func choose_path(id: String) -> void:
+	if path != "" or not cls_def().paths.has(id):
+		return
+	path = id
+	var relic: String = GameData.paths[id].relic
+	items.append(make_item(relic, "storage"))
+	msg = I18n.t("Path chosen: %s. %s is in your storage — put it in your pack.") % [I18n.t(GameData.paths[id].n), I18n.t(GameData.items[relic].n)]
 
 
 func make_item(id: String, loc: String, x := 0, y := 0, starter := false) -> PItem:
@@ -75,7 +88,10 @@ func make_item(id: String, loc: String, x := 0, y := 0, starter := false) -> PIt
 
 
 func _zero_b() -> Dictionary:
-	return {"dmg": 0.0, "cdr": 0.0, "blk": 0.0, "burn": 0.0, "pois": 0.0, "chill": 0.0}
+	var b := {}
+	for k in GameData.BUFF_KEYS:
+		b[k] = 0.0
+	return b
 
 
 func grid_items() -> Array:
@@ -90,9 +106,18 @@ func owns(id: String) -> bool:
 	return items.any(func(i): return i.id == id)
 
 
+func count_owned(id: String) -> int:
+	return items.filter(func(i): return i.id == id).size()
+
+
 func in_class_pool(id: String) -> bool:
 	var c: String = GameData.items[id].cl
 	return c == "" or c == cls
+
+
+## Specials ("sp") active in the pack right now.
+func has_sp(sp: String) -> bool:
+	return grid_items().any(func(i): return i.def().sp == sp)
 
 
 # ---------------------------------------------------------------- grid
@@ -131,6 +156,11 @@ func adj(a: PItem, b: PItem) -> bool:
 	return false
 
 
+## Items in the pack touching `it`.
+func neighbours(it: PItem) -> Array:
+	return grid_items().filter(func(o): return o != it and adj(it, o))
+
+
 func can_unlock(cell: Vector2i) -> bool:
 	if expand <= 0 or tiles.has(cell):
 		return false
@@ -150,73 +180,45 @@ func unlock(cell: Vector2i) -> bool:
 	return true
 
 
-## Recompute star and set buffs on every grid item.
+## Recompute adjacency (adj) and whole-pack (all) buffs on every grid item.
 func calc() -> Array:
-	var o := occ()
 	var g := grid_items()
 	for i in g:
 		i.b = _zero_b()
 	for i in g:
-		for s in GameData.shape(i.id, i.rot).s:
-			var t: PItem = o.get(Vector2i(i.x, i.y) + s.p)
-			if t != null and t != i and t.def().tags.has(s.tag):
-				t.b[s.key] += s.val
-	active_sets = act_sets()
-	for x in active_sets:
-		for i in x.insts:
-			for k in x.st.each:
-				i.b[k] = i.b.get(k, 0.0) + x.st.each[k]
+		var d: Dictionary = i.def()
+		if not d.adj.is_empty():
+			for t in g:
+				if t != i and adj(i, t):
+					for bf in d.adj:
+						if t.def().tags.has(bf.tag):
+							t.b[bf.k] += bf.v
+		for bf in d.all:
+			for t in g:
+				if t != i and t.def().tags.has(bf.tag):
+					t.b[bf.k] += bf.v
 	return g
-
-
-func set_inst(st: Dictionary) -> Dictionary:
-	var g := grid_items()
-	var insts := []
-	for id in st.parts:
-		var found = null
-		for i in g:
-			if i.id == id:
-				found = i
-				break
-		insts.append(found)
-	if insts.has(null):
-		return {"ok": false, "insts": insts.filter(func(v): return v != null)}
-	var seen_set := [insts[0]]
-	var q := [insts[0]]
-	while q.size() > 0:
-		var a: PItem = q.pop_back()
-		for b in insts:
-			if not seen_set.has(b) and adj(a, b):
-				seen_set.append(b)
-				q.append(b)
-	return {"ok": seen_set.size() == insts.size(), "insts": insts}
-
-
-func act_sets() -> Array:
-	var out := []
-	for st in GameData.sets:
-		var r := set_inst(st)
-		if r.ok:
-			out.append({"st": st, "insts": r.insts})
-	return out
 
 
 func max_hp() -> float:
 	var m := GameData.base_hp
 	for i in grid_items():
-		m += i.def().hp
-	for x in act_sets():
-		m += x.st.hp
+		m += i.def().pass.hp
 	return m
 
 
 func regen() -> float:
 	var r := 0.0
 	for i in grid_items():
-		r += i.def().rg
-	for x in act_sets():
-		r += x.st.rg
+		r += i.def().pass.regen
 	return r
+
+
+func income() -> int:
+	var g := 0
+	for i in grid_items():
+		g += i.def().pass.income
+	return g
 
 
 func sync_hp() -> void:
@@ -227,45 +229,57 @@ func sync_hp() -> void:
 	hp = minf(hp, m)
 
 
-## Effective numbers for an item after stars, sets, bag passive, pet, modifier and permanent upgrades.
+## Effective numbers for an item after buffs, modifier and permanent upgrades.
 func eff(i: PItem) -> Dictionary:
 	var d := i.def()
-	var dmg: float = d.dmg + i.b.dmg + i.pd
-	var cd: float = d.cd - i.b.cdr
-	if mod.id == "frost" and d.dt == "Ice":
-		dmg *= 1.3
-	if mod.id == "blood":
-		dmg *= 1.15
-	var bg: Dictionary = cls_def().bag
-	var inb := false
-	if d.tags.has(bg.tag):
-		for c in i.cells():
-			if start.has(c):
-				inb = true
-				break
-	if inb:
-		cd *= bg.cd
-		dmg *= bg.dmg
-	cd *= (1.0 - i.pc) * (1.0 - pet_def().v if pet_def().k == "haste" else 1.0)
-	if mod.id == "frost":
+	var on: Dictionary = d.on
+	var dmg: float = 0.0
+	if on.dmg > 0:
+		dmg = on.dmg + i.b.dmg + i.pd
+		if mod.id == "storm" and on.el == "Shock":
+			dmg *= 1.3
+		if mod.id == "blood":
+			dmg *= 1.15
+	var cd: float = d.cd * (1.0 - minf(0.6, i.b.cdr)) * (1.0 - i.pc)
+	if mod.id == "storm":
 		cd *= 1.1
-	var blk: float = (d.blk + i.b.blk) * (bg.blk if inb else 1.0)
-	return {"dmg": snappedf(dmg, 0.1), "cd": maxf(0.4, cd), "blk": snappedf(blk, 0.1)}
+	var st := {}
+	for k in on.st:
+		st[k] = on.st[k]
+	# status buffs only land on items that already hit or apply statuses
+	if d.cd > 0 and (on.dmg > 0 or not on.st.is_empty()):
+		for k in GameData.statuses:
+			if i.b.get(k, 0.0) > 0:
+				st[k] = st.get(k, 0.0) + i.b[k]
+	return {
+		"dmg": snappedf(dmg, 0.1), "cd": maxf(0.3, cd), "crit": minf(1.0, on.crit + i.b.crit), "critx": on.critx,
+		"shield": on.shield + (i.b.shield if on.shield > 0 else 0.0), "heal": on.heal + (i.b.heal if on.heal > 0 else 0.0),
+		"st": st, "charge": on.charge, "haste": on.haste, "ramp": on.ramp, "el": on.el,
+	}
 
 
+func recipe_ok(r: Dictionary) -> bool:
+	return r.path == "" or r.path == path
+
+
+## Golden Links: recipe or evolution pairs that touch and will fuse at night.
 func links() -> Array:
 	var g := grid_items()
 	var out := []
 	var used := {}
 	for r in GameData.recipes:
+		if not recipe_ok(r):
+			continue
 		for a in g:
-			if a.id != r[0]:
+			if a.id != r.a or used.has(a.uid):
 				continue
 			for b in g:
-				if b.id == r[1] and not used.has(a.uid) and not used.has(b.uid) and adj(a, b):
+				if b == a or b.id != r.b or used.has(b.uid) or used.has(a.uid):
+					continue
+				if adj(a, b):
 					used[a.uid] = true
 					used[b.uid] = true
-					out.append({"a": a, "b": b, "r": r[2], "key": "%d-%d" % [a.uid, b.uid]})
+					out.append({"a": a, "b": b, "r": r.r, "evo": r.evo, "key": "%d-%d" % [mini(a.uid, b.uid), maxi(a.uid, b.uid)]})
 	return out
 
 
@@ -297,11 +311,23 @@ func fuse_place(l: Dictionary):
 	return best
 
 
-func recipe_partner_owned(id: String) -> bool:
+## True if `id` completes a recipe or evolution with something you own.
+## For an item you already own (`owned_self`), an evolution needs a second copy.
+func recipe_partner_owned(id: String, owned_self := false) -> bool:
 	for r in GameData.recipes:
-		if (r[0] == id and owns(r[1])) or (r[1] == id and owns(r[0])):
+		if not recipe_ok(r):
+			continue
+		if r.evo:
+			if r.a == id and count_owned(id) >= (2 if owned_self else 1):
+				return true
+		elif (r.a == id and owns(r.b)) or (r.b == id and owns(r.a)):
 			return true
 	return false
+
+
+## Recipes relevant to an item (as ingredient or result), for the inspector.
+func recipes_for(id: String) -> Array:
+	return GameData.recipes.filter(func(r): return (r.a == id or r.b == id or r.r == id) and (r.path == "" or r.path == path or path == ""))
 
 
 # ---------------------------------------------------------------- economy
@@ -339,7 +365,7 @@ func roll_tiered(rk: int, min_tier := 0, partner_bias := 0.0) -> String:
 					return pp.pick_random()
 			return pool.pick_random()
 		t -= 1
-	return "rusty_dagger"
+	return "iron_sword"
 
 
 ## Item reward for winning a fight node, or "" for none. Tier follows the day, not a flat pool,
@@ -376,7 +402,7 @@ func reroll_cost() -> int:
 func reroll() -> bool:
 	var c := reroll_cost()
 	if gold < c:
-		msg = "Not enough gold."
+		msg = I18n.t("Not enough gold.")
 		return false
 	gold -= c
 	rr += 1
@@ -392,7 +418,7 @@ func toggle_lock(i: int) -> void:
 func buy_bag(i: int) -> bool:
 	var e: Dictionary = shop[i]
 	if gold < e.price:
-		msg = "Not enough gold."
+		msg = I18n.t("Not enough gold.")
 		return false
 	gold -= e.price
 	expand += e.n
@@ -400,7 +426,7 @@ func buy_bag(i: int) -> bool:
 	for x in shop:
 		if x.has("bag"):
 			x.price = bag_price(2 if x.n == 3 else x.n)
-	msg = "Bag bought: tap the dark tiles next to your pack to unlock %d tiles." % e.n
+	msg = I18n.t("Bag bought: tap the glowing tiles next to your pack to unlock %d tiles.") % e.n
 	return true
 
 
@@ -408,7 +434,7 @@ func buy_bag(i: int) -> bool:
 func buy_item(i: int) -> PItem:
 	var e: Dictionary = shop[i]
 	if gold < e.price:
-		msg = "Not enough gold."
+		msg = I18n.t("Not enough gold.")
 		return null
 	gold -= e.price
 	shop.remove_at(i)
@@ -417,20 +443,24 @@ func buy_item(i: int) -> PItem:
 	return it
 
 
+func sell_price(it: PItem) -> int:
+	return ceili(it.def().cost / 2.0)
+
+
+func sell(it: PItem) -> bool:
+	if it.starter:
+		return false
+	gold += sell_price(it)
+	items.erase(it)
+	return true
+
+
 ## Moves every item in the pack into the (unlimited) storage box. Returns how many moved.
 func clear_pack() -> int:
 	var g := grid_items()
 	for it in g:
 		it.loc = "storage"
 	return g.size()
-
-
-func sell(it: PItem) -> bool:
-	if it.starter:
-		return false
-	gold += ceili(it.def().cost / 2.0)
-	items.erase(it)
-	return true
 
 
 # ---------------------------------------------------------------- enemies
@@ -521,9 +551,7 @@ func boss_on(d: int):
 
 func begin_day() -> void:
 	if day > 1:
-		gold += 5 + int(day / 2)
-	if pet_def().k == "gold":
-		gold += int(pet_def().v)
+		gold += 5 + int(day / 2) + income()
 	phase = "morning"
 	rr = 0
 	msg = ""
@@ -563,7 +591,10 @@ func begin_day() -> void:
 
 func travel() -> bool:
 	if items.any(func(i): return i.loc == "held"):
-		msg = "Place the item you are holding first."
+		msg = I18n.t("Place the item you are holding first.")
+		return false
+	if needs_path():
+		msg = I18n.t("Choose your path first.")
 		return false
 	phase = "afternoon"
 	return true
@@ -593,9 +624,6 @@ func resume_combat() -> CombatSim:
 
 # ---------------------------------------------------------------- save / load
 
-const SAVE_VERSION := 1
-
-
 static func _v2a(v: Vector2i) -> Array:
 	return [v.x, v.y]
 
@@ -613,7 +641,7 @@ func to_dict() -> Dictionary:
 	if not result.is_empty():
 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory}
 	return {
-		"v": SAVE_VERSION, "cls": cls, "pet": pet, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
+		"v": SAVE_VERSION, "cls": cls, "path": path, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
 		"phase": phase, "items": its, "uid_ctr": uid_ctr,
 		"tiles": tiles.keys().map(_v2a), "start": start.keys().map(_v2a),
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
@@ -626,7 +654,8 @@ static func from_dict(d: Dictionary) -> RunState:
 	GameData.ensure_loaded()
 	if int(d.get("v", 0)) != SAVE_VERSION or not GameData.classes.has(d.get("cls", "")):
 		return null
-	var r := RunState.new(d.cls, d.pet)
+	var r := RunState.new(d.cls)
+	r.path = str(d.get("path", ""))
 	r.day = int(d.day)
 	r.gold = int(d.gold)
 	r.res = int(d.res)
@@ -698,6 +727,8 @@ static func from_dict(d: Dictionary) -> RunState:
 	return r
 
 
+# ---------------------------------------------------------------- night
+
 func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 	phase = "night"
 	var r := {"n": n, "win": win, "cs": cs, "lines": [], "over": false, "victory": false}
@@ -705,55 +736,57 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 	if cs != null:
 		hp = maxf(1.0, roundf(cs.php)) if win else 0.0
 		for x in cs.items:
-			if x.d.type == "heal" and x.used:
+			if x.d.once and x.used:
 				items.erase(x.i)
-				r.lines.append("🧪 %s was used up." % x.d.n)
+				r.lines.append(I18n.t("🧪 %s was used up.") % I18n.t(x.d.n))
 	var ws := grid_items().filter(func(i): return i.def().tags.has("Weapon"))
 	match n.k:
 		"forge":
 			if ws.size() > 0:
 				var t: PItem = ws.pick_random()
 				t.pd += 3
-				r.lines.append("🔨 The forge sharpens %s: +3 damage for the rest of the run." % t.def().n)
+				r.lines.append(I18n.t("🔨 The forge sharpens %s: +3 damage for the rest of the run.") % I18n.t(t.def().n))
 			else:
-				r.lines.append("🔨 You had no weapon in the pack to forge.")
+				r.lines.append(I18n.t("🔨 You had no weapon in the pack to forge."))
 		"tailor":
 			expand += 3
-			r.lines.append("🧵 The tailor sews 3 extra tiles onto your pack. Place them next morning.")
+			r.lines.append(I18n.t("🧵 The tailor sews 3 extra tiles onto your pack. Place them next morning."))
 		"shrine":
 			var id := roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)
 			items.append(make_item(id, "storage"))
 			hp = maxf(1.0, hp - 15)
-			r.lines.append("🗿 The shrine drains 15 HP and gives you %s %s (in storage)." % [GameData.items[id].ic, GameData.items[id].n])
+			r.lines.append(I18n.t("🗿 The shrine drains 15 HP and gives you %s %s (in storage).") % [GameData.items[id].ic, I18n.t(GameData.items[id].n)])
 		"camp":
 			if hp < mhp:
 				var h := minf(mhp - hp, roundf(mhp * 0.5))
 				hp += h
-				r.lines.append("🔥 You rest by the fire and recover %d HP." % roundi(h))
+				r.lines.append(I18n.t("🔥 You rest by the fire and recover %d HP.") % roundi(h))
 			else:
 				for w in ws:
 					w.pc = minf(0.5, w.pc + 0.05)
-				r.lines.append("🔥 You are at full HP, so every weapon polishes to 5% faster.")
+				r.lines.append(I18n.t("🔥 You are at full HP, so every weapon polishes to 5% faster."))
 		_:
 			if win:
 				var g := (4 + ceili(day / 2.0)) * (2 if n.k == "elite" or n.k == "ambush" else 1) + (10 if n.k == "boss" else 0)
 				if mod.id == "guild":
 					g = roundi(g * 1.4)
+				if has_sp("gold_engine"):
+					g += 5
 				gold += g
-				r.lines.append("🏆 Victory! +%d gold." % g)
+				r.lines.append(I18n.t("🏆 Victory! +%d gold.") % g)
 				if n.k == "boss" and res < MAX_HEARTS:
 					res += 1
-					r.lines.append("❤️ Boss reward: +1 Heart.")
+					r.lines.append(I18n.t("❤️ Boss reward: +1 Heart."))
 				if n.k == "boss":
 					expand += 4
-					r.lines.append("🎒 Boss reward: +4 pack tiles.")
+					r.lines.append(I18n.t("🎒 Boss reward: +4 pack tiles."))
 				if n.k == "elite" or n.k == "ambush":
 					expand += 2
-					r.lines.append("🎒 Spoils: +2 pack tiles.")
+					r.lines.append(I18n.t("🎒 Spoils: +2 pack tiles."))
 				var id := loot_for(n.k)
 				if id != "":
 					items.append(make_item(id, "storage"))
-					r.lines.append("🎁 Loot added to storage: %s %s (%s)" % [GameData.items[id].ic, GameData.items[id].n, GameData.tier_names[GameData.items[id].tier]])
+					r.lines.append(I18n.t("🎁 Loot added to storage: %s %s (%s)") % [GameData.items[id].ic, I18n.t(GameData.items[id].n), I18n.t(GameData.tier_names[GameData.items[id].tier])])
 			else:
 				# Losing a fight you picked for its loot pays nothing: hearts keep the run alive, not the reward.
 				var c := 0 if n.k == "elite" or n.k == "ambush" else 2 + int(day / 3)
@@ -761,8 +794,9 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 				if res > 0:
 					res -= 1
 					hp = roundf(mhp * 0.5)
-				r.lines.append("💔 Defeated! %ssalvaging %d gold." % ["You spend a Heart and revive at 50% HP, " if hp > 0 else "No Hearts left, ", c])
-	# Night: Golden Link fusion
+				var how := I18n.t("You spend a Heart and revive at 50% HP, ") if hp > 0 else I18n.t("No Hearts left, ")
+				r.lines.append(I18n.t("💔 Defeated! %ssalvaging %d gold.") % [how, c])
+	# Night: Golden Links (recipes and evolutions) fuse
 	for l in links():
 		if off.has(l.key):
 			continue
@@ -776,8 +810,15 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 			f.rot = pl.rot
 		f.pd = l.a.pd + l.b.pd
 		f.pc = maxf(l.a.pc, l.b.pc)
+		f.starter = l.a.starter and l.b.starter
 		items.append(f)
-		r.lines.append("✨ Fusion! %s + %s ➜ %s %s!%s" % [GameData.items[l.a.id].ic, GameData.items[l.b.id].ic, GameData.items[l.r].ic, GameData.items[l.r].n, "" if pl != null else " (sent to storage — no room in pack)"])
+		var a: Dictionary = GameData.items[l.a.id]
+		var rd: Dictionary = GameData.items[l.r]
+		var tail := "" if pl != null else I18n.t(" (sent to storage — no room in pack)")
+		if l.evo:
+			r.lines.append(I18n.t("✨ Evolution! Two %s %s became %s %s!") % [a.ic, I18n.t(a.n), rd.ic, I18n.t(rd.n)] + tail)
+		else:
+			r.lines.append(I18n.t("✨ Fusion! %s + %s ➜ %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
 	if not win and hp <= 0:
 		r.over = true
 	elif n.k == "boss" and win and day == GameData.days:
@@ -806,87 +847,47 @@ static func elem_mult(e: Dictionary, dt: String) -> float:
 	return 1.0
 
 
-## Rough DPS / block per second of the current pack.
+## Rough damage / shield per second of the current pack (for drag previews and the stats line).
 func pack_rates() -> Vector2:
 	calc()
 	var d := 0.0
 	var b := 0.0
 	for i in grid_items():
 		var t: Dictionary = i.def()
+		if t.cd <= 0:
+			continue
 		var f := eff(i)
-		if t.type == "atk":
-			d += f.dmg / f.cd
-		elif t.type == "def":
-			b += f.blk / f.cd
+		var hit: float = f.dmg * (1.0 + f.crit * (f.critx - 1.0))
+		hit += f.st.get("burn", 0.0) * 3.0 + f.st.get("poison", 0.0) * 3.0
+		d += hit / f.cd
+		b += f.shield / f.cd
 	return Vector2(d, b)
 
 
-## Fight forecast: estimated time to kill, damage taken and a Safe/Risky/Deadly tag.
+## Fight forecast: runs the real combat once with average crits (no dice).
 func forecast(e0: Dictionary) -> Dictionary:
-	var e := with_hazard(e0)
 	calc()
-	var dps := 0.0
-	var blk := regen()
-	var heal := 0.0
-	var rb := 0.0
-	var rp := 0.0
-	var ch := false
-	var hs := 0.0
-	for i in grid_items():
-		var d: Dictionary = i.def()
-		var f := eff(i)
-		var q: Dictionary = d.fx
-		var m2 := elem_mult(e, d.dt) if d.type == "atk" else 1.0
-		rb += (q.get("burn", 0.0) + i.b.burn) / f.cd * m2
-		rp += (q.get("pois", 0.0) + i.b.pois) / f.cd * m2
-		if q.has("chill") or i.b.chill > 0:
-			ch = true
-		if q.has("haste"):
-			hs += 0.05
-		if d.type == "atk":
-			dps += maxf(1.0, f.dmg - (3.0 if e.tr == "armored" else 0.0)) / f.cd * elem_mult(e, d.dt)
-		elif d.type == "def":
-			blk += f.blk / f.cd
-		elif d.type == "heal":
-			heal += d.heal * (0.5 if mod.id == "blood" else 1.0)
-	var p := pet_def()
-	if p.k == "dmg":
-		dps += p.v / p.cd * elem_mult(e, p.dt)
-	elif p.k == "blk":
-		blk += p.v / p.cd
-	dps += minf(30.0, 2.0 * rb) * (RESIST if e.imm == "Fire" else 1.0)
-	dps += minf(20.0, 0.25 * rp * (e.hp / maxf(dps, 1.0))) * (RESIST if e.imm == "Nature" else 1.0)
-	if e.tr == "regen":
-		dps -= e.hp * 0.015
-	dps = maxf(0.0, dps * (1.0 + hs))
-	var T: float = e.hp / dps if dps > 0 else 99.0
-	var inc: float = e.atk / e.cd * (0.8 if ch else 1.0)
-	var taken: float = maxf(inc * 0.25, inc - blk) * T
-	var ratio: float = taken / (hp + heal)
+	sync_hp()
+	var cs := CombatSim.new(self, {"k": "preview", "e": e0}, true)
+	cs.skip_to_end()
+	var taken := maxf(0.0, hp - cs.php)
+	var T := cs.tk / 10.0
 	var tag := ["Deadly", Color("#e5484d")]
-	if T < 40:
+	if cs.won:
+		var ratio := taken / maxf(1.0, hp)
 		if ratio < 0.5:
 			tag = ["Safe", Color("#3ec46d")]
-		elif ratio < 1.0:
+		else:
 			tag = ["Risky", Color("#f59e0b")]
-	return {"T": T, "taken": taken, "tag": tag[0], "color": tag[1]}
+	return {"T": T, "taken": taken, "tag": tag[0], "color": tag[1], "won": cs.won}
 
 
-## Preview for placing `h` with anchor (x, y): fit, DPS/block delta, link, star cells and buffed items.
+## Preview for placing `h` with anchor (x, y): fit, damage/shield delta, link and buffed items.
 func preview(h: PItem, x: int, y: int) -> Dictionary:
-	var sh := GameData.shape(h.id, h.rot)
-	var o := occ()
 	var ok := fits(h, x, y)
-	var sc := {}
-	var bf := {}
-	for s in sh.s:
-		var k: Vector2i = Vector2i(x, y) + s.p
-		sc[k] = true
-		var t: PItem = o.get(k)
-		if t != null and t.def().tags.has(s.tag):
-			bf[t.uid] = true
 	var d := Vector2.ZERO
 	var lk := false
+	var bf := {}
 	if ok:
 		var prev_loc := h.loc
 		var px := h.x
@@ -897,9 +898,14 @@ func preview(h: PItem, x: int, y: int) -> Dictionary:
 		h.y = y
 		var after := pack_rates()
 		lk = links().any(func(l): return l.a == h or l.b == h)
+		if not h.def().adj.is_empty():
+			for t in neighbours(h):
+				for b in h.def().adj:
+					if t.def().tags.has(b.tag):
+						bf[t.uid] = true
 		h.loc = prev_loc
 		h.x = px
 		h.y = py
 		d = after - before
 		calc()
-	return {"ok": ok, "d": d, "lk": lk, "sc": sc, "bf": bf}
+	return {"ok": ok, "d": d, "lk": lk, "bf": bf}

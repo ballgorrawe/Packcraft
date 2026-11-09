@@ -29,7 +29,8 @@ func _run() -> void:
 	main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
-	main.run = RunState.new("ward", "bear")
+	I18n.set_lang("en")
+	main.run = RunState.new("warden")
 	main.run.gold = 99
 	main.run.travel()
 	main._choose(0)            # into a fight (combat or event)

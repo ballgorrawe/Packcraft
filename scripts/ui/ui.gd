@@ -23,13 +23,18 @@ static func build_theme() -> Theme:
 	emoji.font_names = PackedStringArray(["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"])
 	var sym := SystemFont.new()
 	sym.font_names = PackedStringArray(["Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", "DejaVu Sans"])
+	# Thai is bundled so it renders on every phone (system fonts vary).
+	var thai: Font = load("res://assets/fonts/NotoSansThai.ttf")
+	var thai_b := FontVariation.new()
+	thai_b.base_font = thai
+	thai_b.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 700}
 	var f := SystemFont.new()
 	f.font_names = PackedStringArray(["Bricolage Grotesque", "Segoe UI", "Roboto", "Noto Sans", "Helvetica Neue", "Arial"])
-	f.fallbacks = [emoji, sym]
+	f.fallbacks = [thai, emoji, sym]
 	var fb := SystemFont.new()
 	fb.font_names = f.font_names
 	fb.font_weight = 700
-	fb.fallbacks = [emoji, sym]
+	fb.fallbacks = [thai_b, emoji, sym]
 	font = f
 	bold = fb
 
@@ -158,14 +163,41 @@ static func flow(sep := 8) -> HFlowContainer:
 	return f
 
 
+## Label that ignores the mouse (for content inside clickable cards).
+static func plbl(text: String, size := 15, col := TX, is_bold := false, center := false) -> Label:
+	var l := lbl(text, size, col, is_bold)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if center:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+static func spacer(h := true) -> Control:
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if h:
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		c.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	return c
+
+
+## Calls `cb` when a Control is tapped (left press).
+static func on_tap(c: Control, cb: Callable) -> void:
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			cb.call())
+
+
 ## Small rounded chip with an item icon, coloured by rarity.
 static func item_chip(id: String, owned := false) -> PanelContainer:
 	var d: Dictionary = GameData.items[id]
 	var c: Color = GameData.tier_colors[d.tier]
 	var p := panel(c.darkened(0.55), GOOD if owned else c, 2, 8, 2)
-	p.custom_minimum_size = Vector2(34, 34)
-	p.tooltip_text = d.n + (" (owned)" if owned else "")
-	var l := lbl(d.ic, 18)
+	p.custom_minimum_size = Vector2(40, 40)
+	p.tooltip_text = I18n.t(d.n) + (I18n.t(" (owned)") if owned else "")
+	var l := lbl(d.ic, 22)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	p.add_child(l)
@@ -174,9 +206,9 @@ static func item_chip(id: String, owned := false) -> PanelContainer:
 
 static func unknown_chip() -> PanelContainer:
 	var p := panel(PN2, BD, 2, 8, 2)
-	p.custom_minimum_size = Vector2(34, 34)
-	p.tooltip_text = "Undiscovered recipe"
-	var l := lbl("?", 18, MU, true)
+	p.custom_minimum_size = Vector2(40, 40)
+	p.tooltip_text = I18n.t("Undiscovered recipe")
+	var l := lbl("?", 22, MU, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	p.add_child(l)

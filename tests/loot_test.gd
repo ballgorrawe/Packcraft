@@ -4,7 +4,8 @@ extends SceneTree
 
 func _init() -> void:
 	GameData.ensure_loaded()
-	var r := RunState.new("pyro", "drake")
+	I18n.setup("en")
+	var r := RunState.new("ember")
 	for k in ["combat", "elite", "boss"]:
 		for d in [2, 5, 9, 13]:
 			r.day = d
