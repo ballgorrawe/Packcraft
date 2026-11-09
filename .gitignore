@@ -1,0 +1,6 @@
+.godot/
+/android/
+*.tmp
+*.apk
+*.aab
+/build/

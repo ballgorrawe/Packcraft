@@ -1,0 +1,4284 @@
+{
+ "items": {
+  "ember_blade": {
+   "n": "Ember Blade",
+   "ic": "🗡️",
+   "tier": 1,
+   "cost": 0,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 5.1,
+   "cd": 2,
+   "cl": "pyro",
+   "fx": {
+    "burn": 1
+   }
+  },
+  "inferno_blade": {
+   "n": "Inferno Blade",
+   "ic": "⚔️",
+   "tier": 2,
+   "cost": 12,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 9.4,
+   "cd": 2,
+   "cl": "pyro",
+   "fx": {
+    "burn": 2
+   }
+  },
+  "godslayer": {
+   "n": "Godslayer Blade",
+   "ic": "🔱",
+   "tier": 4,
+   "cost": 30,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 46,
+   "cd": 1.9,
+   "cl": "pyro",
+   "fx": {
+    "burn": 3
+   }
+  },
+  "fire_gem": {
+   "n": "Fire Gem",
+   "ic": "🔥",
+   "tier": 0,
+   "cost": 4,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Fire"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Weapon",
+     "dmg",
+     2
+    ],
+    [
+     1,
+     0,
+     "Weapon",
+     "dmg",
+     2
+    ],
+    [
+     0,
+     -1,
+     "Fire",
+     "burn",
+     1
+    ],
+    [
+     0,
+     1,
+     "Fire",
+     "burn",
+     1
+    ]
+   ],
+   "cl": "pyro"
+  },
+  "dragon_heart": {
+   "n": "Dragon Heart",
+   "ic": "🐲",
+   "tier": 3,
+   "cost": 12,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Fire"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Fire",
+     "cdr",
+     0.2
+    ],
+    [
+     1,
+     0,
+     "Fire",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     -1,
+     "Fire",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     1,
+     "Fire",
+     "cdr",
+     0.2
+    ]
+   ],
+   "cl": "pyro"
+  },
+  "flame_wand": {
+   "n": "Flame Wand",
+   "ic": "🪄",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 3.4,
+   "cd": 1.5,
+   "cl": "pyro",
+   "fx": {
+    "burn": 1
+   }
+  },
+  "phoenix_staff": {
+   "n": "Phoenix Staff",
+   "ic": "🦅",
+   "tier": 3,
+   "cost": 12,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 30,
+   "cd": 2.4,
+   "cl": "pyro",
+   "fx": {
+    "burn": 4,
+    "haste": [
+     0.15,
+     3
+    ]
+   },
+   "st": [
+    [
+     1,
+     0,
+     "Fire",
+     "burn",
+     1
+    ]
+   ]
+  },
+  "sun_reaver": {
+   "n": "Sun Reaver",
+   "ic": "☀️",
+   "tier": 4,
+   "cost": 18,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 40,
+   "cd": 2,
+   "cl": "pyro",
+   "fx": {
+    "burn": 4,
+    "haste": [
+     0.1,
+     2
+    ]
+   }
+  },
+  "rusty_dagger": {
+   "n": "Rusty Dagger",
+   "ic": "🔪",
+   "tier": 0,
+   "cost": 2,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 3,
+   "cd": 1.3
+  },
+  "frost_shard": {
+   "n": "Frost Shard",
+   "ic": "❄️",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 2,
+   "cd": 1.1,
+   "fx": {
+    "chill": 1.5
+   }
+  },
+  "frostfang": {
+   "n": "Frostfang",
+   "ic": "🧊",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 6,
+   "cd": 1.2,
+   "fx": {
+    "chill": 2
+   }
+  },
+  "frost_bow": {
+   "n": "Frost Bow",
+   "ic": "🏹",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Ranged",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 5,
+   "cd": 1.6,
+   "fx": {
+    "chill": 1
+   }
+  },
+  "spark_orb": {
+   "n": "Spark Orb",
+   "ic": "⚡",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 5,
+   "cd": 1.8,
+   "fx": {
+    "haste": [
+     0.1,
+     2
+    ]
+   }
+  },
+  "stormcaller": {
+   "n": "Stormcaller",
+   "ic": "⛈️",
+   "tier": 2,
+   "cost": 8,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 15,
+   "cd": 2,
+   "fx": {
+    "haste": [
+     0.12,
+     3
+    ]
+   }
+  },
+  "void_edge": {
+   "n": "Void Edge",
+   "ic": "🌑",
+   "tier": 3,
+   "cost": 12,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 26,
+   "cd": 2.3
+  },
+  "buckler": {
+   "n": "Buckler",
+   "ic": "🛡️",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 5,
+   "cd": 3
+  },
+  "iron_plate": {
+   "n": "Iron Plate",
+   "ic": "🔩",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 3,
+   "cd": 2.5
+  },
+  "tower_shield": {
+   "n": "Tower Shield",
+   "ic": "🏰",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 22,
+   "cd": 3,
+   "hp": 10,
+   "st": [
+    [
+     -1,
+     0,
+     "Armor",
+     "blk",
+     2
+    ]
+   ]
+  },
+  "whetstone": {
+   "n": "Whetstone",
+   "ic": "🪨",
+   "tier": 0,
+   "cost": 2,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     0,
+     -1,
+     "Weapon",
+     "dmg",
+     3
+    ],
+    [
+     0,
+     1,
+     "Weapon",
+     "dmg",
+     3
+    ]
+   ]
+  },
+  "mana_battery": {
+   "n": "Mana Battery",
+   "ic": "🔋",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Spell",
+     "cdr",
+     0.3
+    ],
+    [
+     2,
+     0,
+     "Spell",
+     "cdr",
+     0.3
+    ]
+   ]
+  },
+  "health_potion": {
+   "n": "Health Potion",
+   "ic": "🧪",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Potion"
+   ],
+   "type": "heal",
+   "heal": 18
+  },
+  "hand_axe": {
+   "n": "Hand Axe",
+   "ic": "🪓",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 7,
+   "cd": 2.2
+  },
+  "war_banner": {
+   "n": "War Banner",
+   "ic": "🚩",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     0,
+     -1,
+     "Armor",
+     "blk",
+     3
+    ],
+    [
+     0,
+     1,
+     "Armor",
+     "blk",
+     3
+    ]
+   ]
+  },
+  "cinder_bomb": {
+   "n": "Cinder Bomb",
+   "ic": "💣",
+   "tier": 0,
+   "cost": 3,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 4.3,
+   "cd": 2.5,
+   "cl": "pyro",
+   "fx": {
+    "burn": 2
+   }
+  },
+  "venom_fang": {
+   "n": "Venom Fang",
+   "ic": "🐍",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 4,
+   "cd": 1.2,
+   "fx": {
+    "pois": 1
+   }
+  },
+  "arcane_tome": {
+   "n": "Arcane Tome",
+   "ic": "📖",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 8,
+   "cd": 2.4,
+   "fx": {
+    "haste": [
+     0.1,
+     3
+    ]
+   }
+  },
+  "kite_shield": {
+   "n": "Kite Shield",
+   "ic": "🔰",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 8,
+   "cd": 3.4,
+   "hp": 8
+  },
+  "ash_cloak": {
+   "n": "Ash Cloak",
+   "ic": "🧥",
+   "tier": 1,
+   "cost": 5,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Fire"
+   ],
+   "type": "def",
+   "blk": 6,
+   "cd": 2.8,
+   "cl": "pyro",
+   "fx": {
+    "haste": [
+     0.1,
+     3
+    ]
+   },
+   "hp": 10
+  },
+  "elixir": {
+   "n": "Elixir",
+   "ic": "🍶",
+   "tier": 1,
+   "cost": 6,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Potion"
+   ],
+   "type": "heal",
+   "heal": 30
+  },
+  "hourglass": {
+   "n": "Hourglass",
+   "ic": "⏳",
+   "tier": 2,
+   "cost": 8,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Weapon",
+     "cdr",
+     0.15
+    ],
+    [
+     1,
+     0,
+     "Weapon",
+     "cdr",
+     0.15
+    ],
+    [
+     0,
+     -1,
+     "Weapon",
+     "cdr",
+     0.15
+    ],
+    [
+     0,
+     1,
+     "Weapon",
+     "cdr",
+     0.15
+    ]
+   ]
+  },
+  "blizzard_staff": {
+   "n": "Blizzard Staff",
+   "ic": "🌨️",
+   "tier": 2,
+   "cost": 8,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 13,
+   "cd": 1.7,
+   "fx": {
+    "chill": 2
+   }
+  },
+  "scorpion_tail": {
+   "n": "Scorpion Tail",
+   "ic": "🦂",
+   "tier": 2,
+   "cost": 8,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 11,
+   "cd": 2,
+   "fx": {
+    "pois": 2
+   }
+  },
+  "bulwark": {
+   "n": "Bulwark",
+   "ic": "🏯",
+   "tier": 3,
+   "cost": 12,
+   "s": 1,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 32,
+   "cd": 3.6,
+   "hp": 15,
+   "st": [
+    [
+     2,
+     0,
+     "Armor",
+     "blk",
+     3
+    ],
+    [
+     2,
+     1,
+     "Armor",
+     "blk",
+     3
+    ]
+   ]
+  },
+  "starfall": {
+   "n": "Starfall Staff",
+   "ic": "🌠",
+   "tier": 4,
+   "cost": 18,
+   "s": 1,
+   "c": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 44,
+   "cd": 2,
+   "fx": {
+    "haste": [
+     0.2,
+     4
+    ]
+   },
+   "st": [
+    [
+     0,
+     0,
+     "Arcane",
+     "cdr",
+     0.15
+    ],
+    [
+     2,
+     0,
+     "Arcane",
+     "cdr",
+     0.15
+    ],
+    [
+     0,
+     2,
+     "Arcane",
+     "cdr",
+     0.15
+    ],
+    [
+     2,
+     2,
+     "Arcane",
+     "cdr",
+     0.15
+    ]
+   ]
+  },
+  "voltfire": {
+   "n": "Voltfire Staff",
+   "ic": "🌩️",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 11,
+   "cd": 1.5,
+   "cl": "pyro"
+  },
+  "berserker_axe": {
+   "n": "Berserker Axe",
+   "ic": "⚒️",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 12,
+   "cd": 2
+  },
+  "bastion": {
+   "n": "Bastion Shield",
+   "ic": "🧱",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 16,
+   "cd": 3.2,
+   "st": [
+    [
+     0,
+     1,
+     "Armor",
+     "blk",
+     2
+    ],
+    [
+     2,
+     1,
+     "Armor",
+     "blk",
+     2
+    ]
+   ]
+  },
+  "storm_bow": {
+   "n": "Storm Bow",
+   "ic": "🌀",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Ranged",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 9,
+   "cd": 1.5,
+   "fx": {
+    "haste": [
+     0.15,
+     2
+    ]
+   }
+  },
+  "toxic_flask": {
+   "n": "Toxic Flask",
+   "ic": "⚗️",
+   "tier": 0,
+   "cost": 0,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 4,
+   "cd": 1.6,
+   "cl": "alch",
+   "fx": {
+    "pois": 1
+   }
+  },
+  "spore_sac": {
+   "n": "Spore Sac",
+   "ic": "🍄",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Nature"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Nature",
+     "dmg",
+     2
+    ],
+    [
+     1,
+     0,
+     "Nature",
+     "dmg",
+     2
+    ]
+   ],
+   "cl": "alch",
+   "s": 1
+  },
+  "plague_mask": {
+   "n": "Plague Mask",
+   "ic": "😷",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Nature"
+   ],
+   "type": "def",
+   "blk": 6,
+   "cd": 2.8,
+   "cl": "alch",
+   "s": 1,
+   "hp": 10
+  },
+  "cauldron": {
+   "n": "Cauldron",
+   "ic": "🍲",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 10,
+   "cd": 2.4,
+   "cl": "alch",
+   "s": 1,
+   "fx": {
+    "pois": 3
+   },
+   "st": [
+    [
+     1,
+     0,
+     "Nature",
+     "pois",
+     1
+    ]
+   ]
+  },
+  "alembic": {
+   "n": "Alembic",
+   "ic": "🔬",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Nature",
+     "cdr",
+     0.2
+    ],
+    [
+     1,
+     0,
+     "Nature",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     -1,
+     "Nature",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     1,
+     "Nature",
+     "cdr",
+     0.2
+    ]
+   ],
+   "cl": "alch",
+   "s": 1
+  },
+  "venom_orchid": {
+   "n": "Venom Orchid",
+   "ic": "🌺",
+   "tier": 3,
+   "cost": 12,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 28,
+   "cd": 2.2,
+   "cl": "alch",
+   "s": 1,
+   "fx": {
+    "pois": 4
+   }
+  },
+  "virulent_flask": {
+   "n": "Virulent Flask",
+   "ic": "🧫",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 9,
+   "cd": 1.5,
+   "cl": "alch",
+   "fx": {
+    "pois": 2
+   }
+  },
+  "plague_bomb": {
+   "n": "Plague Bomb",
+   "ic": "☣️",
+   "tier": 4,
+   "cost": 30,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 30,
+   "cd": 1.5,
+   "cl": "alch",
+   "fx": {
+    "pois": 5
+   }
+  },
+  "chrono_dagger": {
+   "n": "Chrono Dagger",
+   "ic": "🪃",
+   "tier": 0,
+   "cost": 0,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 3,
+   "cd": 1,
+   "cl": "rogue",
+   "fx": {
+    "haste": [
+     0.08,
+     2
+    ]
+   }
+  },
+  "time_shard": {
+   "n": "Time Shard",
+   "ic": "💠",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     0,
+     -1,
+     "Weapon",
+     "cdr",
+     0.1
+    ],
+    [
+     0,
+     1,
+     "Weapon",
+     "cdr",
+     0.1
+    ]
+   ],
+   "cl": "rogue",
+   "s": 1
+  },
+  "twin_fangs": {
+   "n": "Twin Fangs",
+   "ic": "✂️",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 5,
+   "cd": 1.2,
+   "cl": "rogue",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.1,
+     2
+    ]
+   }
+  },
+  "phase_cloak": {
+   "n": "Phase Cloak",
+   "ic": "🧣",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Arcane"
+   ],
+   "type": "def",
+   "blk": 4,
+   "cd": 2,
+   "cl": "rogue",
+   "s": 1
+  },
+  "paradox_engine": {
+   "n": "Paradox Engine",
+   "ic": "⚙️",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Weapon",
+     "cdr",
+     0.2
+    ],
+    [
+     1,
+     0,
+     "Weapon",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     -1,
+     "Weapon",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     1,
+     "Weapon",
+     "cdr",
+     0.2
+    ]
+   ],
+   "cl": "rogue",
+   "s": 1
+  },
+  "rift_scythe": {
+   "n": "Rift Scythe",
+   "ic": "🌙",
+   "tier": 3,
+   "cost": 12,
+   "c": [
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 27,
+   "cd": 1.8,
+   "cl": "rogue",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.25,
+     3
+    ]
+   }
+  },
+  "temporal_dagger": {
+   "n": "Temporal Dagger",
+   "ic": "🔮",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 7,
+   "cd": 1,
+   "cl": "rogue",
+   "fx": {
+    "haste": [
+     0.12,
+     2
+    ]
+   }
+  },
+  "chrono_fang": {
+   "n": "Chrono Fang",
+   "ic": "🌌",
+   "tier": 4,
+   "cost": 30,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 18,
+   "cd": 1,
+   "cl": "rogue",
+   "fx": {
+    "haste": [
+     0.2,
+     3
+    ]
+   }
+  },
+  "rune_hammer": {
+   "n": "Rune Hammer",
+   "ic": "🔨",
+   "tier": 0,
+   "cost": 0,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 9,
+   "cd": 2.6,
+   "cl": "bers"
+  },
+  "rune_shard": {
+   "n": "Rune Shard",
+   "ic": "🔶",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Melee",
+     "dmg",
+     4
+    ],
+    [
+     1,
+     0,
+     "Melee",
+     "dmg",
+     4
+    ]
+   ],
+   "cl": "bers",
+   "s": 1
+  },
+  "bone_plate": {
+   "n": "Bone Plate",
+   "ic": "🦴",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 7,
+   "cd": 3,
+   "cl": "bers",
+   "s": 1,
+   "hp": 12
+  },
+  "mead": {
+   "n": "Mead",
+   "ic": "🍺",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Potion"
+   ],
+   "type": "heal",
+   "heal": 24,
+   "cl": "bers",
+   "s": 1
+  },
+  "warhorn": {
+   "n": "Warhorn",
+   "ic": "📯",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Melee",
+     "dmg",
+     3
+    ],
+    [
+     1,
+     0,
+     "Melee",
+     "dmg",
+     3
+    ],
+    [
+     0,
+     -1,
+     "Melee",
+     "dmg",
+     3
+    ],
+    [
+     0,
+     1,
+     "Melee",
+     "dmg",
+     3
+    ]
+   ],
+   "cl": "bers",
+   "s": 1
+  },
+  "titan_fist": {
+   "n": "Titan Fist",
+   "ic": "🥊",
+   "tier": 3,
+   "cost": 12,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 44,
+   "cd": 2.8,
+   "cl": "bers",
+   "s": 1,
+   "fx": {
+    "chill": 1.5
+   }
+  },
+  "runic_hammer": {
+   "n": "Runic Hammer",
+   "ic": "⛏️",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 20,
+   "cd": 2.6,
+   "cl": "bers"
+  },
+  "ragnarok_maul": {
+   "n": "Ragnarok Maul",
+   "ic": "💥",
+   "tier": 4,
+   "cost": 30,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 58,
+   "cd": 2.9,
+   "cl": "bers",
+   "st": [
+    [
+     1,
+     0,
+     "Melee",
+     "dmg",
+     3
+    ],
+    [
+     1,
+     1,
+     "Melee",
+     "dmg",
+     3
+    ]
+   ]
+  },
+  "glacier_shield": {
+   "n": "Glacier Shield",
+   "ic": "🏔️",
+   "tier": 0,
+   "cost": 0,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Ice"
+   ],
+   "type": "def",
+   "blk": 6,
+   "cd": 2.8,
+   "cl": "ward"
+  },
+  "frost_rune": {
+   "n": "Frost Rune",
+   "ic": "🔷",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Ice"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Armor",
+     "blk",
+     3
+    ],
+    [
+     1,
+     0,
+     "Armor",
+     "blk",
+     3
+    ]
+   ],
+   "cl": "ward",
+   "s": 1
+  },
+  "curling_stone": {
+   "n": "Curling Stone",
+   "ic": "🥌",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Ranged",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 4,
+   "cd": 2,
+   "cl": "ward",
+   "s": 1,
+   "fx": {
+    "chill": 1
+   }
+  },
+  "glacier_pike": {
+   "n": "Glacier Pike",
+   "ic": "🏒",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 8,
+   "cd": 1.9,
+   "cl": "ward",
+   "s": 1,
+   "fx": {
+    "chill": 1.5
+   }
+  },
+  "winter_heart": {
+   "n": "Winter Heart",
+   "ic": "💙",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Ice"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Ice",
+     "cdr",
+     0.2
+    ],
+    [
+     1,
+     0,
+     "Ice",
+     "cdr",
+     0.2
+    ],
+    [
+     0,
+     -1,
+     "Ice",
+     "chill",
+     0.5
+    ],
+    [
+     0,
+     1,
+     "Ice",
+     "chill",
+     0.5
+    ]
+   ],
+   "cl": "ward",
+   "s": 1
+  },
+  "aegis_winter": {
+   "n": "Aegis of Winter",
+   "ic": "⛰️",
+   "tier": 3,
+   "cost": 12,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Ice"
+   ],
+   "type": "def",
+   "blk": 34,
+   "cd": 3.6,
+   "cl": "ward",
+   "s": 1,
+   "fx": {
+    "chill": 1.5
+   },
+   "hp": 10,
+   "st": [
+    [
+     0,
+     1,
+     "Ice",
+     "cdr",
+     0.1
+    ],
+    [
+     2,
+     0,
+     "Ice",
+     "cdr",
+     0.1
+    ]
+   ]
+  },
+  "permafrost_shield": {
+   "n": "Permafrost Shield",
+   "ic": "🧿",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Ice"
+   ],
+   "type": "def",
+   "blk": 14,
+   "cd": 2.8,
+   "cl": "ward",
+   "fx": {
+    "chill": 1.5
+   }
+  },
+  "eternal_winter": {
+   "n": "Eternal Winter",
+   "ic": "🌬️",
+   "tier": 4,
+   "cost": 30,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Ice"
+   ],
+   "type": "def",
+   "blk": 40,
+   "cd": 3.2,
+   "cl": "ward",
+   "fx": {
+    "frz": 1,
+    "chill": 2
+   },
+   "hp": 25
+  },
+  "smoldering_coal": {
+   "n": "Smoldering Coal",
+   "ic": "♨️",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 2,
+   "cd": 1,
+   "cl": "pyro",
+   "s": 1,
+   "fx": {
+    "burn": 1
+   }
+  },
+  "ignition_rune": {
+   "n": "Ignition Rune",
+   "ic": "🔺",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Fire"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Fire",
+     "burn",
+     1
+    ],
+    [
+     1,
+     0,
+     "Fire",
+     "burn",
+     1
+    ],
+    [
+     0,
+     -1,
+     "Fire",
+     "burn",
+     1
+    ],
+    [
+     0,
+     1,
+     "Fire",
+     "burn",
+     1
+    ]
+   ],
+   "cl": "pyro",
+   "s": 1
+  },
+  "wildfire_torch": {
+   "n": "Wildfire Torch",
+   "ic": "🕯️",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 3,
+   "cd": 1.4,
+   "cl": "pyro",
+   "s": 1,
+   "fx": {
+    "burn": 2,
+    "haste": [
+     0.1,
+     2
+    ]
+   }
+  },
+  "magma_core": {
+   "n": "Magma Core",
+   "ic": "🌋",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 6,
+   "cd": 0.9,
+   "cl": "pyro",
+   "fx": {
+    "burn": 3
+   }
+  },
+  "spore_puff": {
+   "n": "Spore Puff",
+   "ic": "☁️",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 1,
+   "cd": 0.9,
+   "cl": "alch",
+   "s": 1,
+   "fx": {
+    "pois": 1
+   }
+  },
+  "catalyst": {
+   "n": "Catalyst",
+   "ic": "🧂",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Nature",
+     "pois",
+     1
+    ],
+    [
+     1,
+     0,
+     "Nature",
+     "pois",
+     1
+    ],
+    [
+     0,
+     -1,
+     "Nature",
+     "pois",
+     1
+    ],
+    [
+     0,
+     1,
+     "Nature",
+     "pois",
+     1
+    ]
+   ],
+   "cl": "alch",
+   "s": 1
+  },
+  "adrenaline_vial": {
+   "n": "Adrenaline Vial",
+   "ic": "💉",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Potion"
+   ],
+   "type": "heal",
+   "heal": 14,
+   "cl": "alch",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.3,
+     5
+    ]
+   }
+  },
+  "blight_cloud": {
+   "n": "Blight Cloud",
+   "ic": "🌫️",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 3,
+   "cd": 0.8,
+   "cl": "alch",
+   "fx": {
+    "pois": 3
+   }
+  },
+  "flash_powder": {
+   "n": "Flash Powder",
+   "ic": "🎇",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 2,
+   "cd": 1.2,
+   "cl": "rogue",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.1,
+     2
+    ]
+   }
+  },
+  "smoke_bomb": {
+   "n": "Smoke Bomb",
+   "ic": "💨",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 2,
+   "cd": 3,
+   "cl": "rogue",
+   "s": 1,
+   "fx": {
+    "chill": 3
+   }
+  },
+  "haste_elixir": {
+   "n": "Haste Elixir",
+   "ic": "🧃",
+   "tier": 2,
+   "cost": 7,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Potion"
+   ],
+   "type": "heal",
+   "heal": 12,
+   "cl": "rogue",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.35,
+     6
+    ]
+   }
+  },
+  "timestop_charge": {
+   "n": "Timestop Charge",
+   "ic": "⏸️",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 6,
+   "cd": 2.5,
+   "cl": "rogue",
+   "fx": {
+    "frz": 1,
+    "haste": [
+     0.25,
+     3
+    ]
+   }
+  },
+  "spiked_gauntlet": {
+   "n": "Spiked Gauntlet",
+   "ic": "👊",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 4,
+   "cd": 1.6,
+   "cl": "bers",
+   "s": 1
+  },
+  "war_drum": {
+   "n": "War Drum",
+   "ic": "🥁",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 3,
+   "cd": 2,
+   "cl": "bers",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.2,
+     3
+    ]
+   }
+  },
+  "hamstring_chain": {
+   "n": "Hamstring Chain",
+   "ic": "⛓️",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 6,
+   "cd": 2.2,
+   "cl": "bers",
+   "s": 1,
+   "fx": {
+    "chill": 2
+   }
+  },
+  "warlord_fist": {
+   "n": "Warlord Fist",
+   "ic": "💪",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 9,
+   "cd": 1.3,
+   "cl": "bers",
+   "fx": {
+    "haste": [
+     0.25,
+     3
+    ]
+   }
+  },
+  "cold_snap": {
+   "n": "Cold Snap",
+   "ic": "🥶",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 5,
+   "cd": 5,
+   "cl": "ward",
+   "s": 1,
+   "fx": {
+    "frz": 1.5,
+    "chill": 2
+   }
+  },
+  "frost_gauntlet": {
+   "n": "Frost Gauntlet",
+   "ic": "🧤",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ]
+   ],
+   "tags": [
+    "Armor",
+    "Ice"
+   ],
+   "type": "def",
+   "blk": 4,
+   "cd": 2,
+   "cl": "ward",
+   "s": 1,
+   "fx": {
+    "chill": 1.5
+   }
+  },
+  "absolute_zero": {
+   "n": "Absolute Zero",
+   "ic": "💎",
+   "tier": 3,
+   "cost": 12,
+   "c": [
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Ice"
+   ],
+   "type": "atk",
+   "dt": "Ice",
+   "dmg": 20,
+   "cd": 4,
+   "cl": "ward",
+   "fx": {
+    "frz": 2,
+    "chill": 3
+   }
+  },
+  "padded_vest": {
+   "n": "Padded Vest",
+   "ic": "🦺",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "pas",
+   "st": [],
+   "s": 1,
+   "hp": 14
+  },
+  "leather_cap": {
+   "n": "Leather Cap",
+   "ic": "🧢",
+   "tier": 0,
+   "cost": 3,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "pas",
+   "st": [],
+   "s": 1,
+   "hp": 10
+  },
+  "iron_cuirass": {
+   "n": "Iron Cuirass",
+   "ic": "🥋",
+   "tier": 1,
+   "cost": 6,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 5,
+   "cd": 3,
+   "s": 1,
+   "hp": 18
+  },
+  "vigor_ring": {
+   "n": "Vigor Ring",
+   "ic": "💍",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Tool"
+   ],
+   "type": "pas",
+   "st": [],
+   "s": 1,
+   "hp": 10,
+   "rg": 0.6
+  },
+  "bat_fang": {
+   "n": "Bat Fang",
+   "ic": "🦇",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 4,
+   "cd": 1.3,
+   "s": 1,
+   "ls": 0.2
+  },
+  "vitality_charm": {
+   "n": "Vitality Charm",
+   "ic": "💗",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Gem"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Armor",
+     "blk",
+     2
+    ],
+    [
+     1,
+     0,
+     "Armor",
+     "blk",
+     2
+    ]
+   ],
+   "s": 1,
+   "hp": 20,
+   "rg": 1
+  },
+  "bloodsoaked_plate": {
+   "n": "Bloodsoaked Plate",
+   "ic": "🩸",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 8,
+   "cd": 3,
+   "s": 1,
+   "hp": 15,
+   "rg": 0.8
+  },
+  "colossus_plate": {
+   "n": "Colossus Plate",
+   "ic": "⛑️",
+   "tier": 3,
+   "cost": 13,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 16,
+   "cd": 3.4,
+   "s": 1,
+   "hp": 40,
+   "rg": 1.5
+  },
+  "immortal_aegis": {
+   "n": "Immortal Aegis",
+   "ic": "🏛️",
+   "tier": 4,
+   "cost": 20,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     2,
+     2
+    ]
+   ],
+   "tags": [
+    "Armor"
+   ],
+   "type": "def",
+   "blk": 24,
+   "cd": 3.2,
+   "s": 1,
+   "hp": 50,
+   "rg": 2.5
+  },
+  "brazier": {
+   "n": "Brazier",
+   "ic": "🏺",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Fire"
+   ],
+   "type": "atk",
+   "dt": "Fire",
+   "dmg": 12,
+   "cd": 2.2,
+   "cl": "pyro",
+   "s": 1,
+   "fx": {
+    "burn": 3
+   },
+   "st": [
+    [
+     -1,
+     0,
+     "Fire",
+     "burn",
+     1
+    ],
+    [
+     1,
+     0,
+     "Fire",
+     "burn",
+     1
+    ]
+   ]
+  },
+  "plague_vat": {
+   "n": "Plague Vat",
+   "ic": "⚱️",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Spell",
+    "Nature"
+   ],
+   "type": "atk",
+   "dt": "Nature",
+   "dmg": 8,
+   "cd": 1.8,
+   "cl": "alch",
+   "s": 1,
+   "fx": {
+    "pois": 2
+   },
+   "st": [
+    [
+     0,
+     -1,
+     "Nature",
+     "pois",
+     1
+    ],
+    [
+     0,
+     1,
+     "Nature",
+     "pois",
+     1
+    ]
+   ]
+  },
+  "phase_shuriken": {
+   "n": "Phase Shuriken",
+   "ic": "✴️",
+   "tier": 1,
+   "cost": 5,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Ranged",
+    "Arcane"
+   ],
+   "type": "atk",
+   "dt": "Arcane",
+   "dmg": 6,
+   "cd": 1.1,
+   "cl": "rogue",
+   "s": 1,
+   "fx": {
+    "haste": [
+     0.1,
+     2
+    ]
+   }
+  },
+  "greataxe": {
+   "n": "Greataxe",
+   "ic": "🪚",
+   "tier": 2,
+   "cost": 9,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "tags": [
+    "Weapon",
+    "Melee",
+    "Physical"
+   ],
+   "type": "atk",
+   "dt": "Physical",
+   "dmg": 18,
+   "cd": 2.4,
+   "cl": "bers",
+   "s": 1,
+   "st": [
+    [
+     -1,
+     0,
+     "Melee",
+     "dmg",
+     3
+    ],
+    [
+     1,
+     0,
+     "Melee",
+     "dmg",
+     3
+    ]
+   ]
+  },
+  "frost_totem": {
+   "n": "Frost Totem",
+   "ic": "🗿",
+   "tier": 2,
+   "cost": 8,
+   "c": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "tags": [
+    "Gem",
+    "Ice"
+   ],
+   "type": "pas",
+   "st": [
+    [
+     -1,
+     0,
+     "Ice",
+     "cdr",
+     0.1
+    ],
+    [
+     1,
+     0,
+     "Ice",
+     "cdr",
+     0.1
+    ],
+    [
+     0,
+     -1,
+     "Ice",
+     "cdr",
+     0.1
+    ],
+    [
+     0,
+     1,
+     "Ice",
+     "cdr",
+     0.1
+    ]
+   ],
+   "cl": "ward",
+   "s": 1,
+   "hp": 18
+  }
+ },
+ "recipes": [
+  [
+   "ember_blade",
+   "fire_gem",
+   "inferno_blade"
+  ],
+  [
+   "inferno_blade",
+   "dragon_heart",
+   "godslayer"
+  ],
+  [
+   "rusty_dagger",
+   "frost_shard",
+   "frostfang"
+  ],
+  [
+   "buckler",
+   "iron_plate",
+   "tower_shield"
+  ],
+  [
+   "flame_wand",
+   "spark_orb",
+   "voltfire"
+  ],
+  [
+   "hand_axe",
+   "whetstone",
+   "berserker_axe"
+  ],
+  [
+   "kite_shield",
+   "war_banner",
+   "bastion"
+  ],
+  [
+   "frost_bow",
+   "spark_orb",
+   "storm_bow"
+  ],
+  [
+   "toxic_flask",
+   "spore_sac",
+   "virulent_flask"
+  ],
+  [
+   "virulent_flask",
+   "alembic",
+   "plague_bomb"
+  ],
+  [
+   "chrono_dagger",
+   "time_shard",
+   "temporal_dagger"
+  ],
+  [
+   "temporal_dagger",
+   "paradox_engine",
+   "chrono_fang"
+  ],
+  [
+   "rune_hammer",
+   "rune_shard",
+   "runic_hammer"
+  ],
+  [
+   "runic_hammer",
+   "warhorn",
+   "ragnarok_maul"
+  ],
+  [
+   "glacier_shield",
+   "frost_rune",
+   "permafrost_shield"
+  ],
+  [
+   "permafrost_shield",
+   "winter_heart",
+   "eternal_winter"
+  ],
+  [
+   "smoldering_coal",
+   "ignition_rune",
+   "magma_core"
+  ],
+  [
+   "spore_puff",
+   "catalyst",
+   "blight_cloud"
+  ],
+  [
+   "flash_powder",
+   "smoke_bomb",
+   "timestop_charge"
+  ],
+  [
+   "spiked_gauntlet",
+   "war_drum",
+   "warlord_fist"
+  ],
+  [
+   "cold_snap",
+   "frost_gauntlet",
+   "absolute_zero"
+  ]
+ ],
+ "classes": {
+  "pyro": {
+   "n": "Pyromancer",
+   "ic": "🧙",
+   "d": "Fire burst and fast blades",
+   "st": [
+    "ember_blade",
+    3,
+    2
+   ],
+   "bag": {
+    "t": [
+     [
+      3,
+      2
+     ],
+     [
+      4,
+      2
+     ],
+     [
+      3,
+      3
+     ],
+     [
+      4,
+      3
+     ],
+     [
+      3,
+      4
+     ],
+     [
+      4,
+      4
+     ]
+    ],
+    "tag": "Fire",
+    "cd": 0.85,
+    "label": "Fire items inside trigger 15% faster"
+   },
+   "pets": [
+    "drake",
+    "mouse"
+   ]
+  },
+  "alch": {
+   "n": "Plague Alchemist",
+   "ic": "🧑‍🔬",
+   "d": "Poison that stacks up fast",
+   "st": [
+    "toxic_flask",
+    4,
+    3
+   ],
+   "bag": {
+    "t": [
+     [
+      3,
+      3
+     ],
+     [
+      4,
+      3
+     ],
+     [
+      5,
+      3
+     ],
+     [
+      3,
+      4
+     ],
+     [
+      4,
+      4
+     ],
+     [
+      5,
+      4
+     ]
+    ],
+    "tag": "Nature",
+    "dmg": 1.2,
+    "label": "Nature items inside deal 20% more damage"
+   },
+   "pets": [
+    "toad",
+    "sprite"
+   ]
+  },
+  "rogue": {
+   "n": "Chronomancer Rogue",
+   "ic": "🧝",
+   "d": "Cooldown tricks and rapid strikes",
+   "st": [
+    "chrono_dagger",
+    3,
+    4
+   ],
+   "bag": {
+    "t": [
+     [
+      3,
+      2
+     ],
+     [
+      3,
+      3
+     ],
+     [
+      3,
+      4
+     ],
+     [
+      4,
+      4
+     ],
+     [
+      5,
+      4
+     ],
+     [
+      4,
+      3
+     ]
+    ],
+    "tag": "Weapon",
+    "cd": 0.9,
+    "label": "Weapons inside trigger 10% faster"
+   },
+   "pets": [
+    "owl",
+    "cat"
+   ]
+  },
+  "bers": {
+   "n": "Runic Berserker",
+   "ic": "🤺",
+   "d": "Slow, huge hammer blows",
+   "st": [
+    "rune_hammer",
+    4,
+    3
+   ],
+   "bag": {
+    "t": [
+     [
+      4,
+      2
+     ],
+     [
+      3,
+      3
+     ],
+     [
+      4,
+      3
+     ],
+     [
+      5,
+      3
+     ],
+     [
+      4,
+      4
+     ],
+     [
+      4,
+      5
+     ]
+    ],
+    "tag": "Physical",
+    "dmg": 1.2,
+    "label": "Physical items inside deal 20% more damage"
+   },
+   "pets": [
+    "wolf",
+    "boar"
+   ]
+  },
+  "ward": {
+   "n": "Frost Warden",
+   "ic": "⛄",
+   "d": "Ice and an unbreakable guard",
+   "st": [
+    "glacier_shield",
+    3,
+    3
+   ],
+   "bag": {
+    "t": [
+     [
+      3,
+      1
+     ],
+     [
+      4,
+      1
+     ],
+     [
+      3,
+      2
+     ],
+     [
+      4,
+      2
+     ],
+     [
+      3,
+      3
+     ],
+     [
+      4,
+      3
+     ],
+     [
+      3,
+      4
+     ],
+     [
+      4,
+      4
+     ]
+    ],
+    "tag": "Armor",
+    "blk": 1.25,
+    "label": "Armor inside blocks 25% more"
+   },
+   "pets": [
+    "penguin",
+    "bear"
+   ]
+  }
+ },
+ "pets": {
+  "drake": {
+   "ic": "🐉",
+   "n": "Ember Drake",
+   "d": "Every 6s breathes 8 Fire damage.",
+   "k": "dmg",
+   "v": 8,
+   "cd": 6,
+   "dt": "Fire"
+  },
+  "mouse": {
+   "ic": "🐭",
+   "n": "Coin Mouse",
+   "d": "+2 gold every morning.",
+   "k": "gold",
+   "v": 2
+  },
+  "toad": {
+   "ic": "🐸",
+   "n": "Toxic Toad",
+   "d": "Every 5s spits 6 Nature damage.",
+   "k": "dmg",
+   "v": 6,
+   "cd": 5,
+   "dt": "Nature"
+  },
+  "sprite": {
+   "ic": "🧚",
+   "n": "Fae Sprite",
+   "d": "Every 5s heals you for 3.",
+   "k": "heal",
+   "v": 3,
+   "cd": 5
+  },
+  "owl": {
+   "ic": "🦉",
+   "n": "Time Owl",
+   "d": "All items trigger 6% faster.",
+   "k": "haste",
+   "v": 0.06
+  },
+  "cat": {
+   "ic": "🐈",
+   "n": "Shadow Cat",
+   "d": "Every 4s strikes for 5 Physical.",
+   "k": "dmg",
+   "v": 5,
+   "cd": 4,
+   "dt": "Physical"
+  },
+  "wolf": {
+   "ic": "🐺",
+   "n": "Rune Wolf",
+   "d": "Every 5s bites for 7 Physical.",
+   "k": "dmg",
+   "v": 7,
+   "cd": 5,
+   "dt": "Physical"
+  },
+  "boar": {
+   "ic": "🐗",
+   "n": "Iron Boar",
+   "d": "Every 4s gives you 5 block.",
+   "k": "blk",
+   "v": 5,
+   "cd": 4
+  },
+  "penguin": {
+   "ic": "🐧",
+   "n": "Frost Penguin",
+   "d": "Every 4s throws 5 Ice damage.",
+   "k": "dmg",
+   "v": 5,
+   "cd": 4,
+   "dt": "Ice"
+  },
+  "bear": {
+   "ic": "🐻",
+   "n": "Glacier Bear",
+   "d": "Every 5s gives you 6 block.",
+   "k": "blk",
+   "v": 6,
+   "cd": 5
+  }
+ },
+ "bosses": [
+  {
+   "d": 5,
+   "n": "Magma Golem",
+   "hp": 220,
+   "atk": 6.4,
+   "cd": 1.5,
+   "imm": "Fire",
+   "weak": "Ice"
+  },
+  {
+   "d": 10,
+   "n": "Frost Wraith",
+   "hp": 400,
+   "atk": 9,
+   "cd": 1.4,
+   "imm": "Ice",
+   "weak": "Fire"
+  },
+  {
+   "d": 15,
+   "n": "Stone Titan",
+   "hp": 545,
+   "atk": 11.3,
+   "cd": 1.5,
+   "imm": "Physical",
+   "weak": "Arcane"
+  }
+ ],
+ "mods": [
+  {
+   "id": "guild",
+   "n": "Merchant’s Guild Strike",
+   "d": "Rerolls cost +1 gold; all gold rewards +40%."
+  },
+  {
+   "id": "frost",
+   "n": "Cursed Frostlands",
+   "d": "Ice items deal +30% damage; every item is 10% slower."
+  },
+  {
+   "id": "blood",
+   "n": "Blood Moon",
+   "d": "Healing is halved; all your damage is +15%."
+  }
+ ],
+ "sets": [
+  {
+   "id": "phoenix",
+   "n": "Phoenix Rite",
+   "parts": [
+    "phoenix_staff",
+    "ash_cloak"
+   ],
+   "txt": "+15 max HP, +1 HP/s, parts +1 Burn",
+   "hp": 15,
+   "rg": 1,
+   "each": {
+    "burn": 1
+   }
+  },
+  {
+   "id": "apoth",
+   "n": "Apothecary",
+   "parts": [
+    "spore_sac",
+    "plague_mask"
+   ],
+   "txt": "+12 max HP, parts +1 Poison",
+   "hp": 12,
+   "each": {
+    "pois": 1
+   }
+  },
+  {
+   "id": "timekeep",
+   "n": "Timekeeper",
+   "parts": [
+    "paradox_engine",
+    "time_shard"
+   ],
+   "txt": "parts trigger 0.15s faster",
+   "each": {
+    "cdr": 0.15
+   }
+  },
+  {
+   "id": "warlord",
+   "n": "Warlord",
+   "parts": [
+    "titan_fist",
+    "bone_plate"
+   ],
+   "txt": "+20 max HP, parts +4 dmg and +3 block",
+   "hp": 20,
+   "each": {
+    "dmg": 4,
+    "blk": 3
+   }
+  },
+  {
+   "id": "bastion",
+   "n": "Glacial Bastion",
+   "parts": [
+    "aegis_winter",
+    "frost_rune"
+   ],
+   "txt": "+15 max HP, +1.5 HP/s, parts +4 block",
+   "hp": 15,
+   "rg": 1.5,
+   "each": {
+    "blk": 4
+   }
+  },
+  {
+   "id": "knight",
+   "n": "Knight’s Pair",
+   "parts": [
+    "iron_plate",
+    "kite_shield"
+   ],
+   "txt": "+14 max HP, parts +3 block",
+   "hp": 14,
+   "each": {
+    "blk": 3
+   }
+  },
+  {
+   "id": "arcane",
+   "n": "Arcane Circle",
+   "parts": [
+    "spark_orb",
+    "arcane_tome",
+    "mana_battery"
+   ],
+   "txt": "parts 0.2s faster and +2 dmg",
+   "each": {
+    "cdr": 0.2,
+    "dmg": 2
+   }
+  },
+  {
+   "id": "hunters",
+   "n": "Hunter’s Duo",
+   "parts": [
+    "venom_fang",
+    "frost_bow"
+   ],
+   "txt": "parts +1 Poison and +0.5s Chill",
+   "each": {
+    "pois": 1,
+    "chill": 0.5
+   }
+  },
+  {
+   "id": "pact",
+   "n": "Blood Pact",
+   "parts": [
+    "bat_fang",
+    "bloodsoaked_plate"
+   ],
+   "txt": "+20 max HP, +1.2 HP/s",
+   "hp": 20,
+   "rg": 1.2,
+   "each": {}
+  }
+ ],
+ "traits": {
+  "armored": {
+   "ic": "🛡️",
+   "n": "Armored"
+  },
+  "swift": {
+   "ic": "💨",
+   "n": "Swift"
+  },
+  "brute": {
+   "ic": "💪",
+   "n": "Brute"
+  },
+  "regen": {
+   "ic": "💚",
+   "n": "Regenerating"
+  }
+ },
+ "hazards": [
+  {
+   "id": "calm",
+   "ic": "🌤️",
+   "n": "Calm Day",
+   "d": "Enemies have 25% less HP.",
+   "hp": 0.75
+  },
+  {
+   "id": "frenzy",
+   "ic": "🔥",
+   "n": "Frenzy",
+   "d": "Enemies attack 30% faster.",
+   "cd": 0.77
+  },
+  {
+   "id": "fog",
+   "ic": "🌫️",
+   "n": "Iron Fog",
+   "d": "Enemies have 30% more HP.",
+   "hp": 1.3
+  },
+  {
+   "id": "dread",
+   "ic": "👁️",
+   "n": "Dread",
+   "d": "Enemies hit 25% harder.",
+   "atk": 1.25
+  }
+ ],
+ "rarity_table": [
+  [
+   85,
+   15,
+   0,
+   0,
+   0
+  ],
+  [
+   50,
+   38,
+   12,
+   0,
+   0
+  ],
+  [
+   25,
+   40,
+   27,
+   8,
+   0
+  ],
+  [
+   10,
+   30,
+   35,
+   20,
+   5
+  ],
+  [
+   0,
+   20,
+   40,
+   30,
+   10
+  ]
+ ],
+ "tier_names": [
+  "Common",
+  "Rare",
+  "Epic",
+  "Legendary",
+  "Godly"
+ ],
+ "tier_colors": [
+  "#9ca3af",
+  "#3b82f6",
+  "#a855f7",
+  "#f59e0b",
+  "#ef4444"
+ ],
+ "atk_curve": [
+  [
+   1,
+   0.9
+  ],
+  [
+   4,
+   0.9
+  ],
+  [
+   7,
+   0.72
+  ],
+  [
+   10,
+   0.75
+  ],
+  [
+   15,
+   0.75
+  ]
+ ],
+ "foe_icons": {
+  "Cave Rat": "🐀",
+  "Goblin": "👺",
+  "Bandit": "🥷",
+  "Slime": "🦠",
+  "Skeleton": "💀",
+  "Magma Golem": "🌋",
+  "Frost Wraith": "👻",
+  "Stone Titan": "🗿"
+ },
+ "elem_colors": {
+  "Fire": "#ff8a3d",
+  "Ice": "#7dd3fc",
+  "Physical": "#f3f4f6",
+  "Arcane": "#c084fc",
+  "Nature": "#86efac"
+ },
+ "elem_icons": {
+  "Fire": "🔥",
+  "Ice": "❄️",
+  "Physical": "💢",
+  "Arcane": "✨",
+  "Nature": "🌿"
+ },
+ "days": 15,
+ "base_hp": 60,
+ "grid_w": 9,
+ "grid_h": 7
+}
