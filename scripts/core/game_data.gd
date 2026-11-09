@@ -206,13 +206,13 @@ static func short_stats(id: String) -> String:
 		p.append(I18n.t("once"))
 	if p.is_empty() or d.cd == 0 and not d.once:
 		if not d.adj.is_empty():
-			p.append("✦ " + I18n.t("aura"))
+			p.append("✨ " + I18n.t("aura"))
 		elif d.pass.hp > 0:
 			p.append("❤️+%s" % _num(d.pass.hp))
 		elif d.pass.income > 0:
 			p.append("🪙+%d" % d.pass.income)
 		elif p.is_empty():
-			p.append("✦ " + I18n.t("passive"))
+			p.append("✨ " + I18n.t("passive"))
 	return " ".join(p)
 
 
@@ -260,7 +260,7 @@ static func describe_lines(id: String) -> Array:
 	if on.ramp > 0:
 		out.append(I18n.t("+%s damage after every hit this fight.") % _num(on.ramp))
 	for b in d.adj:
-		out.append("✦ " + I18n.t("Touching: ") + buff_text(b))
+		out.append("✨ " + I18n.t("Touching: ") + buff_text(b))
 	for b in d.all:
 		out.append("🌐 " + I18n.t("Whole pack: ") + buff_text(b))
 	var ps: Dictionary = d.pass

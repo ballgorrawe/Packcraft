@@ -129,7 +129,7 @@ func _draw() -> void:
 		var m := GameData.mid_cell(it.id, it.rot)
 		_text(it.def().ic, cell_rect(Vector2i(it.x, it.y) + m), cell * 0.55, Color.WHITE)
 		if it.def().relic:
-			_text("✦", Rect2(cell_rect(Vector2i(it.x, it.y) + m).position, Vector2(cell * 0.4, cell * 0.4)), cell * 0.25, UI.GOLD)
+			_text("✨", Rect2(cell_rect(Vector2i(it.x, it.y) + m).position, Vector2(cell * 0.4, cell * 0.4)), cell * 0.25, UI.GOLD)
 
 	# preview of the held item
 	if h != null and not pv.is_empty():

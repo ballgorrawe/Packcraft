@@ -28,13 +28,15 @@ static func build_theme() -> Theme:
 	var thai_b := FontVariation.new()
 	thai_b.base_font = thai
 	thai_b.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 700}
+	# Browsers give Godot no system fonts, so emoji are bundled too (used when the system has none).
+	var emoji_b: Font = load("res://assets/fonts/NotoColorEmoji.ttf")
 	var f := SystemFont.new()
 	f.font_names = PackedStringArray(["Bricolage Grotesque", "Segoe UI", "Roboto", "Noto Sans", "Helvetica Neue", "Arial"])
-	f.fallbacks = [thai, emoji, sym]
+	f.fallbacks = [thai, emoji, emoji_b, sym]
 	var fb := SystemFont.new()
 	fb.font_names = f.font_names
 	fb.font_weight = 700
-	fb.fallbacks = [thai_b, emoji, sym]
+	fb.fallbacks = [thai_b, emoji, emoji_b, sym]
 	font = f
 	bold = fb
 

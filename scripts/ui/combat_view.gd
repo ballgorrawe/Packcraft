@@ -66,7 +66,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	en.add_child(UI.lbl(tr(s.e.n), 20, Color.WHITE, true))
 	var badges := []
 	if s.e.imm != "":
-		badges.append("🛡 %s%s −80%%" % [GameData.elem_icon(s.e.imm), tr(s.e.imm)])
+		badges.append("🛡 %s%s -80%%" % [GameData.elem_icon(s.e.imm), tr(s.e.imm)])
 	if s.e.weak != "":
 		badges.append("💥 %s%s +50%%" % [GameData.elem_icon(s.e.weak), tr(s.e.weak)])
 	if s.e.tr != "":
@@ -377,7 +377,7 @@ func _hit_anim(ev: Dictionary, quiet: bool) -> void:
 		txt = tr("CRIT") + " " + txt + "!"
 		col = Color("#ffe14a")
 	elif ev.m > 1:
-		txt = "✦" + txt
+		txt = "✨" + txt
 		col = Color("#fde047")
 	_combo += 1
 	_combo_t = 0.0

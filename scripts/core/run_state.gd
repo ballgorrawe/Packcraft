@@ -818,7 +818,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 		if l.evo:
 			r.lines.append(I18n.t("✨ Evolution! Two %s %s became %s %s!") % [a.ic, I18n.t(a.n), rd.ic, I18n.t(rd.n)] + tail)
 		else:
-			r.lines.append(I18n.t("✨ Fusion! %s + %s ➜ %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
+			r.lines.append(I18n.t("✨ Fusion! %s + %s ➡️ %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
 	if not win and hp <= 0:
 		r.over = true
 	elif n.k == "boss" and win and day == GameData.days:

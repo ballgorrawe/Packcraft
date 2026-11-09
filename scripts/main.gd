@@ -261,7 +261,7 @@ func _title_screen() -> Control:
 		run = RunState.new(sel_cls)
 		_clear_sel()
 		render(), true, 22)))
-	v.add_child(_center(UI.btn(tr("How to play") + (" ▲" if show_how else " ▼"), func():
+	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
 		show_how = not show_how
 		render(), false, 15)))
 	if show_how:
@@ -362,7 +362,7 @@ func _run_screen() -> Control:
 	hint.clip_text = true
 	sh.add_child(hint)
 	if run.phase == "morning" and not run.grid_items().is_empty():
-		sh.add_child(UI.btn("⤓ " + tr("Empty pack"), func():
+		sh.add_child(UI.btn("📥 " + tr("Empty pack"), func():
 			if drag_item != null:
 				return
 			var n := run.clear_pack()
@@ -439,7 +439,7 @@ func _stats_text() -> String:
 	var used := 0
 	for i in run.grid_items():
 		used += GameData.shape(i.id, i.rot).c.size()
-	return "[right]⚔ [b]%.1f[/b]/s   🛡 [b]%.1f[/b]/s   ▦ %d/%d[/right]" % [pr.x, pr.y, used, run.tiles.size()]
+	return "[right]⚔ [b]%.1f[/b]/s   🛡 [b]%.1f[/b]/s   🔲 %d/%d[/right]" % [pr.x, pr.y, used, run.tiles.size()]
 
 
 func _held_text() -> String:
@@ -643,7 +643,7 @@ func _inspector_popup() -> Control:
 	tv.add_child(UI.lbl("%s %s" % [d.ic, tr(d.n)], 20, Color.WHITE, true))
 	var tags := " · ".join(d.tags.map(func(t): return tr(t)))
 	tv.add_child(UI.lbl("%s · %s" % [tr(GameData.tier_names[d.tier]), tags], 13, col.lightened(0.35)))
-	h.add_child(UI.btn("✕", func():
+	h.add_child(UI.btn("✖️", func():
 		_clear_sel()
 		render(), false, 16))
 	for line in GameData.describe_lines(id):
@@ -685,7 +685,7 @@ func _recipe_row(r: Dictionary) -> Control:
 	h.add_child(UI.item_chip(r.a, run.owns(r.a)))
 	h.add_child(UI.lbl("+", 16, UI.MU, true))
 	h.add_child(UI.item_chip(r.b, run.owns(r.b) and (r.a != r.b or run.count_owned(r.a) >= 2)))
-	h.add_child(UI.lbl("➜", 16, UI.MU, true))
+	h.add_child(UI.lbl("➡️", 16, UI.MU, true))
 	var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 	if known:
 		h.add_child(UI.item_chip(r.r, run.owns(r.r)))
@@ -772,7 +772,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		var f := run.forecast(e)
 		icon = GameData.foe_icon(e.n)
 		nm = tr(e.n)
-		sub = "%s · ≈−%d HP" % [tr(f.tag), roundi(minf(run.hp, f.taken))]
+		sub = "%s · ~-%d HP" % [tr(f.tag), roundi(minf(run.hp, f.taken))]
 		sub_col = f.color
 		badges.append("❤️ %d · ⚔ %s" % [roundi(e.hp), GameData._num(e.atk)])
 		if e.imm != "": badges.append("🛡 " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
@@ -784,7 +784,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	else:
 		icon = k[0]
 		nm = tr({"forge": "Forge", "camp": "Campfire", "shrine": "Dark Shrine", "tailor": "Tailor"}[n.k])
-		sub = tr({"forge": "+3 damage on a random weapon", "camp": "Recover 50% HP", "shrine": "Free Epic+ item · −15 HP", "tailor": "+3 pack tiles"}[n.k])
+		sub = tr({"forge": "+3 damage on a random weapon", "camp": "Recover 50% HP", "shrine": "Free Epic+ item · -15 HP", "tailor": "+3 pack tiles"}[n.k])
 	h.add_child(UI.lbl(icon, 64 if boss else 52))
 	var v := UI.vbox(4)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -1,9 +1,9 @@
 {
  "en": {
-  "HOW_TO_PLAY": "1. Morning: drag items from the shop into your pack. Drag to the shop to sell, to storage to store, and tap a placed item again to rotate it.\n2. Touching items buff each other (✦). Two copies of the same item that touch EVOLVE at night into a new item. Recipe pairs that touch FUSE into something new.\n3. On day 4 you choose one of your class's two paths. Its relic unlocks a Capstone recipe: hard to build, game-changing once you have it.\n4. Afternoon: pick a road. Evening: your pack fights on its own. Every item charges up and fires; triggers fill your Ultimate.\n5. HP carries over. Hearts are extra lives. Survive 15 days and beat the Stone Titan."
+  "HOW_TO_PLAY": "1. Morning: drag items from the shop into your pack. Drag to the shop to sell, to storage to store, and tap a placed item again to rotate it.\n2. Touching items buff each other (✨). Two copies of the same item that touch EVOLVE at night into a new item. Recipe pairs that touch FUSE into something new.\n3. On day 4 you choose one of your class's two paths. Its relic unlocks a Capstone recipe: hard to build, game-changing once you have it.\n4. Afternoon: pick a road. Evening: your pack fights on its own. Every item charges up and fires; triggers fill your Ultimate.\n5. HP carries over. Hearts are extra lives. Survive 15 days and beat the Stone Titan."
  },
  "th": {
-  "HOW_TO_PLAY": "1. ช่วงเช้า: ลากไอเทมจากร้านเข้ากระเป๋า ลากไปที่ร้านเพื่อขาย ลากลงกล่องเพื่อเก็บ และกดไอเทมที่วางแล้วซ้ำเพื่อหมุน\n2. ไอเทมที่วางติดกันเสริมพลังกัน (✦) ไอเทมชิ้นเดียวกัน 2 ชิ้นที่วางติดกันจะ วิวัฒน์ ตอนกลางคืนเป็นไอเทมใหม่ ส่วนคู่สูตรที่วางติดกันจะ รวมร่าง เป็นของใหม่\n3. วันที่ 4 เลือก 1 ใน 2 สายของคลาส Relic ของสายนั้นจะปลดล็อกสูตร Capstone ที่สร้างยาก แต่ได้แล้วเปลี่ยนเกม\n4. ช่วงบ่าย: เลือกเส้นทาง ช่วงเย็น: กระเป๋าสู้เอง ไอเทมทุกชิ้นชาร์จแล้วยิง และทุกครั้งที่ยิงจะเติมเกจ Ultimate\n5. HP ติดตัวข้ามวัน หัวใจคือชีวิตสำรอง รอดให้ครบ 15 วันแล้วล้ม Stone Titan",
+  "HOW_TO_PLAY": "1. ช่วงเช้า: ลากไอเทมจากร้านเข้ากระเป๋า ลากไปที่ร้านเพื่อขาย ลากลงกล่องเพื่อเก็บ และกดไอเทมที่วางแล้วซ้ำเพื่อหมุน\n2. ไอเทมที่วางติดกันเสริมพลังกัน (✨) ไอเทมชิ้นเดียวกัน 2 ชิ้นที่วางติดกันจะ วิวัฒน์ ตอนกลางคืนเป็นไอเทมใหม่ ส่วนคู่สูตรที่วางติดกันจะ รวมร่าง เป็นของใหม่\n3. วันที่ 4 เลือก 1 ใน 2 สายของคลาส Relic ของสายนั้นจะปลดล็อกสูตร Capstone ที่สร้างยาก แต่ได้แล้วเปลี่ยนเกม\n4. ช่วงบ่าย: เลือกเส้นทาง ช่วงเย็น: กระเป๋าสู้เอง ไอเทมทุกชิ้นชาร์จแล้วยิง และทุกครั้งที่ยิงจะเติมเกจ Ultimate\n5. HP ติดตัวข้ามวัน หัวใจคือชีวิตสำรอง รอดให้ครบ 15 วันแล้วล้ม Stone Titan",
   "Pack it. Craft it. Watch it fight.": "จัดของ คราฟต์ของ แล้วดูมันสู้",
   "CONTINUE": "เล่นต่อ",
   "Choose your hero": "เลือกฮีโร่",
@@ -73,7 +73,7 @@
   "Tailor": "ช่างตัดเย็บ",
   "+3 damage on a random weapon": "อาวุธสุ่ม 1 ชิ้น ดาเมจ +3",
   "Recover 50% HP": "ฟื้น HP 50%",
-  "Free Epic+ item · −15 HP": "ได้ไอเทม Epic+ ฟรี · −15 HP",
+  "Free Epic+ item · -15 HP": "ได้ไอเทม Epic+ ฟรี · -15 HP",
   "+3 pack tiles": "ช่องกระเป๋า +3",
   "Safe": "ปลอดภัย",
   "Risky": "เสี่ยง",
