@@ -467,7 +467,7 @@ func clear_pack() -> int:
 
 func enemy_hp(d: int) -> int:
 	var base := 4.0 + 4.6 * d if d <= 5 else 27.0 + 3.5 * (d - 5)
-	return roundi(base * minf(6.0, 3.8 + 0.5 * d))
+	return roundi(base * minf(6.0, 3.8 + 0.5 * d) * GameData.foe_hp_mult)
 
 
 func enemy_atk(d: int) -> float:
@@ -481,7 +481,7 @@ func enemy_atk(d: int) -> float:
 			var y: float = am[i][1]
 			m = x + (y - x) * (d - a) / (b - a)
 			break
-	return (3.0 + 0.55 * d + 0.01 * d * d) * m
+	return (3.0 + 0.55 * d + 0.01 * d * d) * m * GameData.foe_atk_mult
 
 
 func foe_base(elite: bool) -> Dictionary:
@@ -781,8 +781,8 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					expand += 4
 					r.lines.append(I18n.t("🎒 Boss reward: +4 pack tiles."))
 				if n.k == "elite" or n.k == "ambush":
-					expand += 2
-					r.lines.append(I18n.t("🎒 Spoils: +2 pack tiles."))
+					expand += 1
+					r.lines.append(I18n.t("🎒 Spoils: +1 pack tile."))
 				var id := loot_for(n.k)
 				if id != "":
 					items.append(make_item(id, "storage"))
@@ -842,7 +842,7 @@ func next_day() -> void:
 static func elem_mult(e: Dictionary, dt: String) -> float:
 	if dt != "" and dt == e.imm:
 		return RESIST
-	if dt == e.weak:
+	if dt != "" and dt == e.weak:
 		return 1.5
 	return 1.0
 

@@ -780,7 +780,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		if e.tr != "": badges.append(GameData.traits[e.tr].ic + " " + tr(GameData.traits[e.tr].n))
 		badges.append(("🎁 " + tr("loot")) if n.k != "combat" else ("🎲 " + tr("25% loot")))
 		if n.k in ["elite", "ambush"]:
-			badges.append("🎒+2 · " + tr("lose: no gold"))
+			badges.append("🎒+1 · " + tr("lose: no gold"))
 	else:
 		icon = k[0]
 		nm = tr({"forge": "Forge", "camp": "Campfire", "shrine": "Dark Shrine", "tailor": "Tailor"}[n.k])

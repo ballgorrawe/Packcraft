@@ -18,6 +18,8 @@ static var class_keys: Array = []
 static var paths := {}
 static var statuses := {}
 static var path_day := 4
+static var foe_hp_mult := 1.0       # global difficulty knobs (enemies and bosses)
+static var foe_atk_mult := 1.0
 static var bosses: Array = []
 static var mods: Array = []
 static var traits := {}
@@ -76,8 +78,10 @@ static func ensure_loaded() -> void:
 	for k in d.paths:
 		paths[k] = d.paths[k]
 	path_day = int(d.get("path_day", 4))
+	foe_hp_mult = float(d.get("foe_hp_mult", 1.0))
+	foe_atk_mult = float(d.get("foe_atk_mult", 1.0))
 	for b in d.bosses:
-		bosses.append({"d": int(b.d), "n": b.n, "hp": float(b.hp), "atk": float(b.atk), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": ""})
+		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": ""})
 	mods = d.mods
 	traits = d.traits
 	for h in d.hazards:

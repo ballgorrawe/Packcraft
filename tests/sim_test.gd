@@ -4,9 +4,11 @@ extends SceneTree
 ## Options after `--`:  --greedy  take Elite/Ambush fights whenever offered (snowball check)
 ##                      --runs=N  runs per class (default 5)
 ##                      --quiet   only print the summary
+##                      --losses  print every lost fight with the pack's numbers
 
 var greedy := false
 var quiet := false
+var losses := false
 
 
 func _init() -> void:
@@ -16,6 +18,8 @@ func _init() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "--greedy":
 			greedy = true
+		elif a == "--losses":
+			losses = true
 		elif a == "--quiet":
 			quiet = true
 		elif a.begins_with("--runs="):
@@ -53,6 +57,9 @@ func _init() -> void:
 					assert(cs.done, "combat did not finish")
 					ults += cs.ults
 					fights += 1
+					if losses and not cs.won:
+						var pr := r.pack_rates()
+						print("  LOSS %s day %d vs %s (%s, %d hp, %.1f atk, resist %s) pack %.1f dps %.1f shield/s, hp %d/%d, items %d, enemy left %d" % [cls, r.day, r.nodes[best].e.n, r.nodes[best].k, r.nodes[best].e.hp, r.nodes[best].e.atk, r.nodes[best].e.imm, pr.x, pr.y, r.hp, r.mhp, r.grid_items().size(), cs.ehp])
 					r.go_night(r.nodes[best], cs.won, cs)
 				for l in r.result.lines:
 					if l.begins_with("✨ Evolution"):
@@ -77,6 +84,15 @@ func _init() -> void:
 
 
 func _bot_morning(r: RunState) -> void:
+	# a player grows the pack once it fills up: buy bag space first
+	var used := 0
+	for i in r.grid_items():
+		used += i.cells().size()
+	if r.tiles.size() + r.expand - used < 4:
+		for i in r.shop.size():
+			if r.shop[i].has("bag") and r.shop[i].price <= r.gold:
+				r.buy_bag(i)
+				break
 	# unlock tiles next to the pack
 	var tries := 0
 	while r.expand > 0 and tries < 300:

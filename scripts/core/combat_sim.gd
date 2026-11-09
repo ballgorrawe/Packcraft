@@ -389,12 +389,12 @@ func _reflect() -> void:
 	if rd.eff == "reflect":
 		total += rd.v * resv
 	if sp.has("thorn_grow"):
-		hs["thorns"] = minf(30.0, hs.get("thorns", 0.0) + 1)
+		add_status("thorns", 1)
 	if total <= 0:
 		return
 	var times := 2 if sp.has("thorns_double") else 1
 	for _t in times:
-		var v := damage(null, total, "Physical", 0, 2, "🌵")
+		var v := damage(null, total, GameData.statuses.thorns.el, 0, 2, "🌵")
 		stat_dmg["thorns"] = stat_dmg.get("thorns", 0.0) + v
 
 
