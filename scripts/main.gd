@@ -1148,7 +1148,7 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var col: Color = GameData.tier_colors[d.tier]
 	var on := inspect_idx == i
 	var p := UI.card(col.darkened(0.5), Color.WHITE if on else col, 16, 6)
-	p.custom_minimum_size = Vector2(0, 184)
+	p.custom_minimum_size = Vector2(0, 200)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(ev):
@@ -1176,8 +1176,8 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	nm.custom_minimum_size = Vector2(80, 34)
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(nm)
-	var sl := UI.plbl(GameData.short_stats(e.id), 14, Color("#e9e4ff"), true, true)
-	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var sl := UI.rich(GameData.stats_bb(e.id), 15)
+	sl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sl.custom_minimum_size.x = 80
 	v.add_child(sl)
 	v.add_child(UI.spacer(false))
@@ -1915,7 +1915,9 @@ func _ev_merchant(v: VBoxContainer) -> void:
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.custom_minimum_size.x = 180
 		vb.add_child(nl)
-		vb.add_child(UI.plbl(GameData.short_stats(s.id), 14, Color("#e9e4ff"), true, true))
+		var ssl := UI.rich(GameData.stats_bb(s.id), 14)
+		ssl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(ssl)
 		var ii: int = i
 		var b := UI.btn((tr("Sold") if s.get("sold", false) else "🪙 %d" % s.price), func():
 			if run.ev_buy(ii):
@@ -2231,8 +2233,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		var pos := get_global_mouse_position()
-		# storage: a sideways swipe scrolls the strip; up/down picks the item up
-		if not pending.is_empty() and drag_item == null and pending.src == "storage" and storage_scroll:
+		# storage on a touch screen: a sideways swipe scrolls the strip; up/down picks the item up.
+		# With a real mouse any drag picks it up (the wheel scrolls the strip instead).
+		var touch: bool = event.device == InputEvent.DEVICE_ID_EMULATION or not _landscape
+		if touch and not pending.is_empty() and drag_item == null and pending.src == "storage" and storage_scroll:
 			var dv := pos - press_pos
 			if pending.get("scroll", false) or (absf(dv.x) > DRAG_THRESHOLD and absf(dv.x) > absf(dv.y) * 1.2):
 				pending["scroll"] = true
@@ -2255,6 +2259,10 @@ func _input(event: InputEvent) -> void:
 			pending = {}
 		elif (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN) and event.pressed and drag_item != null:
 			_rotate(1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1)
+			get_viewport().set_input_as_handled()
+		elif (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN) and event.pressed and storage_scroll and is_instance_valid(storage_scroll) and storage_scroll.get_global_rect().has_point(get_global_mouse_position()):
+			# the wheel scrolls the storage strip sideways (its cards would swallow it otherwise)
+			storage_scroll.scroll_horizontal = maxi(0, storage_scroll.scroll_horizontal + (90 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -90))
 			get_viewport().set_input_as_handled()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and drag_item != null:
 			_rotate(1)

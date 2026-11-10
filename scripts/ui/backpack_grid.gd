@@ -130,6 +130,12 @@ func _draw() -> void:
 			linked[l.a.uid] = true
 			linked[l.b.uid] = true
 
+	# who sits on which cell (for the aura arrows)
+	var occ := {}
+	for it in run.grid_items():
+		for c in it.cells():
+			occ[c] = it
+
 	# items
 	for it in run.grid_items():
 		var col: Color = GameData.tier_color(it.id)
@@ -178,7 +184,47 @@ func _draw() -> void:
 			_text("✨", Rect2(-cell / 2, -cell / 2, cell * 0.45, cell * 0.45), cell * 0.28, UI.GOLD)
 		if linked.has(it.uid):
 			_text("✨", Rect2(cell * 0.05, -cell / 2, cell * 0.45, cell * 0.45), cell * 0.28 * (0.8 + 0.3 * pulse), UI.GOLD)
+		_aura_marks(it, shp, base, center, occ, pulse)
 		draw_set_transform(Vector2.ZERO)
+
+
+## Aura items: a corner badge with the tag they buff, and a green arrow on every side that touches
+## an item they are buffing right now. Buffed items get a small green ▲ in the other corner.
+func _aura_marks(it: PItem, shp: Array, base: Vector2, center: Vector2, occ: Dictionary, pulse: float) -> void:
+	var d: Dictionary = it.def()
+	var mid := GameData.mid_cell(it.id, it.rot)
+	var mr := Rect2((base + Vector2(mid)) * cell - center, Vector2(cell, cell)).grow(-4)
+	var bs := cell * 0.36
+	if not d.adj.is_empty():
+		var br := Rect2(mr.position + Vector2(1, mr.size.y - bs - 1), Vector2(bs, bs))
+		draw_circle(br.get_center(), bs * 0.5, Color("#1e1b4b"))
+		draw_arc(br.get_center(), bs * 0.5, 0, TAU, 20, Color("#c4b5fd"), 2.0)
+		_text(GameData.tag_icon(d.adj[0].tag), br, bs * 0.62, Color.WHITE)
+		var arrow_col := Color(UI.GOOD, 0.7 + 0.3 * pulse)
+		for c in shp:
+			for dv in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				if shp.has(c + dv):
+					continue
+				var o = occ.get(Vector2i(it.x, it.y) + c + dv)
+				if o == null or o == it:
+					continue
+				if not d.adj.any(func(bf): return o.def().tags.has(bf.tag)):
+					continue
+				var cr := Rect2((base + Vector2(c)) * cell - center, Vector2(cell, cell))
+				var dir := Vector2(dv)
+				var tip := cr.get_center() + dir * (cell * 0.5 + 3)
+				var side := Vector2(-dir.y, dir.x) * cell * 0.13
+				var back := tip - dir * cell * 0.17
+				draw_colored_polygon(PackedVector2Array([tip, back + side, back - side]), arrow_col)
+	var buffed := false
+	for k in it.b:
+		if float(it.b[k]) > 0:
+			buffed = true
+			break
+	if buffed:
+		var rr := Rect2(mr.position + Vector2(mr.size.x - bs - 1, mr.size.y - bs - 1), Vector2(bs, bs))
+		draw_circle(rr.get_center(), bs * 0.5, Color("#14532d"))
+		_text("▲", rr, bs * 0.6, UI.GOOD)
 
 
 func _text(t: String, r: Rect2, fs: float, col: Color) -> void:

@@ -252,6 +252,66 @@ static func short_stats(id: String) -> String:
 	return " ".join(p)
 
 
+## Icons for the tags auras look for (corner badges and card lines).
+const TAG_ICONS := {"Weapon": "⚔️", "Fire": "🔥", "Potion": "🧪", "Mech": "⚙️", "Nature": "🌿", "Armor": "🛡️", "Shield": "🛡️", "Turret": "🔫"}
+
+
+static func tag_icon(tag: String) -> String:
+	return TAG_ICONS.get(tag, "✨")
+
+
+## Card stats in words, one coloured line each (BBCode): damage in its element colour, Shield
+## blue, Heal green, statuses in their own colour, cooldown grey. Auras say what they buff.
+static func stats_bb(id: String) -> String:
+	var d: Dictionary = items[id]
+	var on: Dictionary = d.on
+	var L := []
+	var line := func(col: Color, txt: String): L.append("[color=#%s]%s[/color]" % [col.to_html(false), txt])
+	if on.dmg > 0:
+		line.call(elem_colors.get(on.el, Color("#f3f4f6")), "[b]%s[/b] %s" % [_num(on.dmg), I18n.t("dmg")])
+	if on.shield > 0:
+		line.call(Color("#7dd3fc"), "[b]+%s[/b] %s" % [_num(on.shield), I18n.t("shield")])
+	if on.heal > 0:
+		line.call(Color("#4ade80"), "[b]+%s[/b] %s" % [_num(on.heal), I18n.t("heal")])
+	for k in on.st:
+		line.call(statuses[k].col, "[b]+%s[/b] %s" % [_num(on.st[k]), I18n.t(statuses[k].n).to_lower()])
+	if on.charge > 0:
+		line.call(Color("#facc15"), I18n.t("charge %ss") % _num(on.charge))
+	if not on.haste.is_empty():
+		line.call(Color("#ffe14a"), "[b]+%d%%[/b] %s" % [roundi(on.haste[0] * 100), I18n.t("speed")])
+	for b in d.adj:
+		line.call(Color("#c4b5fd"), "✨ %s %s" % [tag_icon(b.tag), _buff_short(b)])
+	if d.pass.hp_pct > 0:
+		line.call(Color("#fb7185"), "[b]+%s%%[/b] %s" % [_num(d.pass.hp_pct), I18n.t("Max HP")])
+	if d.pass.hp > 0:
+		line.call(Color("#fb7185"), "[b]+%s[/b] %s" % [_num(d.pass.hp), I18n.t("Max HP")])
+	if d.pass.regen > 0:
+		line.call(Color("#4ade80"), "[b]+%s[/b] %s" % [_num(d.pass.regen), I18n.t("regen/s")])
+	if d.pass.income > 0:
+		line.call(UI.GOLD, "[b]+%d[/b] %s" % [d.pass.income, I18n.t("gold/day")])
+	if d.cd > 0:
+		line.call(Color("#94a3b8"), I18n.t("every %ss") % _num(d.cd))
+	elif d.once:
+		line.call(Color("#94a3b8"), I18n.t("once"))
+	if L.is_empty():
+		line.call(Color("#94a3b8"), I18n.t("passive"))
+	return "[center]" + "
+".join(L) + "[/center]"
+
+
+## "+2 dmg" style text for an aura buff.
+static func _buff_short(b: Dictionary) -> String:
+	match b.k:
+		"dmg": return "+%s %s" % [_num(b.v), I18n.t("dmg")]
+		"crit": return "+%d%% %s" % [roundi(b.v * 100), I18n.t("crit")]
+		"cdr": return "+%d%% %s" % [roundi(b.v * 100), I18n.t("speed")]
+		"heal": return "+%s %s" % [_num(b.v), I18n.t("heal")]
+		_:
+			if statuses.has(b.k):
+				return "+%s %s" % [_num(b.v), I18n.t(statuses[b.k].n).to_lower()]
+	return "+%s %s" % [_num(b.v), b.k]
+
+
 static func buff_text(b: Dictionary) -> String:
 	var tag := I18n.t(b.tag)
 	var v: String = _num(b.v)

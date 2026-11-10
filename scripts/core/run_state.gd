@@ -599,8 +599,10 @@ func loot_for(k: String, e := {}) -> String:
 	return ""
 
 
+## Price of a bag piece with n tiles: about 1.5 gold a tile, +1 a tile-pair for every 3 bags
+## bought (max +2). Bigger pieces are never cheaper than smaller ones.
 func bag_price(n: int) -> int:
-	return roundi(n * 1.5) + mini(2, int(bags / 3)) * int(n / 2)
+	return roundi(n * 1.5) + mini(2, int(bags / 3)) * ceili(n / 2.0)
 
 
 func fill_shop() -> void:
@@ -608,7 +610,7 @@ func fill_shop() -> void:
 	while shop.size() < 5:
 		var id := roll_item()
 		shop.append({"id": id, "price": GameData.items[id].cost})
-	shop.append({"bag": true, "n": 3 if day >= 8 else 2, "price": bag_price(2)})
+	shop.append({"bag": true, "n": 3 if day >= 8 else 2, "price": bag_price(3 if day >= 8 else 2)})
 	shop.append({"bag": true, "n": 4, "price": bag_price(4)})
 
 
@@ -646,7 +648,7 @@ func buy_bag(i: int) -> bool:
 	shop.remove_at(i)
 	for x in shop:
 		if x.has("bag"):
-			x.price = bag_price(2 if x.n == 3 else x.n)
+			x.price = bag_price(x.n)
 	msg = I18n.t("Bag bought: tap the glowing tiles next to your pack to unlock %d tiles.") % e.n
 	return true
 
