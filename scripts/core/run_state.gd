@@ -193,7 +193,7 @@ func in_class_pool(id: String) -> bool:
 
 ## Specials ("sp") active in the pack right now.
 func has_sp(sp: String) -> bool:
-	return grid_items().any(func(i): return i.def().sp == sp)
+	return grid_items().any(func(i): return sp in i.def().sp.split(","))
 
 
 # ---------------------------------------------------------------- grid
@@ -470,7 +470,10 @@ func eff(i: PItem) -> Dictionary:
 	return {
 		"dmg": snappedf(dmg, 0.1), "cd": maxf(0.3, cd), "crit": minf(1.0, on.crit + i.b.crit + (pv("crit") if on.dmg > 0 else 0.0)), "critx": on.critx,
 		"shield": on.shield + (i.b.shield if on.shield > 0 else 0.0), "heal": on.heal + (i.b.heal if on.heal > 0 else 0.0),
-		"st": st, "charge": on.charge, "haste": on.haste, "ramp": on.ramp, "el": on.el,
+		"st": st, "charge": on.charge, "haste": on.haste, "ramp": on.ramp,
+		# a Fire gem next to a weapon turns its hits into Fire (Magic) damage
+		"el": "Fire" if (i.b.get("to_fire", 0.0) > 0 and on.dmg > 0 and has_sp("fire_convert")) else on.el,
+		"pierce": minf(1.0, i.b.get("pierce", 0.0)),
 	}
 
 

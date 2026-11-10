@@ -4,7 +4,9 @@
  "statuses": {
   "burn":   {"n": "Burn",   "ic": "🔥", "col": "#ff8a3d", "side": "foe",  "el": "Fire",     "tick": 1.0, "dmg": 1.0, "decay": 1, "max": -1, "d": "Deals its stacks as damage every second, then loses 1 stack."},
   "poison": {"n": "Poison", "ic": "☠️", "col": "#86efac", "side": "foe",  "el": "Nature",   "tick": 1.0, "dmg": 0.4, "decay": 0, "max": -1, "d": "Deals 0.4 damage per stack every second. Never wears off."},
-  "thorns": {"n": "Thorns", "ic": "🌵", "col": "#a3e635", "side": "hero", "el": "", "tick": 0,   "dmg": 0,   "decay": 0, "max": 25, "reflect": 0.6, "d": "When you are hit, deal 60% of its stacks back to the attacker (max 25 stacks). Ignores resistances."}
+  "thorns": {"n": "Thorns", "ic": "🌵", "col": "#a3e635", "side": "hero", "el": "", "tick": 0,   "dmg": 0,   "decay": 0, "max": 25, "reflect": 0.6, "d": "When you are hit, deal 60% of its stacks back to the attacker as Magic damage (max 25 stacks). Ignores elemental resistances."},
+  "bleed":  {"n": "Bleed",  "ic": "🩸", "col": "#ef4444", "side": "foe",  "el": "Physical", "tick": 0, "dmg": 0, "decay": 1, "max": -1, "trig": 0.8, "d": "Each time the bleeding side uses an item it takes 0.8 damage per stack, then loses 1 stack. Ignores Armor and Shield."},
+  "soaked": {"n": "Soaked", "ic": "💧", "col": "#38bdf8", "side": "foe",  "el": "", "tick": 0, "dmg": 0, "decay": 0, "max": 10, "slow": 0.02, "magic_amp": 0.05, "d": "Per stack: items charge 2% slower and Magic damage taken +5% (max 10 stacks)."}
  },
 
  "classes": {
@@ -51,23 +53,23 @@
  },
 
  "paths": {
-  "inferno":    {"cl": "ember",  "n": "Inferno",     "ic": "🌋", "relic": "cinder_heart",  "d": "Stack Burn sky-high. At 20 Burn it explodes."},
-  "forgeblade": {"cl": "ember",  "n": "Forgeblade",  "ic": "⚒️", "relic": "anvil_sigil",   "d": "Weapons get stronger with every swing."},
-  "plague":     {"cl": "venom",  "n": "Plague",      "ic": "🦠", "relic": "rot_idol",      "d": "More Poison, faster Toxin."},
-  "transmuter": {"cl": "venom",  "n": "Transmuter",  "ic": "🪙", "relic": "gilded_scale",  "d": "Gold you keep becomes damage."},
-  "overclock":  {"cl": "tinker", "n": "Overclock",   "ic": "🔋", "relic": "flux_coil",     "d": "Chain Charge until everything fires nonstop."},
-  "arsenal":    {"cl": "tinker", "n": "Arsenal",     "ic": "🛠️", "relic": "turret_plans",  "d": "Turrets grow stronger the more you build."},
-  "thorns":     {"cl": "warden", "n": "Thorns",      "ic": "🌵", "relic": "bramble_seed",  "d": "Every hit you take hurts them more."},
-  "colossus":   {"cl": "warden", "n": "Colossus",    "ic": "⛰️", "relic": "titan_root",    "d": "Huge Max HP that turns into damage."}
+  "inferno":    {"cl": "ember",  "n": "Inferno",     "ic": "🌋", "relic": "cinder_heart",  "d": "Magic: Fire Gems turn weapon hits into Fire and stack Burn. At 20 Burn it explodes."},
+  "forgeblade": {"cl": "ember",  "n": "Forgeblade",  "ic": "⚒️", "relic": "anvil_sigil",   "d": "Physical: heavy weapons that ramp up and pierce Armor."},
+  "plague":     {"cl": "venom",  "n": "Plague",      "ic": "🦠", "relic": "rot_idol",      "d": "Magic: more Poison, faster Toxin. Poison ignores Armor."},
+  "transmuter": {"cl": "venom",  "n": "Transmuter",  "ic": "🪙", "relic": "gilded_scale",  "d": "Physical: gold you keep becomes damage; coin shots make the enemy Bleed."},
+  "overclock":  {"cl": "tinker", "n": "Overclock",   "ic": "🔋", "relic": "flux_coil",     "d": "Magic: chain Charge until Shock weapons fire nonstop."},
+  "arsenal":    {"cl": "tinker", "n": "Arsenal",     "ic": "🛠️", "relic": "turret_plans",  "d": "Physical: turrets grow stronger the more you build and shred Armor."},
+  "thorns":     {"cl": "warden", "n": "Thorns",      "ic": "🌵", "relic": "bramble_seed",  "d": "Magic: every hit you take is answered with Magic Thorns."},
+  "colossus":   {"cl": "warden", "n": "Colossus",    "ic": "⛰️", "relic": "titan_root",    "d": "Physical: huge Max HP that turns into heavy slams."}
  },
 
  "items": {
   "ember_sword":   {"n": "Ember Sword",   "ic": "🗡️", "t": 0, "lv": 1, "cost": 4, "cl": "ember", "shop": 1, "c": [[0,0],[0,1]], "tags": ["Weapon","Melee","Fire"], "cd": 1.8, "on": {"dmg": 6, "el": "Fire", "heal": 1, "st": {"burn": 2}}, "evo": "flame_saber"},
   "flame_saber":   {"n": "Flame Saber",   "ic": "⚔️", "t": 2, "lv": 2, "cost": 10, "cl": "ember", "shop": 1, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee","Fire"], "cd": 1.8, "on": {"dmg": 11, "el": "Fire", "heal": 2, "crit": 0.15, "st": {"burn": 3}}, "evo": "sunblade"},
   "sunblade":      {"n": "Sunblade",      "ic": "🌞", "t": 4, "lv": 3, "cost": 18, "cl": "ember", "shop": 0, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee","Fire"], "cd": 1.8, "on": {"dmg": 16, "el": "Fire", "heal": 3, "crit": 0.25, "critx": 2.5, "st": {"burn": 4}}},
-  "fire_gem":      {"n": "Fire Gem",      "ic": "🔶", "t": 0, "lv": 1, "cost": 3, "cl": "ember", "shop": 1, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 0, "adj": [{"tag": "Fire", "k": "dmg", "v": 3}], "evo": "blaze_gem"},
-  "blaze_gem":     {"n": "Blaze Gem",     "ic": "💠", "t": 2, "lv": 2, "cost": 8, "cl": "ember", "shop": 1, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 0, "adj": [{"tag": "Fire", "k": "dmg", "v": 4}, {"tag": "Fire", "k": "burn", "v": 1}], "evo": "phoenix_gem"},
-  "phoenix_gem":   {"n": "Phoenix Gem",   "ic": "🐦‍🔥", "t": 4, "lv": 3, "cost": 16, "cl": "ember", "shop": 0, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 0, "adj": [{"tag": "Fire", "k": "dmg", "v": 6}, {"tag": "Fire", "k": "burn", "v": 2}], "pass": {"regen": 1}},
+  "fire_gem":      {"n": "Fire Gem",      "ic": "🔶", "t": 0, "lv": 1, "cost": 3, "cl": "ember", "shop": 1, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 0, "adj": [{"tag": "Weapon", "k": "to_fire", "v": 1}, {"tag": "Fire", "k": "dmg", "v": 3}], "evo": "blaze_gem"},
+  "blaze_gem":     {"n": "Blaze Gem",     "ic": "💠", "t": 2, "lv": 2, "cost": 8, "cl": "ember", "shop": 1, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 0, "adj": [{"tag": "Weapon", "k": "to_fire", "v": 1}, {"tag": "Fire", "k": "dmg", "v": 4}, {"tag": "Fire", "k": "burn", "v": 1}], "evo": "phoenix_gem"},
+  "phoenix_gem":   {"n": "Phoenix Gem",   "ic": "🐦‍🔥", "t": 4, "lv": 3, "cost": 16, "cl": "ember", "shop": 0, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 0, "adj": [{"tag": "Weapon", "k": "to_fire", "v": 1}, {"tag": "Fire", "k": "dmg", "v": 6}, {"tag": "Fire", "k": "burn", "v": 2}], "pass": {"regen": 1}},
   "bellows":       {"n": "Bellows",       "ic": "🪗", "t": 1, "lv": 1, "cost": 5, "cl": "ember", "shop": 1, "c": [[0,0],[1,0]], "tags": ["Tool","Fire"], "cd": 3.0, "on": {"charge": 0.6}, "evo": "forge_bellows"},
   "forge_bellows": {"n": "Forge Bellows", "ic": "🌬️", "t": 2, "lv": 2, "cost": 10, "cl": "ember", "shop": 1, "c": [[0,0],[1,0]], "tags": ["Tool","Fire"], "cd": 2.5, "on": {"charge": 1.0, "haste": [0.1, 2]}, "evo": "dragon_lung"},
   "dragon_lung":   {"n": "Dragon Lung",   "ic": "🐉", "t": 4, "lv": 3, "cost": 18, "cl": "ember", "shop": 0, "c": [[0,0],[0,1],[1,1]], "tags": ["Tool","Fire"], "cd": 2.5, "on": {"charge": 1.4, "dmg": 6, "el": "Fire", "st": {"burn": 2}}},
@@ -75,8 +77,8 @@
   "ash_plate":     {"n": "Ash Plate",     "ic": "🦺", "t": 1, "lv": 1, "cost": 5, "cl": "ember", "shop": 1, "c": [[0,0],[1,0],[0,1],[1,1]], "tags": ["Armor"], "cd": 4.0, "on": {"shield": 8}, "pass": {"hp_pct": 20}},
   "magma_hammer":  {"n": "Magma Hammer",  "ic": "🌋", "t": 3, "lv": 2, "cost": 12, "cl": "ember", "shop": 0, "c": [[0,0],[0,1],[1,1]], "tags": ["Weapon","Melee","Fire"], "cd": 2.8, "on": {"dmg": 14, "el": "Fire", "st": {"burn": 3}}},
   "ember_mail":    {"n": "Ember Mail",    "ic": "🧥", "t": 3, "lv": 2, "cost": 12, "cl": "ember", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1]], "tags": ["Armor","Fire"], "cd": 3.5, "on": {"shield": 9}, "pass": {"hp_pct": 20}, "adj": [{"tag": "Fire", "k": "burn", "v": 1}]},
-  "cinder_heart":  {"n": "Cinder Heart",  "ic": "❤️‍🔥", "t": 3, "lv": 2, "cost": 0, "cl": "ember", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic","Fire"], "cd": 0, "all": [{"tag": "Fire", "k": "burn", "v": 1}], "sp": "burn_burst", "d": "When the enemy reaches 20 Burn, it explodes for that much damage and drops to 5 Burn."},
-  "anvil_sigil":   {"n": "Anvil Sigil",   "ic": "⚒️", "t": 3, "lv": 2, "cost": 0, "cl": "ember", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "sp": "weapon_ramp", "d": "Weapons gain +1 damage every time they hit (this fight)."},
+  "cinder_heart":  {"n": "Cinder Heart",  "ic": "❤️‍🔥", "t": 3, "lv": 2, "cost": 0, "cl": "ember", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic","Fire"], "cd": 0, "all": [{"tag": "Fire", "k": "burn", "v": 1}], "sp": "burn_burst,fire_convert", "d": "When the enemy reaches 15 Burn, it explodes for that much damage and drops to 5 Burn. Weapons touching a Fire Gem deal Fire (Magic) damage."},
+  "anvil_sigil":   {"n": "Anvil Sigil",   "ic": "⚒️", "t": 3, "lv": 2, "cost": 0, "cl": "ember", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "sp": "weapon_ramp,heat_pierce", "d": "Weapons gain +1 damage every time they hit (this fight). Each Heat gives weapons 4% Armor Pierce."},
   "sunforge_crown":{"n": "Sunforge Crown","ic": "👑", "t": 6, "lv": 4, "cost": 30, "cl": "ember", "shop": 0, "c": [[1,0],[0,1],[1,1],[2,1],[1,2]], "tags": ["Weapon","Fire"], "cd": 2.0, "on": {"dmg": 12, "el": "Fire", "st": {"burn": 5}}, "all": [{"tag": "Fire", "k": "burn", "v": 2}], "sp": "burn_nodecay", "d": "Burn on the enemy never wears off."},
   "worldsplitter": {"n": "Worldsplitter", "ic": "🪓", "t": 6, "lv": 4, "cost": 30, "cl": "ember", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "tags": ["Weapon","Melee","Fire"], "cd": 3.0, "on": {"dmg": 30, "el": "Physical", "crit": 0.2, "critx": 3, "ramp": 4}, "d": "Gains +4 damage every swing this fight."},
 
@@ -97,7 +99,7 @@
   "rot_idol":      {"n": "Rot Idol",      "ic": "🪆", "t": 3, "lv": 2, "cost": 0, "cl": "venom", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic","Nature"], "cd": 0, "all": [{"tag": "Nature", "k": "poison", "v": 1}], "sp": "fast_toxin", "d": "Toxin builds twice as fast."},
   "gilded_scale":  {"n": "Gilded Scale",  "ic": "🪙", "t": 3, "lv": 2, "cost": 0, "cl": "venom", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "pass": {"income": 3}, "sp": "gold_power", "d": "+1% damage per 2 gold you hold (max +40%)."},
   "mother_of_rot": {"n": "Mother of Rot", "ic": "🕷️", "t": 6, "lv": 4, "cost": 30, "cl": "venom", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1],[0,2]], "tags": ["Potion","Nature"], "cd": 2.0, "on": {"st": {"poison": 8}}, "sp": "poison_crit", "d": "Poison damage can crit: 25% chance for triple damage."},
-  "philosophers_engine": {"n": "Philosopher's Engine", "ic": "🔮", "t": 6, "lv": 4, "cost": 30, "cl": "venom", "shop": 0, "c": [[1,0],[0,1],[1,1],[2,1],[1,2]], "tags": ["Tool","Nature"], "cd": 3.0, "on": {"dmg": 10, "el": "Nature", "st": {"poison": 4}}, "pass": {"income": 4}, "sp": "gold_engine", "d": "+5% damage per 10 gold you hold, and +5 gold after every win."},
+  "philosophers_engine": {"n": "Philosopher's Engine", "ic": "🔮", "t": 6, "lv": 4, "cost": 30, "cl": "venom", "shop": 0, "c": [[1,0],[0,1],[1,1],[2,1],[1,2]], "tags": ["Tool","Ranged"], "cd": 3.0, "on": {"dmg": 12, "el": "Physical", "st": {"bleed": 3}}, "pass": {"income": 4}, "sp": "gold_engine", "d": "+5% damage per 10 gold you hold, and +5 gold after every win."},
 
   "spark_pistol":  {"n": "Spark Pistol",  "ic": "🔫", "t": 0, "lv": 1, "cost": 4, "cl": "tinker", "shop": 1, "c": [[0,0],[1,0]], "tags": ["Weapon","Ranged","Mech","Shock"], "cd": 1.6, "on": {"dmg": 4, "el": "Shock"}, "evo": "volt_rifle"},
   "volt_rifle":    {"n": "Volt Rifle",    "ic": "📡", "t": 2, "lv": 2, "cost": 10, "cl": "tinker", "shop": 1, "c": [[0,0],[1,0],[2,0]], "tags": ["Weapon","Ranged","Mech","Shock"], "cd": 1.4, "on": {"dmg": 8, "el": "Shock", "crit": 0.15}, "evo": "storm_cannon"},
@@ -114,7 +116,7 @@
   "arc_repeater":  {"n": "Arc Repeater",  "ic": "🔌", "t": 3, "lv": 2, "cost": 12, "cl": "tinker", "shop": 0, "c": [[0,0],[1,0]], "tags": ["Weapon","Ranged","Mech","Shock"], "cd": 1.0, "on": {"dmg": 5, "el": "Shock"}},
   "overclock_chip":{"n": "Overclock Chip","ic": "💾", "t": 3, "lv": 2, "cost": 12, "cl": "tinker", "shop": 0, "c": [[0,0]], "tags": ["Mech","Tool"], "cd": 3.0, "on": {"charge": 0.6, "haste": [0.2, 2]}},
   "flux_coil":     {"n": "Flux Coil",     "ic": "🌀", "t": 3, "lv": 2, "cost": 0, "cl": "tinker", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic","Mech"], "cd": 0, "sp": "charge_chain", "d": "Whenever any item triggers, Mech items touching it gain 0.2s of charge."},
-  "turret_plans":  {"n": "Turret Plans",  "ic": "📜", "t": 3, "lv": 2, "cost": 0, "cl": "tinker", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "sp": "turret_count", "d": "Turrets deal +2 damage for every Turret in your pack."},
+  "turret_plans":  {"n": "Turret Plans",  "ic": "📜", "t": 3, "lv": 2, "cost": 0, "cl": "tinker", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "sp": "turret_count,turret_pierce", "d": "Turrets deal +2 damage for every Turret in your pack and ignore Armor."},
   "perpetual_core":{"n": "Perpetual Core","ic": "♾️", "t": 6, "lv": 4, "cost": 30, "cl": "tinker", "shop": 0, "c": [[1,0],[0,1],[1,1],[2,1],[1,2]], "tags": ["Mech","Tool","Shock"], "cd": 1.5, "on": {"dmg": 6, "el": "Shock", "charge": 0.5}, "sp": "perpetual", "d": "Whenever any item triggers, items touching the Core gain 20% charge."},
   "siege_walker":  {"n": "Siege Walker",  "ic": "🤖", "t": 6, "lv": 4, "cost": 30, "cl": "tinker", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "tags": ["Turret","Mech"], "cd": 0.5, "on": {"dmg": 3, "el": "Physical"}, "sp": "turret_count", "d": "Turrets deal +2 damage for every Turret in your pack."},
 
@@ -133,10 +135,19 @@
   "living_shield": {"n": "Living Shield", "ic": "🌳", "t": 3, "lv": 2, "cost": 12, "cl": "warden", "shop": 0, "c": [[0,0],[0,1]], "tags": ["Armor","Shield","Nature"], "cd": 3.0, "on": {"shield": 7, "heal": 2}},
   "spiked_club":   {"n": "Spiked Club",   "ic": "🦯", "t": 3, "lv": 2, "cost": 12, "cl": "warden", "shop": 0, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee"], "cd": 2.4, "on": {"dmg": 9, "el": "Physical", "st": {"thorns": 1}}},
   "bramble_seed":  {"n": "Bramble Seed",  "ic": "🌰", "t": 3, "lv": 2, "cost": 0, "cl": "warden", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic","Nature"], "cd": 0, "pass": {"thorns": 3}, "sp": "thorn_grow", "d": "Each time you are hit, gain 1 Thorns."},
-  "titan_root":    {"n": "Titan Root",    "ic": "🌲", "t": 3, "lv": 2, "cost": 0, "cl": "warden", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "pass": {"hp_pct": 35}, "sp": "hp_strike", "d": "Every 4s, deal 5% of your Max HP as damage."},
+  "titan_root":    {"n": "Titan Root",    "ic": "🌲", "t": 3, "lv": 2, "cost": 0, "cl": "warden", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "pass": {"hp_pct": 35}, "sp": "hp_strike,colossus_pierce", "d": "Every 4s, deal 5% of your Max HP as damage. Your Physical hits ignore half of Armor."},
   "bramble_bastion":{"n": "Bramble Bastion","ic": "🏯", "t": 6, "lv": 4, "cost": 30, "cl": "warden", "shop": 0, "c": [[1,0],[0,1],[1,1],[2,1],[1,2]], "tags": ["Armor","Shield","Nature"], "cd": 3.0, "on": {"shield": 10, "st": {"thorns": 4}}, "sp": "thorns_double", "d": "Thorns strike twice."},
   "titan_heart":   {"n": "Titan Heart",   "ic": "🫀", "t": 6, "lv": 4, "cost": 30, "cl": "warden", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "tags": ["Charm"], "cd": 4.0, "on": {"el": "Physical"}, "pass": {"hp_pct": 120}, "sp": "hp_strike_big", "d": "Every 4s, deal 10% of your Max HP as damage."},
 
+  "serrated_cleaver": {"n": "Serrated Cleaver", "ic": "🔪", "t": 1, "lv": 1, "cost": 5, "cl": "ember", "shop": 1, "c": [[0,0],[0,1]], "tags": ["Weapon","Melee"], "cd": 2.2, "on": {"dmg": 6, "el": "Physical", "st": {"bleed": 2}}, "evo": "butcher_cleaver"},
+  "butcher_cleaver": {"n": "Butcher's Cleaver", "ic": "🪓", "t": 3, "lv": 2, "cost": 12, "cl": "ember", "shop": 0, "c": [[0,0],[0,1],[1,0]], "tags": ["Weapon","Melee"], "cd": 2.1, "on": {"dmg": 11, "el": "Physical", "st": {"bleed": 4}}},
+  "coin_sling":    {"n": "Coin Sling",    "ic": "🪙", "t": 1, "lv": 1, "cost": 5, "cl": "venom", "shop": 1, "c": [[0,0],[1,0]], "tags": ["Weapon","Ranged"], "cd": 1.8, "on": {"dmg": 4, "el": "Physical", "st": {"bleed": 1}}, "sp": "gold_shot", "evo": "midas_cannon", "d": "+1 damage per 8 gold you hold."},
+  "midas_cannon":  {"n": "Midas Cannon",  "ic": "💰", "t": 3, "lv": 2, "cost": 12, "cl": "venom", "shop": 0, "c": [[0,0],[1,0],[0,1]], "tags": ["Weapon","Ranged"], "cd": 1.6, "on": {"dmg": 8, "el": "Physical", "st": {"bleed": 2}}, "sp": "gold_shot", "d": "+1 damage per 8 gold you hold."},
+  "flechette_turret": {"n": "Flechette Turret", "ic": "📌", "t": 1, "lv": 1, "cost": 5, "cl": "tinker", "shop": 1, "c": [[0,0],[0,1]], "tags": ["Turret","Mech"], "cd": 1.1, "on": {"dmg": 2, "el": "Physical", "st": {"bleed": 1}}, "evo": "razor_turret"},
+  "razor_turret":  {"n": "Razor Turret",  "ic": "⚙️", "t": 3, "lv": 2, "cost": 12, "cl": "tinker", "shop": 0, "c": [[0,0],[1,0],[0,1]], "tags": ["Turret","Mech"], "cd": 0.9, "on": {"dmg": 4, "el": "Physical", "st": {"bleed": 2}}},
+  "armor_breaker": {"n": "Armor Breaker", "ic": "⛏️", "t": 1, "lv": 1, "cost": 4, "cl": "", "shop": 1, "c": [[0,0]], "tags": ["Tool"], "cd": 0, "adj": [{"tag": "Weapon", "k": "pierce", "v": 0.35}, {"tag": "Turret", "k": "pierce", "v": 0.35}]},
+  "rain_cloud":    {"n": "Rain Cloud",    "ic": "🌧️", "t": 1, "lv": 1, "cost": 4, "cl": "", "shop": 1, "c": [[0,0],[1,0]], "tags": ["Tool","Water"], "cd": 4, "on": {"st": {"soaked": 2}}, "evo": "thunderhead"},
+  "thunderhead":   {"n": "Thunderhead",   "ic": "⛈️", "t": 3, "lv": 2, "cost": 12, "cl": "", "shop": 0, "c": [[0,0],[1,0],[2,0]], "tags": ["Tool","Water","Shock"], "cd": 3.5, "on": {"dmg": 6, "el": "Shock", "st": {"soaked": 3}}},
   "iron_sword":    {"n": "Iron Sword",    "ic": "🗡️", "t": 0, "lv": 1, "cost": 4, "cl": "", "shop": 1, "c": [[0,0],[0,1]], "tags": ["Weapon","Melee"], "cd": 2.0, "on": {"dmg": 5, "el": "Physical"}, "evo": "longsword"},
   "longsword":     {"n": "Longsword",     "ic": "⚔️", "t": 2, "lv": 2, "cost": 9, "cl": "", "shop": 1, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee"], "cd": 2.0, "on": {"dmg": 10, "el": "Physical", "crit": 0.2}, "evo": "executioner"},
   "executioner":   {"n": "Executioner",   "ic": "🪓", "t": 4, "lv": 3, "cost": 17, "cl": "", "shop": 0, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee"], "cd": 2.2, "on": {"dmg": 16, "el": "Physical", "crit": 0.25, "critx": 3}, "sp": "execute", "d": "Double damage to enemies below 30% HP."},
@@ -308,12 +319,12 @@
  "bosses": [
   {"d": 5,  "n": "Magma Golem",  "hp": 220, "atk": 6.4,  "cd": 1.5, "imm": "",       "weak": "Nature"},
   {"d": 10, "n": "Frost Wraith", "hp": 360, "atk": 9.0,  "cd": 1.4, "imm": "Physical", "weak": "Fire"},
-  {"d": 15, "n": "Stone Titan",  "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Nature", "weak": "Shock"},
+  {"d": 15, "n": "Stone Titan",  "hp": 480, "atk": 11.3, "cd": 1.5, "imm": "Nature", "weak": "Shock", "tr": "armored"},
   {"d": 5,  "n": "Broodmother",  "hp": 200, "atk": 6.8,  "cd": 1.5, "imm": "",       "weak": "Fire"},
-  {"d": 5,  "n": "Goblin Warlord", "hp": 215, "atk": 6.0, "cd": 1.5, "imm": "",      "weak": "Shock"},
+  {"d": 5,  "n": "Goblin Warlord", "hp": 190, "atk": 6.0, "cd": 1.5, "imm": "",      "weak": "Shock", "tr": "armored"},
   {"d": 10, "n": "Storm Drake",  "hp": 360, "atk": 9.0,  "cd": 1.4, "imm": "Fire",   "weak": "Nature"},
   {"d": 10, "n": "Plague Lord",  "hp": 380, "atk": 8.6,  "cd": 1.4, "imm": "Nature", "weak": "Fire"},
-  {"d": 15, "n": "Abyss Kraken", "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Shock",  "weak": "Fire"},
+  {"d": 15, "n": "Abyss Kraken", "hp": 480, "atk": 11.3, "cd": 1.5, "imm": "Shock",  "weak": "Fire", "tr": "warded"},
   {"d": 15, "n": "Inferno Dragon", "hp": 520, "atk": 11.8, "cd": 1.5, "imm": "Fire", "weak": "Physical"}
  ],
  "mods": [
@@ -322,7 +333,8 @@
   {"id": "blood", "n": "Blood Moon", "d": "Healing is halved; all your damage is +15%."}
  ],
  "traits": {
-  "armored": {"ic": "🛡️", "n": "Armored"},
+  "armored": {"ic": "🛡️", "n": "Armored", "d": "-30% Physical damage taken"},
+  "warded": {"ic": "🔮", "n": "Warded", "d": "-30% Magic damage taken"},
   "swift": {"ic": "💨", "n": "Swift"},
   "brute": {"ic": "💪", "n": "Brute"},
   "regen": {"ic": "💚", "n": "Regenerating"}

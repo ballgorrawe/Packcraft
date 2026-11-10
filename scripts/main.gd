@@ -1725,7 +1725,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		badges.append("⚔️ %.1f/s" % (e.get("dps", 0.0) * run.hz.get("atk", 1.0)))
 		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
 		if e.weak != "": badges.append("💥 " + tr("weak to %s") % (GameData.elem_icon(e.weak) + tr(e.weak)))
-		if e.tr != "": badges.append(GameData.traits[e.tr].ic + " " + tr(GameData.traits[e.tr].n))
+		if e.tr != "": badges.append(GameData.traits[e.tr].ic + " " + tr(GameData.traits[e.tr].n) + ((" " + tr(GameData.traits[e.tr].d)) if GameData.traits[e.tr].has("d") else ""))
 		badges.append(("🎁 " + tr("loot")) if n.k != "combat" else ("🎲 " + tr("25% loot")))
 		if n.k in ["elite", "ambush"]:
 			badges.append("🎒+1")
@@ -1885,7 +1885,7 @@ func _night_overlay() -> Control:
 
 const SUM_COLS := {
 	"Fire": Color("#ff7a3d"), "Nature": Color("#7ee06e"), "Physical": Color("#e5e7eb"), "Shock": Color("#facc15"),
-	"burn": Color("#e11d48"), "poison": Color("#b26bff"), "shield": Color("#60a5fa"), "heal": Color("#4ade80"),
+	"burn": Color("#e11d48"), "poison": Color("#b26bff"), "bleed": Color("#f87171"), "shield": Color("#60a5fa"), "heal": Color("#4ade80"),
 }
 
 
@@ -1896,7 +1896,7 @@ func _summary_rows(cs: CombatSim) -> Control:
 	v.add_child(UI.title("📊 " + tr("What each item did"), 20))
 	# legend
 	var lg := UI.flow(10)
-	for pair in [["⚔️", tr("Hit"), Color("#e5e7eb")], ["🔥", tr("Burn"), SUM_COLS.burn], ["☠️", tr("Poison"), SUM_COLS.poison], ["🛡️", tr("Shield"), SUM_COLS.shield], ["💚", tr("Heal"), SUM_COLS.heal]]:
+	for pair in [["⚔️", tr("Hit"), Color("#e5e7eb")], ["🔥", tr("Burn"), SUM_COLS.burn], ["☠️", tr("Poison"), SUM_COLS.poison], ["🩸", tr("Bleed"), SUM_COLS.bleed], ["🛡️", tr("Shield"), SUM_COLS.shield], ["💚", tr("Heal"), SUM_COLS.heal]]:
 		var p := UI.panel(Color(pair[2], 0.2), pair[2], 2, 99, 6)
 		p.add_child(UI.lbl(pair[0] + " " + pair[1], 13, Color.WHITE, true))
 		lg.add_child(p)

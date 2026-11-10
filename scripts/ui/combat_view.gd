@@ -73,7 +73,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	if s.e.weak != "":
 		badges.append("💥 %s%s +50%%" % [GameData.elem_icon(s.e.weak), tr(s.e.weak)])
 	if s.e.tr != "":
-		badges.append(GameData.traits[s.e.tr].ic + " " + tr(GameData.traits[s.e.tr].n))
+		badges.append(GameData.traits[s.e.tr].ic + " " + tr(GameData.traits[s.e.tr].n) + ((" " + tr(GameData.traits[s.e.tr].d)) if GameData.traits[s.e.tr].has("d") else ""))
 	var bl := UI.lbl("  ".join(badges), roundi(13 * ks), Color("#fca5a5"))
 	bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -627,11 +627,11 @@ func _refresh() -> void:
 	# on the monster: your burn / poison, with what each tick deals right now
 	for k in sim.fs:
 		if sim.fs[k] > 0:
-			_chip("foe:" + k, foe_chips, k, "%s %s" % [GameData.statuses[k].ic, GameData._num(sim.fs[k])], _rate_txt(sim.dot_tick("foe", k)), seen)
+			_chip("foe:" + k, foe_chips, k, "%s %s" % [GameData.statuses[k].ic, GameData._num(sim.fs[k])], _status_sub(k, sim.fs[k], sim.dot_tick("foe", k)), seen)
 	# on you: what the monster put on you, then your own statuses (Thorns)
 	for k in sim.hd:
 		if sim.hd[k] > 0:
-			_chip("hero:hd:" + k, hero_chips, k, "%s %s" % [GameData.statuses[k].ic, GameData._num(sim.hd[k])], _rate_txt(sim.dot_tick("hero", k)), seen)
+			_chip("hero:hd:" + k, hero_chips, k, "%s %s" % [GameData.statuses[k].ic, GameData._num(sim.hd[k])], _status_sub(k, sim.hd[k], sim.dot_tick("hero", k)), seen)
 	for k in sim.hs:
 		if sim.hs[k] > 0:
 			var s: Dictionary = GameData.statuses[k]
@@ -676,6 +676,16 @@ func _chip(key: String, row: HBoxContainer, sid: String, main_txt: String, sub_t
 	sl2.text = sub_txt
 	sl2.visible = sub_txt != ""
 	p.pivot_offset = p.size / 2
+
+
+## What a status chip says under its stacks: damage per second, Bleed per item use, Soaked effect.
+func _status_sub(k: String, n: float, tick: float) -> String:
+	var s: Dictionary = GameData.statuses[k]
+	if s.get("trig", 0.0) > 0:
+		return "-%s/%s" % [GameData._num(snappedf(n * s.trig, 0.1)), tr("use")]
+	if s.get("magic_amp", 0.0) > 0:
+		return "+%d%% %s" % [roundi(n * s.magic_amp * 100), tr("Magic")]
+	return _rate_txt(tick)
 
 
 ## Per-tick damage under a DoT chip, e.g. "-4.8/s".

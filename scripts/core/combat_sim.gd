@@ -85,7 +85,8 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 	for i in g:
 		var d: Dictionary = i.def()
 		if d.sp != "":
-			sp[d.sp] = true
+			for s_ in d.sp.split(","):   # a relic may carry several specials
+				sp[s_.strip_edges()] = true
 		if d.tags.has("Turret"):
 			turrets += 1
 		hs["thorns"] = hs.get("thorns", 0.0) + d.pass.thorns
@@ -139,7 +140,8 @@ func dot_tick(side: String, k: String) -> float:
 	var rd := res_def()
 	if rd.eff == "dot_pct":
 		dot_mult += rd.v * resv
-	return fs.get(k, 0.0) * s.dmg * dot_mult * RunState.elem_mult(e, s.el) * gold_mult * hero_dmg
+	var v: float = fs.get(k, 0.0) * s.dmg * dot_mult * RunState.elem_mult(e, s.el) * gold_mult * hero_dmg
+	return v * _defense_mult(GameData.is_magic(s.el), 0.0)
 
 
 ## How much damage the DoTs on one side will deal over the next `secs` seconds if nothing changes.
@@ -202,8 +204,64 @@ func _crit(chance: float, mult: float) -> float:
 	return mult if _rng.randf() < chance else 1.0
 
 
+## Bleed: when the bleeding side uses an item it takes `trig` damage per stack (ignores Armor and
+## Shield), then the Bleed drops by its decay. side "foe" = Bleed on the monster, "hero" = on you.
+func _bleed_trigger(side: String) -> void:
+	if not GameData.statuses.has("bleed"):
+		return
+	var s: Dictionary = GameData.statuses.bleed
+	var st: Dictionary = fs if side == "foe" else hd
+	var n: float = st.get("bleed", 0.0)
+	if n <= 0:
+		return
+	var v: float = n * s.trig
+	if side == "foe":
+		v *= gold_mult * hero_dmg
+		ehp -= v
+		stat_dmg["bleed"] = stat_dmg.get("bleed", 0.0) + v
+		_credit_dot("bleed", v)
+	else:
+		php -= v
+	_num(side, "-" + GameData._num(roundf(v * 10) / 10.0), s.col, false, -1, "dot", "bleed" if side == "foe" else "hd:bleed")
+	st["bleed"] = maxf(0.0, n - maxf(1.0, s.decay))
+
+
+## Soaked slows the side's items: each stack takes `slow` off their charge speed.
+func _soak_slow(st: Dictionary) -> float:
+	var s: Dictionary = GameData.statuses.get("soaked", {})
+	return 1.0 - minf(0.9, st.get("soaked", 0.0) * s.get("slow", 0.0))
+
+
+## What the monster's defenses and your debuffs leave of a hit: Armored cuts Physical (less with
+## Armor Pierce), Warded cuts Magic, Soaked makes it take more Magic.
+func _defense_mult(is_mag: bool, pierce: float) -> float:
+	var m := 1.0
+	if is_mag:
+		if e.get("tr", "") == "warded":
+			m *= 1.0 - GameData.WARD_CUT
+		m *= 1.0 + fs.get("soaked", 0.0) * GameData.statuses.get("soaked", {}).get("magic_amp", 0.0)
+	elif e.get("tr", "") == "armored":
+		m *= 1.0 - GameData.ARMOR_CUT * (1.0 - clampf(pierce, 0.0, 1.0))
+	return m
+
+
+## Armor Pierce of a hit: the item's own, Arsenal turrets (all of it), Forgeblade Heat.
+func _pierce(x) -> float:
+	var p := 0.5 if sp.has("colossus_pierce") else 0.0   # Colossus: every Physical hit, Titan strikes too
+	if x == null:
+		return p
+	p += x.f.get("pierce", 0.0)
+	if sp.has("turret_pierce") and x.d.tags.has("Turret"):
+		p = 1.0
+	if sp.has("heat_pierce") and x.d.tags.has("Weapon"):
+		p += 0.04 * resv
+	return minf(1.0, p)
+
+
 ## Deals direct damage to the foe. Returns the damage dealt.
-func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "") -> float:
+## magic: -1 = from the element, 0 = Physical, 1 = Magic (Thorns reflect is Magic without an element).
+func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", magic := -1) -> float:
+	var is_mag: bool = GameData.is_magic(el) if magic < 0 else magic == 1
 	var m := RunState.elem_mult(e, el)
 	var cm := _crit(crit, critx)
 	var v := base * m * cm * gold_mult * hero_dmg
@@ -213,7 +271,8 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "") ->
 			v *= 1.0 + rd.v * resv
 		if x.d.sp == "execute" and ehp < e.hp * 0.3:
 			v *= 2.0
-	v = maxf(1.0, roundf(v) - (3.0 if e.tr == "armored" else 0.0))
+	v *= _defense_mult(is_mag, _pierce(x))
+	v = maxf(1.0, roundf(v))
 	if fshield > 0:
 		var ab := minf(fshield, v)
 		fshield -= ab
@@ -251,7 +310,7 @@ func add_status(k: String, n: float, uid := -1) -> void:
 		if k == "poison":
 			_gain_res("poison_applied", n)
 		_num("foe", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid, "status", k)
-		if k == "burn" and sp.has("burn_burst") and fs.burn >= 20:
+		if k == "burn" and sp.has("burn_burst") and fs.burn >= 15:
 			var v := damage(null, fs.burn, "Fire", 0, 2, "💥")
 			stat_dmg["burn"] += v
 			fs.burn = 5.0
@@ -286,6 +345,7 @@ func fire(idx: int) -> void:
 	var f: Dictionary = x.f
 	x.st.hits += 1
 	_ev({"t": "trigger", "uid": x.i.uid})
+	_bleed_trigger("hero")
 	var dmg: float = f.dmg + x.ramp
 	if sp.has("turret_count") and d.tags.has("Turret"):
 		dmg += turrets * 2
@@ -295,6 +355,8 @@ func fire(idx: int) -> void:
 		x.ramp += f.ramp
 	if d.sp == "shield_dmg":
 		dmg += shield * 0.25
+	if d.sp == "gold_shot":
+		dmg += floorf(run.gold / 8.0)
 	if d.sp == "hp_strike_big":
 		dmg += mhp * 0.10
 	if dmg > 0:
@@ -372,7 +434,7 @@ func step() -> void:
 	if done:
 		return
 	tk += 1
-	var speed := 1.0 + haste()
+	var speed := (1.0 + haste()) * _soak_slow(hd)
 	for idx in items.size():
 		var x: Dictionary = items[idx]
 		var d: Dictionary = x.d
@@ -429,7 +491,7 @@ func step() -> void:
 		x.t -= 1
 	hastes = hastes.filter(func(x): return x.t > 0)
 	# the monster's items charge and fire
-	var fspeed := 1.0 + _foe_haste()
+	var fspeed := (1.0 + _foe_haste()) * _soak_slow(fs)
 	for fx in fi:
 		if fx.cd <= 0:
 			continue
@@ -475,6 +537,7 @@ func foe_fire(fx: Dictionary) -> void:
 	var sup: float = e.get("sup_mult", 1.0)
 	fx.st.hits += 1
 	_ev({"t": "foe_trigger", "uid": fx.uid})
+	_bleed_trigger("foe")
 	if on.dmg > 0:
 		var dm: float = roundf(on.dmg * dm_mult * _crit(on.crit, on.critx) * 10.0) / 10.0
 		var ab := minf(shield, dm)
@@ -516,7 +579,7 @@ func _reflect() -> void:
 		return
 	var times := 2 if sp.has("thorns_double") else 1
 	for _t in times:
-		var v := damage(null, total, GameData.statuses.thorns.el, 0, 2, "🌵")
+		var v := damage(null, total, GameData.statuses.thorns.el, 0, 2, "🌵", 1)   # Thorns hit back with Magic
 		stat_dmg["thorns"] = stat_dmg.get("thorns", 0.0) + v
 
 

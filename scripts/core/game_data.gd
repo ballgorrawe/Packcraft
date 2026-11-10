@@ -8,7 +8,11 @@ const DATA_PATH := "res://data/game_data.json"
 const ELEMENTS := ["Fire", "Nature", "Physical", "Shock"]
 const FOE_NAMES := ["Cave Rat", "Goblin", "Bandit", "Slime", "Skeleton"]
 ## Buff keys an `adj` / `all` entry may use.
-const BUFF_KEYS := ["dmg", "cdr", "crit", "shield", "heal", "burn", "poison", "thorns"]
+const BUFF_KEYS := ["dmg", "cdr", "crit", "shield", "heal", "burn", "poison", "thorns", "bleed", "soaked", "pierce", "to_fire"]
+## Elements whose damage counts as Magic (everything else, and "Physical", is Physical).
+const MAGIC_ELEMENTS := ["Fire", "Nature", "Shock", "Water", "Arcane"]
+const ARMOR_CUT := 0.3    # Armored monsters take this much less Physical damage
+const WARD_CUT := 0.3     # Warded monsters take this much less Magic damage
 
 static var loaded := false
 static var items := {}
@@ -59,6 +63,7 @@ static func ensure_loaded() -> void:
 			"n": s.n, "ic": s.ic, "col": Color(s.col), "side": s.side, "el": str(s.get("el", "")),
 			"tick": float(s.get("tick", 0.0)), "dmg": float(s.get("dmg", 0.0)), "decay": int(s.get("decay", 0)),
 			"max": int(s.get("max", 99)), "reflect": float(s.get("reflect", 0.0)), "d": s.get("d", ""),
+			"trig": float(s.get("trig", 0.0)), "slow": float(s.get("slow", 0.0)), "magic_amp": float(s.get("magic_amp", 0.0)),
 		}
 	for k in d.items:
 		items[k] = _norm_item(d.items[k])
@@ -114,7 +119,7 @@ static func ensure_loaded() -> void:
 	foe_atk_mult = float(d.get("foe_atk_mult", 1.0))
 	late_ramp = float(d.get("late_ramp", 0.0))
 	for b in d.bosses:
-		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": ""})
+		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": str(b.get("tr", ""))})
 	mods = d.mods
 	traits = d.traits
 	for h in d.hazards:
@@ -312,6 +317,10 @@ static func _buff_short(b: Dictionary) -> String:
 	return "+%s %s" % [_num(b.v), b.k]
 
 
+static func is_magic(el: String) -> bool:
+	return MAGIC_ELEMENTS.has(el)
+
+
 static func buff_text(b: Dictionary) -> String:
 	var tag := I18n.t(b.tag)
 	var v: String = _num(b.v)
@@ -321,6 +330,8 @@ static func buff_text(b: Dictionary) -> String:
 		"crit": return I18n.t("%s items +%d%% crit") % [tag, roundi(b.v * 100)]
 		"shield": return I18n.t("%s items +%s Shield") % [tag, v]
 		"heal": return I18n.t("%s items +%s heal") % [tag, v]
+		"pierce": return I18n.t("%s items ignore %d%% of Armor") % [tag, roundi(b.v * 100)]
+		"to_fire": return I18n.t("Inferno path: %s items deal Fire (Magic) damage instead") % tag
 	if statuses.has(b.k):
 		return I18n.t("%s items +%s %s") % [tag, v, I18n.t(statuses[b.k].n)]
 	return tag
@@ -338,7 +349,9 @@ static func describe_lines(id: String) -> Array:
 		when = I18n.t("Every %ss:") % _num(d.cd)
 	var acts := []
 	if on.dmg > 0:
-		acts.append(I18n.t("deal %s %s damage") % [_num(on.dmg), I18n.t(on.el)])
+		var cat := I18n.t("Magic") if is_magic(on.el) else I18n.t("Physical")
+		var elt := I18n.t(on.el) if on.el != "Physical" and on.el != "" else ""
+		acts.append(I18n.t("deal %s %s damage") % [_num(on.dmg), (elt + " (" + cat + ")") if elt != "" else cat])
 	if on.shield > 0:
 		acts.append(I18n.t("gain %s Shield") % _num(on.shield))
 	if on.heal > 0:
