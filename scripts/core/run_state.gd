@@ -12,6 +12,8 @@ const SAVE_VERSION := 2
 
 var cls := ""
 var path := ""                  # chosen class path id, "" until path day
+var pet := ""                   # companion id (a simple always-on buff), "" for none
+var diff := "normal"            # difficulty mode id
 var day := 1
 var gold := 8
 var res := MAX_HEARTS
@@ -39,10 +41,12 @@ var event := {}                 # the event being played this afternoon (see sta
 var mhp_mod := 0.0              # permanent Max HP changes (Cursed Altar)
 
 
-func _init(c: String) -> void:
+func _init(c: String, p := "", df := "normal") -> void:
 	GameData.ensure_loaded()
 	cls = c
-	mhp = GameData.base_hp
+	pet = p if GameData.pets.has(p) else ""
+	diff = GameData.diff_def(df).id
+	mhp = GameData.base_hp + pv("hp")
 	hp = mhp
 	mod = GameData.mods.pick_random()
 	for t in cls_def().bag:
@@ -55,6 +59,19 @@ func _init(c: String) -> void:
 
 func cls_def() -> Dictionary:
 	return GameData.classes[cls]
+
+
+func pet_def() -> Dictionary:
+	return GameData.pets.get(pet, {})
+
+
+## A pet stat (0 when there is no pet or it does not have that buff).
+func pv(key: String) -> float:
+	return GameData.pets.get(pet, {}).get(key, 0.0)
+
+
+func diff_def() -> Dictionary:
+	return GameData.diff_def(diff)
 
 
 func path_def() -> Dictionary:
@@ -341,21 +358,21 @@ func calc() -> Array:
 
 
 func max_hp() -> float:
-	var m := GameData.base_hp + mhp_mod
+	var m := GameData.base_hp + mhp_mod + pv("hp")
 	for i in grid_items():
 		m += i.def().pass.hp
 	return m
 
 
 func regen() -> float:
-	var r := 0.0
+	var r := pv("regen")
 	for i in grid_items():
 		r += i.def().pass.regen
 	return r
 
 
 func income() -> int:
-	var g := 0
+	var g := int(pv("income"))
 	for i in grid_items():
 		g += i.def().pass.income
 	return g
@@ -380,7 +397,7 @@ func eff(i: PItem) -> Dictionary:
 			dmg *= 1.3
 		if mod.id == "blood":
 			dmg *= 1.15
-	var cd: float = d.cd * (1.0 - minf(0.6, i.b.cdr)) * (1.0 - i.pc)
+	var cd: float = d.cd * (1.0 - minf(0.6, i.b.cdr)) * (1.0 - i.pc) * (1.0 - pv("haste"))
 	if mod.id == "storm":
 		cd *= 1.1
 	var st := {}
@@ -392,7 +409,7 @@ func eff(i: PItem) -> Dictionary:
 			if i.b.get(k, 0.0) > 0:
 				st[k] = st.get(k, 0.0) + i.b[k]
 	return {
-		"dmg": snappedf(dmg, 0.1), "cd": maxf(0.3, cd), "crit": minf(1.0, on.crit + i.b.crit), "critx": on.critx,
+		"dmg": snappedf(dmg, 0.1), "cd": maxf(0.3, cd), "crit": minf(1.0, on.crit + i.b.crit + (pv("crit") if on.dmg > 0 else 0.0)), "critx": on.critx,
 		"shield": on.shield + (i.b.shield if on.shield > 0 else 0.0), "heal": on.heal + (i.b.heal if on.heal > 0 else 0.0),
 		"st": st, "charge": on.charge, "haste": on.haste, "ramp": on.ramp, "el": on.el,
 	}
@@ -536,6 +553,8 @@ func fill_shop() -> void:
 
 
 func reroll_cost() -> int:
+	if rr == 0 and pv("free_reroll") > 0:
+		return 0
 	return 1 + int(rr / 2) + (1 if mod.id == "guild" else 0)
 
 
@@ -633,7 +652,7 @@ func foe_dps(d: int) -> float:
 
 func foe_base(elite: bool) -> Dictionary:
 	var fam: String = GameData.FOE_NAMES.pick_random()
-	var e := {"n": fam, "fam": fam, "hp": float(enemy_hp(day)), "dps": foe_dps(day), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
+	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp)), "dps": foe_dps(day) * diff_def().dps, "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
 	if elite:
 		e.n = "Elite " + fam
 		e.hp = float(roundi(e.hp * 1.5))
@@ -740,7 +759,8 @@ func boss_foe(b: Dictionary) -> Dictionary:
 	var e: Dictionary = b.duplicate()
 	var bp: Dictionary = GameData.boss_packs.get(b.n, {})
 	e["fam"] = b.n
-	e["dps"] = b.atk / b.cd * (1.0 + maxf(0.0, b.d - 8) * GameData.late_ramp)
+	e["dps"] = b.atk / b.cd * (1.0 + maxf(0.0, b.d - 8) * GameData.late_ramp) * diff_def().dps
+	e["hp"] = float(roundi(b.hp * diff_def().hp))
 	e["dmg_mult"] = 1.0
 	e["cd_mult"] = 1.0
 	e["gw"] = bp.get("w", 4)
@@ -832,6 +852,9 @@ func begin_day() -> void:
 			am.hp = float(roundi(am.hp * 1.15))
 			extra.append({"k": "ambush", "e": am})
 		nodes.append(extra.pick_random())
+	# harder modes throw an extra Elite road at you more often
+	if randf() < diff_def().elite and day >= ELITE_FROM_DAY and nodes.size() < 3:
+		nodes.append({"k": "elite", "e": foe(true)})
 	if hp < mhp * 0.4 and not nodes.any(func(n): return n.k == "camp"):
 		nodes[nodes.size() - 1] = {"k": "camp"}
 
@@ -1105,7 +1128,7 @@ func to_dict() -> Dictionary:
 	if not result.is_empty():
 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
 	return {
-		"v": SAVE_VERSION, "cls": cls, "path": path, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
+		"v": SAVE_VERSION, "cls": cls, "path": path, "pet": pet, "diff": diff, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
 		"phase": phase, "items": its, "uid_ctr": uid_ctr,
 		"tiles": tiles.keys().map(_v2a), "start": start.keys().map(_v2a),
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
@@ -1127,7 +1150,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	GameData.ensure_loaded()
 	if int(d.get("v", 0)) != SAVE_VERSION or not GameData.classes.has(d.get("cls", "")):
 		return null
-	var r := RunState.new(d.cls)
+	var r := RunState.new(d.cls, str(d.get("pet", "")), str(d.get("diff", "normal")))
 	r.path = str(d.get("path", ""))
 	r.mhp_mod = float(d.get("mhp_mod", 0.0))
 	r.event = d.get("event", {})

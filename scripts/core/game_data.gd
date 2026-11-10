@@ -20,6 +20,9 @@ static var monster_items: Array = []   # ids of enemy-only items (also stored in
 static var families := {}              # foe name -> monster item ids
 static var boss_packs := {}            # boss name -> {w, h, items: [[id, x, y]]}
 static var boss_drops := {}            # boss name -> [[item id, weight]]
+static var pets := {}                  # pet id -> {n, ic, d, hp, crit, income, shield, haste, regen, free_reroll, ult}
+static var pet_keys: Array = []
+static var difficulties: Array = []    # [{id, n, ic, hp, dps, elite}] easiest first
 static var statuses := {}
 static var path_day := 4
 static var foe_hp_mult := 1.0       # global difficulty knobs (enemies and bosses)
@@ -67,6 +70,14 @@ static func ensure_loaded() -> void:
 		items[k] = _norm_item(m)
 		monster_items.append(k)
 	families = d.get("families", {})
+	for k in d.get("pets", {}):
+		var p: Dictionary = d.pets[k]
+		pets[k] = {"n": p.n, "ic": p.ic, "d": p.d}
+		for key in ["hp", "crit", "income", "shield", "haste", "regen", "free_reroll", "ult"]:
+			pets[k][key] = float(p.get(key, 0.0))
+		pet_keys.append(k)
+	for df in d.get("difficulties", []):
+		difficulties.append({"id": df.id, "n": df.n, "ic": df.ic, "hp": float(df.hp), "dps": float(df.dps), "elite": float(df.get("elite", 0.0))})
 	for k in d.get("boss_packs", {}):
 		var bp: Dictionary = d.boss_packs[k]
 		boss_packs[k] = {"w": int(bp.w), "h": int(bp.h), "items": bp.items.map(func(e): return [str(e[0]), int(e[1]), int(e[2])])}
@@ -303,6 +314,13 @@ static func _num(v: float) -> String:
 	if is_equal_approx(v, roundf(v)):
 		return str(int(roundf(v)))
 	return str(snappedf(v, 0.01))
+
+
+static func diff_def(id: String) -> Dictionary:
+	for df in difficulties:
+		if df.id == id:
+			return df
+	return difficulties[0] if not difficulties.is_empty() else {"id": "normal", "n": "Normal", "ic": "🙂", "hp": 1.0, "dps": 1.0, "elite": 0.0}
 
 
 static func foe_icon(name: String) -> String:

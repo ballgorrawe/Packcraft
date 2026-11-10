@@ -50,7 +50,9 @@ static func run_summary() -> String:
 	if not d is Dictionary or not GameData.classes.has(d.get("cls", "")):
 		return ""
 	var c: Dictionary = GameData.classes[d.cls]
-	return "%s %s · Day %d · ❤️ %d" % [c.ic, c.n, int(d.day), int(d.res)]
+	var df := GameData.diff_def(str(d.get("diff", "normal")))
+	var pt: Dictionary = GameData.pets.get(str(d.get("pet", "")), {})
+	return "%s %s %s · %s · Day %d · ❤️ %d" % [c.ic, I18n.t(c.n), pt.get("ic", ""), df.ic + " " + I18n.t(df.n), int(d.day), int(d.res)]
 
 
 static func clear_run() -> void:

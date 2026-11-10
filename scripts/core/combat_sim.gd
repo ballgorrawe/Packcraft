@@ -68,7 +68,8 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 	php = r.hp
 	mhp = r.mhp
 	rg = r.regen()
-	ult_need = r.cls_def().ult.need
+	ult_need = maxi(5, roundi(r.cls_def().ult.need * (1.0 - r.pv("ult"))))
+	shield = r.pv("shield")   # pet: start the fight shielded
 	for k in GameData.statuses:
 		var s: Dictionary = GameData.statuses[k]
 		if s.side == "foe":

@@ -10,6 +10,8 @@ const DRAG_THRESHOLD := 12.0
 
 var run: RunState
 var sel_cls := ""
+var sel_pet := ""
+var sel_diff := "normal"
 var show_how := false
 var show_book := false
 var book_page := 0
@@ -59,6 +61,8 @@ func _ready() -> void:
 	I18n.setup(SaveGame.get_setting("lang", "th" if OS.get_locale_language() == "th" else "en"))
 	theme = UI.build_theme()
 	sel_cls = GameData.class_keys[0]
+	sel_pet = SaveGame.get_setting("pet", GameData.pet_keys[0] if not GameData.pet_keys.is_empty() else "")
+	sel_diff = SaveGame.get_setting("diff", "normal")
 	add_child(UI.background())
 	ghost_layer = CanvasLayer.new()
 	ghost_layer.layer = 50
@@ -339,6 +343,9 @@ func _title_screen() -> Control:
 	var tag := UI.lbl(tr("Pack it. Craft it. Watch it fight."), 20, UI.MU, true)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tag)
+	var ver := UI.lbl("v" + str(ProjectSettings.get_setting("application/config/version", "")), 14, Color(UI.MU, 0.7))
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ver)
 	var summary := "" if _dev else SaveGame.run_summary()
 	if summary != "":
 		var cb := UI.btn("▶️ " + tr("CONTINUE") + "\n" + summary, _continue_run, false, 20, "gold")
@@ -379,8 +386,12 @@ func _title_screen() -> Control:
 		i += 1
 	v.add_child(g)
 	v.add_child(_class_info(sel_cls))
+	v.add_child(_pet_picker())
+	v.add_child(_diff_picker())
 	var start := UI.big_btn("▶️ " + tr("START RUN"), func():
-		run = RunState.new(sel_cls)
+		SaveGame.set_setting("pet", sel_pet)
+		SaveGame.set_setting("diff", sel_diff)
+		run = RunState.new(sel_cls, sel_pet, sel_diff)
 		_clear_sel()
 		anim.clear()
 		render(), "green", 32)
@@ -396,6 +407,76 @@ func _title_screen() -> Control:
 		v.add_child(hp)
 	v.add_child(UI.spacer(false))
 	return sc
+
+
+## Pick a companion: a small, always-on buff.
+func _pet_picker() -> Control:
+	var p := UI.panel(Color(UI.INK, 0.75), UI.BD, 2, 20, 14)
+	var v := UI.vbox(10)
+	p.add_child(v)
+	v.add_child(UI.title("🐾 " + tr("Choose your pet"), 24))
+	var g := GridContainer.new()
+	g.columns = 4
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 10)
+	for k in GameData.pet_keys:
+		var kk: String = k
+		var pd: Dictionary = GameData.pets[k]
+		var on: bool = k == sel_pet
+		var c := UI.card(Color("#4a3a92") if on else UI.PN, UI.GOLD if on else UI.BD, 18, 6)
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cv := UI.vbox(0)
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(cv)
+		var il := UI.plbl(pd.ic, 40, UI.TX, false, true)
+		cv.add_child(il)
+		var nl := UI.plbl(tr(pd.n), 13, UI.GOLD if on else UI.MU, true, true)
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.custom_minimum_size.x = 120
+		cv.add_child(nl)
+		UI.on_tap(c, func():
+			sel_pet = kk
+			render())
+		UI.juice(c)
+		if on:
+			UI.breathe(il, 0.1)
+		g.add_child(c)
+	v.add_child(g)
+	if GameData.pets.has(sel_pet):
+		var dl := UI.wrap_lbl(GameData.pets[sel_pet].ic + " " + tr(GameData.pets[sel_pet].n) + ": " + tr(GameData.pets[sel_pet].d), 17, UI.GOLD)
+		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(dl)
+	return p
+
+
+## Pick a difficulty: enemies get tougher (HP and damage) step by step.
+func _diff_picker() -> Control:
+	var p := UI.panel(Color(UI.INK, 0.75), UI.BD, 2, 20, 14)
+	var v := UI.vbox(10)
+	p.add_child(v)
+	v.add_child(UI.title("⚔️ " + tr("Difficulty"), 24))
+	var row := UI.hbox(8)
+	var kinds := ["green", "gold", "red", "purple"]
+	var i := 0
+	for df in GameData.difficulties:
+		var id: String = df.id
+		var on: bool = id == sel_diff
+		var b := UI.btn(df.ic + "
+" + tr(df.n), func():
+			sel_diff = id
+			render(), false, 16, kinds[mini(i, 3)] if on else "gray")
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = 84
+		if on:
+			UI.breathe(b, 0.03)
+		row.add_child(b)
+		i += 1
+	v.add_child(row)
+	var cur := GameData.diff_def(sel_diff)
+	var dl := UI.wrap_lbl(tr("Enemies: HP ×%.2f · damage ×%.2f") % [cur.hp, cur.dps] + ("" if cur.elite <= 0 else "  ·  " + tr("more Elites")), 16, UI.MU)
+	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(dl)
+	return p
 
 
 func _class_info(k: String) -> Control:
@@ -582,6 +663,12 @@ func _hud() -> Control:
 	al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	av.add_child(al)
 	h.add_child(av)
+	if run.pet != "":
+		# the pet rides next to the hero
+		var pb := UI.lbl(run.pet_def().ic, 32)
+		pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(pb)
+		UI.breathe(pb, 0.08)
 	var hv := UI.vbox(4)
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hv.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -645,6 +732,11 @@ func _ribbon() -> Control:
 			pills.append([("💀 " + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else ("💀 " + tr("Boss tomorrow!")) if b.d == run.day + 1 else ("💀 " + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm), tr(b.weak)]])
 	if not run.hz.is_empty():
 		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
+	if run.diff != "normal":
+		var dd := run.diff_def()
+		pills.append([dd.ic + " " + tr(dd.n), UI.BAD, tr("Enemies: HP ×%.2f · damage ×%.2f") % [dd.hp, dd.dps]])
+	if run.pet != "":
+		pills.append([run.pet_def().ic + " " + tr(run.pet_def().n), UI.GOOD, tr(run.pet_def().d)])
 	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
 	if run.path != "":
 		pills.append([run.path_def().ic + " " + tr(run.path_def().n), UI.GOLD, tr(run.path_def().d)])
@@ -2032,7 +2124,7 @@ func _autoshot(dir: String) -> void:
 			render()
 	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/01_title.png")
-	run = RunState.new(sel_cls)
+	run = RunState.new(sel_cls, sel_pet, sel_diff)
 	run.gold = 40
 	for id in ["flame_saber", "bellows", "ash_plate", "health_potion", "smith_hammer"]:
 		run.items.append(run.make_item(id, "storage"))

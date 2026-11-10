@@ -60,6 +60,7 @@ godot --headless --path . --script res://tests/sim_test.gd -- --runs=10 --quiet 
 godot --headless --path . --script res://tests/sim_test.gd -- --greedy           # bot always takes Elite/Ambush
 godot --headless --path . --script res://tests/sim_test.gd -- --losses           # print every lost fight
 godot --headless --path . --script res://tests/sim_test.gd -- --events           # bot takes events whenever offered
+godot --headless --path . --script res://tests/sim_test.gd -- --diff=abyss       # normal, hard, vhard, abyss
 godot --headless --path . --script res://tests/save_test.gd                       # save/load round-trip
 godot --headless --path . --script res://tests/ui_save_test.gd                    # autosave + Continue through the real UI
 godot --headless --path . --script res://tests/loot_test.gd                       # loot tier odds by day

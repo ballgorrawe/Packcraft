@@ -6,11 +6,15 @@ extends SceneTree
 ##                      --quiet   only print the summary
 ##                      --losses  print every lost fight with the pack's numbers
 ##                      --events  take an event whenever one is offered
+##                      --diff=ID  difficulty (normal, hard, vhard, abyss)
+##                      --nopets   play without a pet
 
 var greedy := false
 var quiet := false
 var losses := false
 var events := false
+var diff := "normal"
+var use_pets := true
 
 
 func _init() -> void:
@@ -20,6 +24,10 @@ func _init() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "--greedy":
 			greedy = true
+		elif a.begins_with("--diff="):
+			diff = a.trim_prefix("--diff=")
+		elif a == "--nopets":
+			use_pets = false
 		elif a == "--events":
 			events = true
 		elif a == "--losses":
@@ -39,7 +47,8 @@ func _init() -> void:
 		var ults := 0
 		var fights := 0
 		for trial in runs:
-			var r := RunState.new(cls)
+			var pet: String = GameData.pet_keys[trial % GameData.pet_keys.size()] if use_pets else ""
+			var r := RunState.new(cls, pet, diff)
 			var guard := 0
 			var got_cap := false
 			while r.end_state == "" and guard < 60:
