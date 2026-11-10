@@ -1,0 +1,262 @@
+diff --git a/data/game_data.json b/data/game_data.json
+index c607d6c..83990fd 100644
+--- a/data/game_data.json
++++ b/data/game_data.json
+@@ -32,7 +32,7 @@
+    "n": "Clockwork Tinker", "ic": "⚙️", "hero": "🧑‍🔧", "d": "Gadgets that charge each other into a storm of tiny hits.",
+    "col": "#f5c542", "stats": {"Damage": 4, "Defense": 1, "Sustain": 1, "Difficulty": 4},
+    "comp": ["Core: Batteries next to guns make them fire more often; Spark Pistol + Gear Box fuse into an Arc Repeater.", "🔋 Overclock: chain Charge so everything fires nonstop. Capstone: Perpetual Core.", "🛠️ Arsenal: fill the pack with Turrets; each one makes the others stronger. Capstone: Siege Walker."],
+-   "st": [["spark_pistol", 3, 3], ["battery", 4, 3]],
++   "st": [["spark_pistol", 3, 3], ["battery", 5, 3]],
+    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
+    "res": {"id": "gears", "n": "Gears", "ic": "🔩", "gain": "trigger_tag", "tag": "Mech", "per": 3, "eff": "haste_pct", "v": 0.01, "cap": 0.4, "d": "+1 Gear per 3 Mech triggers. All items charge 1% faster per Gear (max 40%)."},
+    "ult": {"n": "Overdrive", "ic": "⚡", "need": 24, "on": {"haste": [0.5, 4]}, "sp": "full_charge", "d": "Every item charges fully, then +50% Haste for 4 seconds."},
+diff --git a/scripts/core/p_item.gd b/scripts/core/p_item.gd
+index a61671c..c487372 100644
+--- a/scripts/core/p_item.gd
++++ b/scripts/core/p_item.gd
+@@ -11,6 +11,7 @@ var rot := 0
+ var starter := false
+ var pd := 0.0   # permanent bonus damage (forge)
+ var pc := 0.0   # permanent cooldown reduction fraction (campfire polish)
++var paid := -1  # gold paid in the shop (-1 = not bought, e.g. loot or starter)
+ var b := {}     # buffs from stars and sets, recomputed by RunState.calc()
+ 
+ 
+diff --git a/scripts/core/run_state.gd b/scripts/core/run_state.gd
+index e910a15..362ca97 100644
+--- a/scripts/core/run_state.gd
++++ b/scripts/core/run_state.gd
+@@ -5,6 +5,7 @@ extends RefCounted
+ 
+ const RESIST := 0.2          # damage multiplier when the foe resists that element (80% less)
+ const MAX_HEARTS := 3
++const MIN_MAX_HP := 30.0       # the Cursed Altar can never take Max HP below this
+ const COMBAT_DROP := 0.25       # chance a normal fight drops an item
+ const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
+ const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
+@@ -361,7 +362,7 @@ func max_hp() -> float:
+ 	var m := GameData.base_hp + mhp_mod + pv("hp")
+ 	for i in grid_items():
+ 		m += i.def().pass.hp
+-	return m
++	return maxf(10.0, m)
+ 
+ 
+ func regen() -> float:
+@@ -585,6 +586,8 @@ func buy_bag(i: int) -> bool:
+ 	gold -= e.price
+ 	expand += e.n
+ 	bags += 1
++	# spec: a bag card is gone once bought (a fresh one comes with the next reroll or day)
++	shop.remove_at(i)
+ 	for x in shop:
+ 		if x.has("bag"):
+ 			x.price = bag_price(2 if x.n == 3 else x.n)
+@@ -601,6 +604,7 @@ func buy_item(i: int) -> PItem:
+ 	gold -= e.price
+ 	shop.remove_at(i)
+ 	var it := make_item(e.id, "held")
++	it.paid = int(e.price)
+ 	items.append(it)
+ 	return it
+ 
+@@ -610,7 +614,7 @@ func sell_price(it: PItem) -> int:
+ 
+ 
+ func sell(it: PItem) -> bool:
+-	if it.starter:
++	if it.starter or it.def().relic:
+ 		return false
+ 	gold += sell_price(it)
+ 	items.erase(it)
+@@ -811,7 +815,7 @@ func event_ok(k: String) -> bool:
+ 		"roulette":
+ 			return day >= 2
+ 		"altar":
+-			return day >= 3 and (res > 0 or mhp > 40)
++			return day >= 3 and (res > 0 or altar_hp_ok())
+ 		"cauldron":
+ 			return items.filter(func(i): return not i.starter).size() >= 2
+ 	return true
+@@ -972,10 +976,21 @@ func ev_buy(i: int) -> bool:
+ 	return true
+ 
+ 
++## What the merchant pays: full list price, but never more than was paid in the shop
++## (no buy-at-discount, sell-at-full loop) and treasure only at its stated value.
++func merchant_price(it: PItem) -> int:
++	if it.def().tags.has("Treasure"):
++		return sell_price(it)
++	var p: int = it.def().cost
++	if it.paid >= 0:
++		p = mini(p, it.paid)
++	return p
++
++
+ func ev_sell_full(it: PItem) -> bool:
+ 	if it.starter or it.def().relic or not items.has(it):
+ 		return false
+-	gold += it.def().cost
++	gold += merchant_price(it)
+ 	items.erase(it)
+ 	return true
+ 
+@@ -1025,8 +1040,9 @@ func ev_brew(a: PItem, b: PItem) -> String:
+ 	if event.get("done", false) or a == b or a.starter or b.starter or a.def().relic or b.def().relic or not items.has(a) or not items.has(b):
+ 		return ""
+ 	var top := maxi(a.def().tier, b.def().tier)
+-	# one rarity step up (the shop pool tops out at Epic)
+-	var id := roll_tiered(4, mini(3, top + 1))
++	# one rarity step up. The shop pool tops out at Epic, so from Epic and above pick straight
++	# from the next rarity (never lower than the best input).
++	var id := roll_tiered(4, top + 1) if top + 1 <= 3 else _brew_high(top)
+ 	items.erase(a)
+ 	items.erase(b)
+ 	items.append(make_item(id, "storage"))
+@@ -1036,7 +1052,22 @@ func ev_brew(a: PItem, b: PItem) -> String:
+ 	return id
+ 
+ 
++## Cauldron result for Epic+ inputs: a random non-relic, non-treasure item one rarity higher
++## (capped at the top rarity that exists), falling back to the same rarity.
++func _brew_high(top: int) -> String:
++	for t in [mini(top + 1, 6), top]:
++		var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == t and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
++		if pool.size() > 0:
++			return pool[randi() % pool.size()]
++	return roll_tiered(4, 3)
++
++
+ ## Cursed altar: a Legendary item for 10 Max HP forever, or for a Heart.
++## Paying with Max HP is only allowed while it stays at or above the floor.
++func altar_hp_ok() -> bool:
++	return mhp - 10 >= MIN_MAX_HP
++
++
+ func ev_altar(i: int, pay: String) -> bool:
+ 	if event.get("done", false) or i < 0 or i >= event.offer.size():
+ 		return false
+@@ -1046,6 +1077,8 @@ func ev_altar(i: int, pay: String) -> bool:
+ 		res -= 1
+ 		event.rew.append({"k": "heart", "v": -1})
+ 	else:
++		if not altar_hp_ok():
++			return false
+ 		mhp_mod -= 10
+ 		sync_hp()
+ 		event.rew.append({"k": "maxhp", "v": -10})
+@@ -1127,7 +1160,7 @@ func to_dict() -> Dictionary:
+ 		var loc: String = i.loc
+ 		if loc == "held":
+ 			loc = "storage"
+-		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc})
++		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc, "paid": i.paid})
+ 	var res_d := {}
+ 	if not result.is_empty():
+ 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
+@@ -1190,6 +1223,7 @@ static func from_dict(d: Dictionary) -> RunState:
+ 		it.starter = bool(s.starter)
+ 		it.pd = float(s.pd)
+ 		it.pc = float(s.pc)
++		it.paid = int(s.get("paid", -1))
+ 		it.b = r._zero_b()
+ 		r.items.append(it)
+ 	r.tiles = {}
+diff --git a/scripts/main.gd b/scripts/main.gd
+index 4ba3e48..91fe1e4 100644
+--- a/scripts/main.gd
++++ b/scripts/main.gd
+@@ -686,7 +686,7 @@ func _end_screen() -> Control:
+ 	v.add_child(b)
+ 	if w:
+ 		for k in 5:
+-			create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
++			cc.create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
+ 	return cc
+ 
+ 
+@@ -734,7 +734,7 @@ func _run_screen(fresh: bool) -> Control:
+ 				var c: Vector2 = (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
+ 				var col: Color = GameData.tier_color(it.id)
+ 				var uid: int = it.uid
+-				create_tween().tween_callback(func():
++				g.create_tween().tween_callback(func():
+ 					if is_instance_valid(g):
+ 						pops[uid] = 0.0
+ 						UI.burst(g, c, UI.GOLD, 30, 320, 9)
+@@ -1143,7 +1143,7 @@ func _inspector_popup() -> Control:
+ 		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ 		tips.add_child(rb)
+ 		tips.add_child(_tip("📦", tr("drag to storage")))
+-		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not selected.starter else tr("starter")))
++		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not (selected.starter or selected.def().relic) else tr("starter")))
+ 		v.add_child(tips)
+ 	elif not owned and inspect_idx >= 0 and inspect_idx < run.shop.size():
+ 		var e: Dictionary = run.shop[inspect_idx]
+@@ -1576,14 +1576,14 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
+ 		nl.text = fmt % 0
+ 		var ff := fmt
+ 		var target := num
+-		create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
++		nl.create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
+ 	var cl := UI.plbl(cap, 14, Color("#e9e4ff"), true, true)
+ 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ 	cl.custom_minimum_size.x = 128
+ 	vb.add_child(cl)
+ 	UI.pop_in(p, delay, 30)
+ 	var pp := p
+-	create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
++	pp.create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
+ 	return p
+ 
+ 
+@@ -1784,7 +1784,7 @@ func _ev_merchant(v: VBoxContainer) -> void:
+ 		if it.starter or it.loc == "held" or it.def().relic:
+ 			continue
+ 		var itr: PItem = it
+-		fl.add_child(_item_pick_card(it, "+%d🪙" % it.def().cost, false, func():
++		fl.add_child(_item_pick_card(it, "+%d🪙" % run.merchant_price(it), false, func():
+ 			run.ev_sell_full(itr)
+ 			render()))
+ 	v.add_child(fl)
+@@ -1882,9 +1882,11 @@ func _ev_altar(v: VBoxContainer) -> void:
+ 		tv.add_child(UI.wrap_lbl(GameData.describe_lines(id)[0], 15, Color("#e9e4ff")))
+ 		var br := UI.hbox(8)
+ 		var ii: int = i
+-		br.add_child(UI.btn("-10 " + tr("Max HP"), func():
++		var mb := UI.btn("-10 " + tr("Max HP"), func():
+ 			run.ev_altar(ii, "hp")
+-			render(), false, 16, "red"))
++			render(), false, 16, "red")
++		mb.disabled = not run.altar_hp_ok()
++		br.add_child(mb)
+ 		var hb := UI.btn("-1 ❤️", func():
+ 			run.ev_altar(ii, "heart")
+ 			render(), false, 16, "purple")
+@@ -2268,7 +2270,7 @@ func _drop(pos: Vector2) -> void:
+ 			it.loc = "storage"
+ 			done = true
+ 	elif sell_zone and sell_zone.get_global_rect().has_point(pos) and drag_src != "shop":
+-		if it.starter:
++		if it.starter or it.def().relic:
+ 			run.msg = tr("Starter items can't be sold.")
+ 		else:
+ 			var g := run.sell_price(it)
+@@ -2286,7 +2288,7 @@ func _drop(pos: Vector2) -> void:
+ 		pops[it.uid] = 0.0
+ 		var c := (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
+ 		var gref := grid
+-		create_tween().tween_callback(func():
++		gref.create_tween().tween_callback(func():
+ 			if is_instance_valid(gref):
+ 				UI.burst(gref, c, GameData.tier_color(it.id), 14, 220, 6)).set_delay(0.08)
+ 	_end_drag()
+@@ -2303,6 +2305,7 @@ func _pay_shop() -> bool:
+ 		run.msg = tr("Not enough gold.")
+ 		return false
+ 	run.gold -= e.price
++	drag_item.paid = int(e.price)
+ 	run.shop.remove_at(drag_shop_idx)
+ 	drag_item.uid = run.uid_ctr
+ 	run.uid_ctr += 1

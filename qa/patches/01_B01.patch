@@ -1,0 +1,25 @@
+From b60ffe140ded97915c7df70b87ab57bd753bed7d Mon Sep 17 00:00:00 2001
+From: ballgorrawe <253218482+ballgorrawe@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:19:58 +0700
+Subject: [PATCH] B01 Tinker starting items overlap
+
+---
+ data/game_data.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data/game_data.json b/data/game_data.json
+index c607d6c..83990fd 100644
+--- a/data/game_data.json
++++ b/data/game_data.json
+@@ -32,7 +32,7 @@
+    "n": "Clockwork Tinker", "ic": "⚙️", "hero": "🧑‍🔧", "d": "Gadgets that charge each other into a storm of tiny hits.",
+    "col": "#f5c542", "stats": {"Damage": 4, "Defense": 1, "Sustain": 1, "Difficulty": 4},
+    "comp": ["Core: Batteries next to guns make them fire more often; Spark Pistol + Gear Box fuse into an Arc Repeater.", "🔋 Overclock: chain Charge so everything fires nonstop. Capstone: Perpetual Core.", "🛠️ Arsenal: fill the pack with Turrets; each one makes the others stronger. Capstone: Siege Walker."],
+-   "st": [["spark_pistol", 3, 3], ["battery", 4, 3]],
++   "st": [["spark_pistol", 3, 3], ["battery", 5, 3]],
+    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
+    "res": {"id": "gears", "n": "Gears", "ic": "🔩", "gain": "trigger_tag", "tag": "Mech", "per": 3, "eff": "haste_pct", "v": 0.01, "cap": 0.4, "d": "+1 Gear per 3 Mech triggers. All items charge 1% faster per Gear (max 40%)."},
+    "ult": {"n": "Overdrive", "ic": "⚡", "need": 24, "on": {"haste": [0.5, 4]}, "sp": "full_charge", "d": "Every item charges fully, then +50% Haste for 4 seconds."},
+-- 
+2.52.0.windows.1
+

@@ -1,0 +1,25 @@
+From b779b1edf96b1cd459c67a9e882edaeef03e7853 Mon Sep 17 00:00:00 2001
+From: ballgorrawe <253218482+ballgorrawe@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:24:41 +0700
+Subject: [PATCH] S01 (optional, spec) Bag card leaves the shop once bought
+
+---
+ scripts/core/run_state.gd | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/core/run_state.gd b/scripts/core/run_state.gd
+index 3d507e6..362ca97 100644
+--- a/scripts/core/run_state.gd
++++ b/scripts/core/run_state.gd
+@@ -586,6 +586,8 @@ func buy_bag(i: int) -> bool:
+ 	gold -= e.price
+ 	expand += e.n
+ 	bags += 1
++	# spec: a bag card is gone once bought (a fresh one comes with the next reroll or day)
++	shop.remove_at(i)
+ 	for x in shop:
+ 		if x.has("bag"):
+ 			x.price = bag_price(2 if x.n == 3 else x.n)
+-- 
+2.52.0.windows.1
+

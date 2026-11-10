@@ -1,0 +1,60 @@
+From 1a3d4ce5abb988a876db7982154d26a1694de598 Mon Sep 17 00:00:00 2001
+From: ballgorrawe <253218482+ballgorrawe@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:22:46 +0700
+Subject: [PATCH] B07 Delayed UI effects are bound to the node they touch
+
+---
+ scripts/main.gd | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/scripts/main.gd b/scripts/main.gd
+index b87b987..91fe1e4 100644
+--- a/scripts/main.gd
++++ b/scripts/main.gd
+@@ -686,7 +686,7 @@ func _end_screen() -> Control:
+ 	v.add_child(b)
+ 	if w:
+ 		for k in 5:
+-			create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
++			cc.create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
+ 	return cc
+ 
+ 
+@@ -734,7 +734,7 @@ func _run_screen(fresh: bool) -> Control:
+ 				var c: Vector2 = (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
+ 				var col: Color = GameData.tier_color(it.id)
+ 				var uid: int = it.uid
+-				create_tween().tween_callback(func():
++				g.create_tween().tween_callback(func():
+ 					if is_instance_valid(g):
+ 						pops[uid] = 0.0
+ 						UI.burst(g, c, UI.GOLD, 30, 320, 9)
+@@ -1576,14 +1576,14 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
+ 		nl.text = fmt % 0
+ 		var ff := fmt
+ 		var target := num
+-		create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
++		nl.create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
+ 	var cl := UI.plbl(cap, 14, Color("#e9e4ff"), true, true)
+ 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ 	cl.custom_minimum_size.x = 128
+ 	vb.add_child(cl)
+ 	UI.pop_in(p, delay, 30)
+ 	var pp := p
+-	create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
++	pp.create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
+ 	return p
+ 
+ 
+@@ -2288,7 +2288,7 @@ func _drop(pos: Vector2) -> void:
+ 		pops[it.uid] = 0.0
+ 		var c := (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
+ 		var gref := grid
+-		create_tween().tween_callback(func():
++		gref.create_tween().tween_callback(func():
+ 			if is_instance_valid(gref):
+ 				UI.burst(gref, c, GameData.tier_color(it.id), 14, 220, 6)).set_delay(0.08)
+ 	_end_drag()
+-- 
+2.52.0.windows.1
+

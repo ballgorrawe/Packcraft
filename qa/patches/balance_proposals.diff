@@ -1,0 +1,88 @@
+diff --git a/data/game_data.json b/data/game_data.json
+index 83990fd..de3b848 100644
+--- a/data/game_data.json
++++ b/data/game_data.json
+@@ -44,7 +44,7 @@
+    "comp": ["Core: Stone Shield + Moss Charm fuse into a Living Shield. Easy to start: block first, hit back later.", "🌵 Thorns: stack Thorns and let every enemy hit hurt itself. Capstone: Bramble Bastion.", "⛰️ Colossus: huge Max HP that turns into big strikes. Capstone: Titan Heart."],
+    "st": [["stone_shield", 3, 2], ["rock_club", 5, 2]],
+    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
+-   "res": {"id": "guard", "n": "Guard", "ic": "🪨", "gain": "shield_gained", "per": 10, "eff": "reflect", "v": 0.5, "d": "+1 Guard per 10 Shield gained. Each Guard deals 0.5 damage back when you are hit."},
++   "res": {"id": "guard", "n": "Guard", "ic": "🪨", "gain": "shield_gained", "per": 20, "eff": "reflect", "v": 0.25, "d": "+1 Guard per 20 Shield gained. Each Guard deals 0.25 damage back when you are hit."},
+    "ult": {"n": "Earthshatter", "ic": "🌋", "need": 16, "on": {"el": "Physical"}, "sp": "shield_slam", "d": "Deals damage equal to twice your Shield."},
+    "paths": ["thorns", "colossus"]
+   }
+@@ -114,11 +114,11 @@
+   "arc_repeater":  {"n": "Arc Repeater",  "ic": "🔌", "t": 3, "lv": 2, "cost": 12, "cl": "tinker", "shop": 0, "c": [[0,0],[1,0]], "tags": ["Weapon","Ranged","Mech","Shock"], "cd": 1.0, "on": {"dmg": 5, "el": "Shock"}},
+   "overclock_chip":{"n": "Overclock Chip","ic": "💾", "t": 3, "lv": 2, "cost": 12, "cl": "tinker", "shop": 0, "c": [[0,0]], "tags": ["Mech","Tool"], "cd": 3.0, "on": {"charge": 0.6, "haste": [0.2, 2]}},
+   "flux_coil":     {"n": "Flux Coil",     "ic": "🌀", "t": 3, "lv": 2, "cost": 0, "cl": "tinker", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic","Mech"], "cd": 0, "sp": "charge_chain", "d": "Whenever any item triggers, Mech items touching it gain 0.2s of charge."},
+-  "turret_plans":  {"n": "Turret Plans",  "ic": "📜", "t": 3, "lv": 2, "cost": 0, "cl": "tinker", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "sp": "turret_count", "d": "Turrets deal +1 damage for every Turret in your pack."},
++  "turret_plans":  {"n": "Turret Plans",  "ic": "📜", "t": 3, "lv": 2, "cost": 0, "cl": "tinker", "shop": 0, "relic": 1, "c": [[0,0]], "tags": ["Relic"], "cd": 0, "sp": "turret_count", "d": "Turrets deal +2 damage for every Turret in your pack."},
+   "perpetual_core":{"n": "Perpetual Core","ic": "♾️", "t": 6, "lv": 4, "cost": 30, "cl": "tinker", "shop": 0, "c": [[1,0],[0,1],[1,1],[2,1],[1,2]], "tags": ["Mech","Tool","Shock"], "cd": 1.5, "on": {"dmg": 6, "el": "Shock", "charge": 0.5}, "sp": "perpetual", "d": "Whenever any item triggers, items touching the Core gain 20% charge."},
+-  "siege_walker":  {"n": "Siege Walker",  "ic": "🤖", "t": 6, "lv": 4, "cost": 30, "cl": "tinker", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "tags": ["Turret","Mech"], "cd": 0.5, "on": {"dmg": 3, "el": "Physical"}, "sp": "turret_count", "d": "Turrets deal +1 damage for every Turret in your pack."},
++  "siege_walker":  {"n": "Siege Walker",  "ic": "🤖", "t": 6, "lv": 4, "cost": 30, "cl": "tinker", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "tags": ["Turret","Mech"], "cd": 0.5, "on": {"dmg": 3, "el": "Physical"}, "sp": "turret_count", "d": "Turrets deal +2 damage for every Turret in your pack."},
+ 
+-  "stone_shield":  {"n": "Stone Shield",  "ic": "🪨", "t": 0, "lv": 1, "cost": 4, "cl": "warden", "shop": 1, "c": [[0,0],[0,1]], "tags": ["Armor","Shield"], "cd": 3.0, "on": {"shield": 5}, "evo": "granite_shield"},
++  "stone_shield":  {"n": "Stone Shield",  "ic": "🪨", "t": 0, "lv": 1, "cost": 4, "cl": "warden", "shop": 1, "c": [[0,0],[0,1]], "tags": ["Armor","Shield"], "cd": 3.0, "on": {"shield": 4}, "evo": "granite_shield"},
+   "granite_shield":{"n": "Granite Shield","ic": "🛡️", "t": 2, "lv": 2, "cost": 10, "cl": "warden", "shop": 1, "c": [[0,0],[0,1],[0,2]], "tags": ["Armor","Shield"], "cd": 3.0, "on": {"shield": 9, "st": {"thorns": 1}}, "evo": "mountain_aegis"},
+   "mountain_aegis":{"n": "Mountain Aegis","ic": "🏔️", "t": 4, "lv": 3, "cost": 18, "cl": "warden", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1]], "tags": ["Armor","Shield"], "cd": 3.0, "on": {"shield": 14, "st": {"thorns": 2}}},
+   "rock_club":     {"n": "Rock Club",     "ic": "🏏", "t": 0, "lv": 1, "cost": 4, "cl": "warden", "shop": 1, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee"], "cd": 2.4, "on": {"dmg": 7, "el": "Physical"}, "evo": "boulder_maul"},
+@@ -254,12 +254,12 @@
+  "_pets": "A pet is a simple, always-on buff picked at the start of a run. Keys: hp (Max HP), crit (all items), income (gold each morning), shield (Shield at the start of each fight), haste (items charge faster), regen (HP per second), free_reroll (first reroll each day is free), ult (Ultimate needs this much less charge).",
+  "pets": {
+   "pup":    {"n": "Loyal Pup",    "ic": "🐶", "d": "+15 Max HP.", "hp": 15},
+-  "cat":    {"n": "Lucky Cat",    "ic": "🐱", "d": "All items +8% crit chance.", "crit": 0.08},
++  "cat":    {"n": "Lucky Cat",    "ic": "🐱", "d": "All items +12% crit chance.", "crit": 0.12},
+   "mouse":  {"n": "Coin Mouse",   "ic": "🐭", "d": "+2 gold every morning.", "income": 2},
+-  "turtle": {"n": "Shell Turtle", "ic": "🐢", "d": "Start every fight with 10 Shield.", "shield": 10},
++  "turtle": {"n": "Shell Turtle", "ic": "🐢", "d": "Start every fight with 8 Shield.", "shield": 8},
+   "owl":    {"n": "Wise Owl",     "ic": "🦉", "d": "All items charge 6% faster.", "haste": 0.06},
+   "frog":   {"n": "Healing Frog", "ic": "🐸", "d": "Regenerate 0.8 HP per second.", "regen": 0.8},
+-  "fox":    {"n": "Sly Fox",      "ic": "🦊", "d": "Your first shop reroll each day is free.", "free_reroll": 1},
++  "fox":    {"n": "Sly Fox",      "ic": "🦊", "d": "Your first 2 shop rerolls each day are free.", "free_reroll": 2},
+   "bee":    {"n": "Busy Bee",     "ic": "🐝", "d": "Ultimate charges 20% faster.", "ult": 0.2}
+  },
+ 
+@@ -276,7 +276,7 @@
+ 
+  "bosses": [
+   {"d": 5,  "n": "Magma Golem",  "hp": 220, "atk": 6.4,  "cd": 1.5, "imm": "",       "weak": "Nature"},
+-  {"d": 10, "n": "Frost Wraith", "hp": 400, "atk": 9.0,  "cd": 1.4, "imm": "Physical", "weak": "Fire"},
++  {"d": 10, "n": "Frost Wraith", "hp": 360, "atk": 9.0,  "cd": 1.4, "imm": "Physical", "weak": "Fire"},
+   {"d": 15, "n": "Stone Titan",  "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Nature", "weak": "Shock"}
+  ],
+  "mods": [
+diff --git a/scripts/core/combat_sim.gd b/scripts/core/combat_sim.gd
+index bf7c3d8..9c09e0f 100644
+--- a/scripts/core/combat_sim.gd
++++ b/scripts/core/combat_sim.gd
+@@ -247,7 +247,7 @@ func fire(idx: int) -> void:
+ 	_ev({"t": "trigger", "uid": x.i.uid})
+ 	var dmg: float = f.dmg + x.ramp
+ 	if sp.has("turret_count") and d.tags.has("Turret"):
+-		dmg += turrets
++		dmg += turrets * 2
+ 	if sp.has("weapon_ramp") and d.tags.has("Weapon"):
+ 		x.ramp += 1.0
+ 	if f.ramp > 0:
+@@ -308,7 +308,7 @@ func fire_ult() -> void:
+ 	var dmg: float = on.dmg + on.dmg_per_res * resv
+ 	match u.sp:
+ 		"shield_slam":
+-			dmg += shield * 2.0
++			dmg += shield * 1.5
+ 		"double_poison":
+ 			if fs.get("poison", 0.0) > 0:
+ 				add_status("poison", fs.poison)
+diff --git a/scripts/core/run_state.gd b/scripts/core/run_state.gd
+index 362ca97..39aef40 100644
+--- a/scripts/core/run_state.gd
++++ b/scripts/core/run_state.gd
+@@ -557,7 +557,7 @@ func fill_shop() -> void:
+ 
+ 
+ func reroll_cost() -> int:
+-	if rr == 0 and pv("free_reroll") > 0:
++	if rr < int(pv("free_reroll")):
+ 		return 0
+ 	return 1 + int(rr / 2) + (1 if mod.id == "guild" else 0)
+ 

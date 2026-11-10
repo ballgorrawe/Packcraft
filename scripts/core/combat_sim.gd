@@ -120,8 +120,42 @@ func _log(t: String) -> void:
 		log_lines.resize(6)
 
 
-func _num(side: String, text: String, col: Color, big := false, uid := -1) -> void:
-	_ev({"t": "num", "side": side, "text": text, "col": col, "big": big, "uid": uid})
+## kind: "" (plain number), "shield", "dot" (a status tick) or "status" (stacks applied); key = status id.
+func _num(side: String, text: String, col: Color, big := false, uid := -1, kind := "", key := "") -> void:
+	_ev({"t": "num", "side": side, "text": text, "col": col, "big": big, "uid": uid, "kind": kind, "key": key})
+
+
+## Damage one status tick deals right now. side "foe" = statuses on the monster (your DoTs),
+## "hero" = statuses the monster put on you. Poison crits (Venom special) are left out.
+func dot_tick(side: String, k: String) -> float:
+	var s: Dictionary = GameData.statuses[k]
+	if s.tick <= 0:
+		return 0.0
+	if side == "hero":
+		return hd.get(k, 0.0) * s.dmg
+	var dot_mult := 1.0
+	var rd := res_def()
+	if rd.eff == "dot_pct":
+		dot_mult += rd.v * resv
+	return fs.get(k, 0.0) * s.dmg * dot_mult * RunState.elem_mult(e, s.el) * gold_mult
+
+
+## How much damage the DoTs on one side will deal over the next `secs` seconds if nothing changes.
+func dot_forecast(side: String, secs := 3) -> float:
+	var st: Dictionary = hd if side == "hero" else fs
+	var tot := 0.0
+	for k in st:
+		var s: Dictionary = GameData.statuses[k]
+		var n: float = st[k]
+		if s.tick <= 0 or n <= 0:
+			continue
+		var per := dot_tick(side, k) / n
+		var decay: float = s.decay
+		if side == "foe" and k == "burn" and sp.has("burn_nodecay"):
+			decay = 0.0
+		for t in secs:
+			tot += maxf(0.0, n - decay * t) * per
+	return tot
 
 
 func _heal_mult() -> float:
@@ -209,7 +243,7 @@ func add_status(k: String, n: float, uid := -1) -> void:
 			dot_src[k][uid] = dot_src[k].get(uid, 0.0) + n
 		if k == "poison":
 			_gain_res("poison_applied", n)
-		_num("foe", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid)
+		_num("foe", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid, "status", k)
 		if k == "burn" and sp.has("burn_burst") and fs.burn >= 20:
 			var v := damage(null, fs.burn, "Fire", 0, 2, "💥")
 			stat_dmg["burn"] += v
@@ -218,7 +252,7 @@ func add_status(k: String, n: float, uid := -1) -> void:
 			_log(I18n.t("💥 Burn explodes for %d!") % roundi(v))
 	else:
 		hs[k] = minf(s.max, hs.get(k, 0.0) + n)
-		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid)
+		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid, "status", k)
 
 
 func gain_shield(v: float, uid := -1) -> void:
@@ -227,7 +261,7 @@ func gain_shield(v: float, uid := -1) -> void:
 	var before := shield
 	shield = minf(_shield_cap(), shield + v)
 	_gain_res("shield_gained", v)
-	_num("hero", "🛡+" + GameData._num(shield - before if shield - before > 0 else v), Color("#7dd3fc"), false, uid)
+	_num("hero", "🛡+" + GameData._num(shield - before if shield - before > 0 else v), Color("#7dd3fc"), false, uid, "shield")
 
 
 func heal(v: float, uid := -1) -> float:
@@ -247,7 +281,7 @@ func fire(idx: int) -> void:
 	_ev({"t": "trigger", "uid": x.i.uid})
 	var dmg: float = f.dmg + x.ramp
 	if sp.has("turret_count") and d.tags.has("Turret"):
-		dmg += turrets
+		dmg += turrets * 2
 	if sp.has("weapon_ramp") and d.tags.has("Weapon"):
 		x.ramp += 1.0
 	if f.ramp > 0:
@@ -356,22 +390,18 @@ func step() -> void:
 	if tk % 10 == 0:
 		if rg > 0 and php < mhp:
 			heal(rg)
-		var dot_mult := 1.0
-		var rd := res_def()
-		if rd.eff == "dot_pct":
-			dot_mult += rd.v * resv
 		for k in fs:
 			var s: Dictionary = GameData.statuses[k]
 			if s.tick <= 0 or fs[k] <= 0 or tk % roundi(s.tick * 10) != 0:
 				continue
-			var v: float = fs[k] * s.dmg * dot_mult * RunState.elem_mult(e, s.el) * gold_mult
+			var v: float = dot_tick("foe", k)
 			if k == "poison" and sp.has("poison_crit"):
 				v *= _crit(0.25, 3.0)
 			if v > 0:
 				ehp -= v
 				stat_dmg[k] += v
 				_credit_dot(k, v)
-				_num("foe", s.ic + GameData._num(roundf(v * 10) / 10.0), s.col)
+				_num("foe", "-" + GameData._num(roundf(v * 10) / 10.0), s.col, false, -1, "dot", k)
 			if s.decay > 0 and not (k == "burn" and sp.has("burn_nodecay")):
 				fs[k] = maxf(0.0, fs[k] - s.decay)
 		# poison / burn the monster put on you
@@ -379,9 +409,9 @@ func step() -> void:
 			var s: Dictionary = GameData.statuses[k]
 			if s.tick <= 0 or hd[k] <= 0 or tk % roundi(s.tick * 10) != 0:
 				continue
-			var v: float = hd[k] * s.dmg
+			var v: float = dot_tick("hero", k)
 			php -= v
-			_num("hero", s.ic + "-" + GameData._num(roundf(v * 10) / 10.0), s.col)
+			_num("hero", "-" + GameData._num(roundf(v * 10) / 10.0), s.col, false, -1, "dot", "hd:" + k)
 			if s.decay > 0:
 				hd[k] = maxf(0.0, hd[k] - s.decay)
 		if e.tr == "regen" and ehp < e.hp:
@@ -451,10 +481,10 @@ func foe_fire(fx: Dictionary) -> void:
 		var s: Dictionary = GameData.statuses[k]
 		var n: float = snappedf(on.st[k] * dm_mult, 0.1)   # scaled like the hits, no rounding up
 		hd[k] = minf(s.max, hd.get(k, 0.0) + n)
-		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col)
+		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, -1, "status", "hd:" + k)
 	if on.shield > 0:
 		fshield += roundf(on.shield * sup)
-		_num("foe", "🛡️+" + GameData._num(roundf(on.shield * sup)), Color("#7dd3fc"))
+		_num("foe", "🛡️+" + GameData._num(roundf(on.shield * sup)), Color("#7dd3fc"), false, -1, "shield")
 	if on.heal > 0 and ehp < e.hp:
 		var h := minf(e.hp - ehp, roundf(on.heal * sup))
 		ehp += h

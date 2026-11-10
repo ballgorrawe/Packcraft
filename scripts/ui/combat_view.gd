@@ -16,12 +16,11 @@ var _acc := 0.0
 var _end_wait := -1.0
 var _t := 0.0
 
-var php_bar: ProgressBar
-var ehp_bar: ProgressBar
-var php_lbl: Label
-var ehp_lbl: Label
-var hero_status: Label
-var foe_status: Label
+var php_bar: StatBar
+var ehp_bar: StatBar
+var hero_chips: HBoxContainer   # status chips under your HP: monster DoTs on you, Thorns, haste
+var foe_chips: HBoxContainer    # status chips under the monster HP: your burn / poison on it
+var _chips := {}                # "hero:key" / "foe:key" -> chip PanelContainer
 var res_lbl: Label
 var ult_bar: ProgressBar
 var ult_lbl: Label
@@ -78,16 +77,12 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	en.add_child(bl)
 	ev.add_child(en)
-	ehp_bar = _bar(Color("#ff4d5e"), 26)
+	ehp_bar = StatBar.new().setup(Color("#ff4d5e"), 26)
 	ev.add_child(ehp_bar)
-	var er := UI.hbox(8)
-	ehp_lbl = UI.lbl("", 14, Color("#fecaca"), true)
-	er.add_child(ehp_lbl)
-	foe_status = UI.lbl("", 16, Color.WHITE, true)
-	foe_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	foe_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	er.add_child(foe_status)
-	ev.add_child(er)
+	foe_chips = UI.hbox(6)
+	foe_chips.alignment = BoxContainer.ALIGNMENT_END
+	foe_chips.custom_minimum_size.y = 30
+	ev.add_child(foe_chips)
 	# the monster's pack: its items charge and fire just like yours
 	var mc := minf(46.0, minf(640.0 / maxf(1, s.e.get("gw", 4)), 150.0 / maxf(1, s.e.get("gh", 3))))
 	mpack = MiniPack.new().setup(s.e, mc, s.fi)
@@ -127,16 +122,13 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	hb.add_child(hv)
 	var hr := UI.hbox(8)
 	hr.add_child(UI.lbl(r.cls_def().hero + " " + tr(r.cls_def().n), 16, Color.WHITE, true))
-	hero_status = UI.lbl("", 16, Color("#7dd3fc"), true)
-	hero_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hero_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hr.add_child(hero_status)
 	hv.add_child(hr)
-	php_bar = _bar(Color("#3ee07a"), 24)
+	php_bar = StatBar.new().setup(Color("#3ee07a"), 24)
 	hv.add_child(php_bar)
 	var ur := UI.hbox(8)
-	php_lbl = UI.lbl("", 14, Color("#bbf7d0"), true)
-	ur.add_child(php_lbl)
+	hero_chips = UI.hbox(6)
+	hero_chips.custom_minimum_size.y = 30
+	ur.add_child(hero_chips)
 	res_lbl = UI.lbl("", 15, UI.GOLD, true)
 	res_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	res_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -369,7 +361,20 @@ func _handle(evs: Array) -> void:
 			"foe_trigger":
 				mpack.flash[ev.uid] = 0.0
 			"num":
-				if fxl.get_child_count() < (25 if quiet else 70):
+				var kind: String = ev.get("kind", "")
+				if kind == "shield":
+					# shown by the white Shield strip on the HP bar, not as a floating number
+					(php_bar if ev.side == "hero" else ehp_bar).pulse_shield()
+				elif kind == "dot" or kind == "status":
+					var ck: String = ev.side + ":" + ev.key
+					var sk: String = String(ev.key).trim_prefix("hd:")
+					_pop_chip(ck, kind == "dot")
+					if fxl.get_child_count() < (25 if quiet else 70):
+						var at := (_chip_pos(ck) + Vector2(0, -34)) if _chips.has(ck) else _side_pos(ev.side, ev.uid)
+						at.x = clampf(at.x, 70, fxl.size.x - 70)
+						var txt: String = ev.text if kind == "status" else GameData.statuses[sk].ic + ev.text
+						_float_at(at, txt, ev.col, false, kind == "status")
+				elif fxl.get_child_count() < (25 if quiet else 70):
 					_float_at(_side_pos(ev.side, ev.uid), ev.text, ev.col, ev.big)
 			"hit":
 				_hit_anim(ev, quiet)
@@ -378,6 +383,8 @@ func _handle(evs: Array) -> void:
 					_lunge(foe, -70)
 					if ev.has("uid"):
 						_projectile(ev.get("icon", "💥"), mpack.get_global_rect().position + mpack.item_center(ev.uid) - fxl.get_global_rect().position, _center_of(hero))
+				if ev.ab > 0:
+					php_bar.pulse_shield()
 				var r := snappedf(ev.dm - ev.ab, 0.1)
 				_flash_lbl(hero)
 				_float_at(_center_of(hero), ("🛡️ " + tr("BLOCK")) if r <= 0 else "-" + GameData._num(r), Color("#7dd3fc") if r <= 0 else Color("#ff4d5e"), r >= 8)
@@ -489,8 +496,8 @@ func _projectile(icon: String, from: Vector2, to: Vector2) -> void:
 
 
 ## Floating number: slams in oversized, settles, drifts up and fades. Big hits are huge.
-func _float_at(pos: Vector2, text: String, col: Color, big: bool) -> void:
-	var l := UI.lbl(text, 52 if big else 34, col, true)
+func _float_at(pos: Vector2, text: String, col: Color, big: bool, small := false) -> void:
+	var l := UI.lbl(text, 52 if big else (24 if small else 34), col, true)
 	l.add_theme_color_override("font_outline_color", col.darkened(0.8))
 	l.add_theme_constant_override("outline_size", 14 if big else 10)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
@@ -582,29 +589,96 @@ func _on_end(won: bool) -> void:
 
 
 func _refresh() -> void:
-	php_bar.value = clampf(sim.php / sim.mhp, 0, 1)
-	ehp_bar.value = clampf(sim.ehp / sim.e.hp, 0, 1)
-	php_lbl.text = "HP %d / %d" % [maxi(0, roundi(sim.php)), roundi(sim.mhp)]
-	ehp_lbl.text = "%d / %d" % [maxi(0, roundi(sim.ehp)), roundi(sim.e.hp)]
-	var hs := []
-	if sim.shield > 0:
-		hs.append("🛡%d" % roundi(sim.shield))
-	for k in sim.hs:
-		if sim.hs[k] > 0:
-			hs.append(GameData.statuses[k].ic + GameData._num(sim.hs[k]))
-	var h := sim.haste()
-	if h > 0:
-		hs.append("💨+%d%%" % roundi(h * 100))
-	hero_status.text = "  ".join(hs)
-	var es := []
+	var hd_col := _dot_col(sim.hd)
+	var fd_col := _dot_col(sim.fs)
+	php_bar.set_values(sim.php / sim.mhp, sim.shield, sim.mhp, sim.dot_forecast("hero") / sim.mhp, hd_col,
+		"HP %d / %d" % [maxi(0, roundi(sim.php)), roundi(sim.mhp)])
+	ehp_bar.set_values(sim.ehp / sim.e.hp, sim.fshield, sim.e.hp, sim.dot_forecast("foe") / sim.e.hp, fd_col,
+		"%d / %d" % [maxi(0, roundi(sim.ehp)), roundi(sim.e.hp)])
+	var seen := {}
+	# on the monster: your burn / poison, with what each tick deals right now
 	for k in sim.fs:
 		if sim.fs[k] > 0:
-			es.append(GameData.statuses[k].ic + GameData._num(sim.fs[k]))
-	foe_status.text = "  ".join(es)
+			_chip("foe:" + k, foe_chips, k, "%s %s" % [GameData.statuses[k].ic, GameData._num(sim.fs[k])], _rate_txt(sim.dot_tick("foe", k)), seen)
+	# on you: what the monster put on you, then your own statuses (Thorns)
+	for k in sim.hd:
+		if sim.hd[k] > 0:
+			_chip("hero:hd:" + k, hero_chips, k, "%s %s" % [GameData.statuses[k].ic, GameData._num(sim.hd[k])], _rate_txt(sim.dot_tick("hero", k)), seen)
+	for k in sim.hs:
+		if sim.hs[k] > 0:
+			var s: Dictionary = GameData.statuses[k]
+			var sub := ("↩%s" % GameData._num(snappedf(sim.hs[k] * s.reflect, 0.1))) if s.reflect > 0 else ""
+			_chip("hero:" + k, hero_chips, k, "%s %s" % [s.ic, GameData._num(sim.hs[k])], sub, seen)
+	var h := sim.haste()
+	if h > 0:
+		_chip("hero:haste", hero_chips, "", "💨 +%d%%" % roundi(h * 100), "", seen)
+	for key in _chips.keys():
+		if not seen.has(key):
+			_chips[key].queue_free()
+			_chips.erase(key)
 	var rd := sim.res_def()
 	res_lbl.text = "%s %s %d" % [rd.ic, tr(rd.n), sim.resv]
 	ult_bar.value = float(sim.ult) / float(sim.ult_need)
 	log_lbl.text = "  ·  ".join(sim.log_lines.slice(0, 2))
+
+
+## One status chip: icon + stacks, and underneath what it does right now (damage per tick, Thorns
+## reflect). Created on first sight, updated in place, freed when the status runs out.
+func _chip(key: String, row: HBoxContainer, sid: String, main_txt: String, sub_txt: String, seen: Dictionary) -> void:
+	seen[key] = true
+	var p: PanelContainer = _chips.get(key)
+	if p == null:
+		var col: Color = GameData.statuses[sid].col if sid != "" else Color("#ffe14a")
+		p = UI.panel(col.darkened(0.72), col, 2, 99, 4)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var hb := UI.hbox(4)
+		var ml := UI.plbl("", 17, Color.WHITE, true)
+		var sl := UI.plbl("", 13, col.lightened(0.35), true)
+		hb.add_child(ml)
+		hb.add_child(sl)
+		p.add_child(hb)
+		p.set_meta("ml", ml)
+		p.set_meta("sl", sl)
+		row.add_child(p)
+		_chips[key] = p
+		p.scale = Vector2(0.4, 0.4)
+		p.create_tween().tween_property(p, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK)
+	(p.get_meta("ml") as Label).text = main_txt
+	var sl2: Label = p.get_meta("sl")
+	sl2.text = sub_txt
+	sl2.visible = sub_txt != ""
+	p.pivot_offset = p.size / 2
+
+
+## Per-tick damage under a DoT chip, e.g. "-4.8/s".
+func _rate_txt(v: float) -> String:
+	return ("-%s/s" % GameData._num(snappedf(v, 0.1))) if v > 0 else ""
+
+
+## Colour of the strongest DoT on a side (for the HP bar forecast segment).
+func _dot_col(st: Dictionary) -> Color:
+	var best := ""
+	for k in st:
+		if GameData.statuses[k].tick > 0 and st[k] > 0 and (best == "" or st[k] > st[best]):
+			best = k
+	return GameData.statuses[best].col if best != "" else Color("#a855f7")
+
+
+func _chip_pos(key: String) -> Vector2:
+	return _chips[key].get_global_rect().get_center() - fxl.get_global_rect().position
+
+
+## Chip bounce when its status ticks (small) or gains stacks (bigger).
+func _pop_chip(key: String, tick: bool) -> void:
+	var p: PanelContainer = _chips.get(key)
+	if p == null:
+		return
+	p.pivot_offset = p.size / 2
+	p.scale = Vector2(1.15, 1.15) if tick else Vector2(1.35, 1.35)
+	p.modulate = Color(1.6, 1.6, 1.6)
+	var tw := p.create_tween().set_parallel()
+	tw.tween_property(p, "scale", Vector2.ONE, 0.2)
+	tw.tween_property(p, "modulate", Color.WHITE, 0.25)
 
 
 ## Boss entrance: the screen darkens, the boss slams in huge, its name crashes down with

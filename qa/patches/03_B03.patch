@@ -1,0 +1,45 @@
+From 0d609874cf4d4907c5c6dd4c2fb192798bbdc7ce Mon Sep 17 00:00:00 2001
+From: ballgorrawe <253218482+ballgorrawe@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:22:06 +0700
+Subject: [PATCH] B03 Cauldron no longer downgrades Epic+ inputs
+
+---
+ scripts/core/run_state.gd | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/core/run_state.gd b/scripts/core/run_state.gd
+index e042c52..2e19a59 100644
+--- a/scripts/core/run_state.gd
++++ b/scripts/core/run_state.gd
+@@ -1026,8 +1026,9 @@ func ev_brew(a: PItem, b: PItem) -> String:
+ 	if event.get("done", false) or a == b or a.starter or b.starter or a.def().relic or b.def().relic or not items.has(a) or not items.has(b):
+ 		return ""
+ 	var top := maxi(a.def().tier, b.def().tier)
+-	# one rarity step up (the shop pool tops out at Epic)
+-	var id := roll_tiered(4, mini(3, top + 1))
++	# one rarity step up. The shop pool tops out at Epic, so from Epic and above pick straight
++	# from the next rarity (never lower than the best input).
++	var id := roll_tiered(4, top + 1) if top + 1 <= 3 else _brew_high(top)
+ 	items.erase(a)
+ 	items.erase(b)
+ 	items.append(make_item(id, "storage"))
+@@ -1037,6 +1038,16 @@ func ev_brew(a: PItem, b: PItem) -> String:
+ 	return id
+ 
+ 
++## Cauldron result for Epic+ inputs: a random non-relic, non-treasure item one rarity higher
++## (capped at the top rarity that exists), falling back to the same rarity.
++func _brew_high(top: int) -> String:
++	for t in [mini(top + 1, 6), top]:
++		var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == t and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
++		if pool.size() > 0:
++			return pool[randi() % pool.size()]
++	return roll_tiered(4, 3)
++
++
+ ## Cursed altar: a Legendary item for 10 Max HP forever, or for a Heart.
+ ## Paying with Max HP is only allowed while it stays at or above the floor.
+ func altar_hp_ok() -> bool:
+-- 
+2.52.0.windows.1
+

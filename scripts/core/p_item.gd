@@ -11,6 +11,7 @@ var rot := 0
 var starter := false
 var pd := 0.0   # permanent bonus damage (forge)
 var pc := 0.0   # permanent cooldown reduction fraction (campfire polish)
+var paid := -1  # gold paid in the shop (-1 = not bought, e.g. loot or starter)
 var b := {}     # buffs from stars and sets, recomputed by RunState.calc()
 
 

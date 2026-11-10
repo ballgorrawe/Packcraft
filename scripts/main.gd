@@ -686,7 +686,7 @@ func _end_screen() -> Control:
 	v.add_child(b)
 	if w:
 		for k in 5:
-			create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
+			cc.create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
 	return cc
 
 
@@ -734,7 +734,7 @@ func _run_screen(fresh: bool) -> Control:
 				var c: Vector2 = (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
 				var col: Color = GameData.tier_color(it.id)
 				var uid: int = it.uid
-				create_tween().tween_callback(func():
+				g.create_tween().tween_callback(func():
 					if is_instance_valid(g):
 						pops[uid] = 0.0
 						UI.burst(g, c, UI.GOLD, 30, 320, 9)
@@ -1143,7 +1143,7 @@ func _inspector_popup() -> Control:
 		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tips.add_child(rb)
 		tips.add_child(_tip("📦", tr("drag to storage")))
-		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not selected.starter else tr("starter")))
+		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not (selected.starter or selected.def().relic) else tr("starter")))
 		v.add_child(tips)
 	elif not owned and inspect_idx >= 0 and inspect_idx < run.shop.size():
 		var e: Dictionary = run.shop[inspect_idx]
@@ -1576,14 +1576,14 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
 		nl.text = fmt % 0
 		var ff := fmt
 		var target := num
-		create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
+		nl.create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
 	var cl := UI.plbl(cap, 14, Color("#e9e4ff"), true, true)
 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cl.custom_minimum_size.x = 128
 	vb.add_child(cl)
 	UI.pop_in(p, delay, 30)
 	var pp := p
-	create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
+	pp.create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
 	return p
 
 
@@ -1784,7 +1784,7 @@ func _ev_merchant(v: VBoxContainer) -> void:
 		if it.starter or it.loc == "held" or it.def().relic:
 			continue
 		var itr: PItem = it
-		fl.add_child(_item_pick_card(it, "+%d🪙" % it.def().cost, false, func():
+		fl.add_child(_item_pick_card(it, "+%d🪙" % run.merchant_price(it), false, func():
 			run.ev_sell_full(itr)
 			render()))
 	v.add_child(fl)
@@ -1882,9 +1882,11 @@ func _ev_altar(v: VBoxContainer) -> void:
 		tv.add_child(UI.wrap_lbl(GameData.describe_lines(id)[0], 15, Color("#e9e4ff")))
 		var br := UI.hbox(8)
 		var ii: int = i
-		br.add_child(UI.btn("-10 " + tr("Max HP"), func():
+		var mb := UI.btn("-10 " + tr("Max HP"), func():
 			run.ev_altar(ii, "hp")
-			render(), false, 16, "red"))
+			render(), false, 16, "red")
+		mb.disabled = not run.altar_hp_ok()
+		br.add_child(mb)
 		var hb := UI.btn("-1 ❤️", func():
 			run.ev_altar(ii, "heart")
 			render(), false, 16, "purple")
@@ -2268,7 +2270,7 @@ func _drop(pos: Vector2) -> void:
 			it.loc = "storage"
 			done = true
 	elif sell_zone and sell_zone.get_global_rect().has_point(pos) and drag_src != "shop":
-		if it.starter:
+		if it.starter or it.def().relic:
 			run.msg = tr("Starter items can't be sold.")
 		else:
 			var g := run.sell_price(it)
@@ -2286,7 +2288,7 @@ func _drop(pos: Vector2) -> void:
 		pops[it.uid] = 0.0
 		var c := (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
 		var gref := grid
-		create_tween().tween_callback(func():
+		gref.create_tween().tween_callback(func():
 			if is_instance_valid(gref):
 				UI.burst(gref, c, GameData.tier_color(it.id), 14, 220, 6)).set_delay(0.08)
 	_end_drag()
@@ -2303,6 +2305,7 @@ func _pay_shop() -> bool:
 		run.msg = tr("Not enough gold.")
 		return false
 	run.gold -= e.price
+	drag_item.paid = int(e.price)
 	run.shop.remove_at(drag_shop_idx)
 	drag_item.uid = run.uid_ctr
 	run.uid_ctr += 1

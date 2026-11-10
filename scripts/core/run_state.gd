@@ -5,6 +5,7 @@ extends RefCounted
 
 const RESIST := 0.2          # damage multiplier when the foe resists that element (80% less)
 const MAX_HEARTS := 3
+const MIN_MAX_HP := 30.0       # the Cursed Altar can never take Max HP below this
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
 const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
@@ -361,7 +362,7 @@ func max_hp() -> float:
 	var m := GameData.base_hp + mhp_mod + pv("hp")
 	for i in grid_items():
 		m += i.def().pass.hp
-	return m
+	return maxf(10.0, m)
 
 
 func regen() -> float:
@@ -556,7 +557,7 @@ func fill_shop() -> void:
 
 
 func reroll_cost() -> int:
-	if rr == 0 and pv("free_reroll") > 0:
+	if rr < int(pv("free_reroll")):
 		return 0
 	return 1 + int(rr / 2) + (1 if mod.id == "guild" else 0)
 
@@ -585,6 +586,8 @@ func buy_bag(i: int) -> bool:
 	gold -= e.price
 	expand += e.n
 	bags += 1
+	# spec: a bag card is gone once bought (a fresh one comes with the next reroll or day)
+	shop.remove_at(i)
 	for x in shop:
 		if x.has("bag"):
 			x.price = bag_price(2 if x.n == 3 else x.n)
@@ -601,6 +604,7 @@ func buy_item(i: int) -> PItem:
 	gold -= e.price
 	shop.remove_at(i)
 	var it := make_item(e.id, "held")
+	it.paid = int(e.price)
 	items.append(it)
 	return it
 
@@ -610,7 +614,7 @@ func sell_price(it: PItem) -> int:
 
 
 func sell(it: PItem) -> bool:
-	if it.starter:
+	if it.starter or it.def().relic:
 		return false
 	gold += sell_price(it)
 	items.erase(it)
@@ -811,7 +815,7 @@ func event_ok(k: String) -> bool:
 		"roulette":
 			return day >= 2
 		"altar":
-			return day >= 3 and (res > 0 or mhp > 40)
+			return day >= 3 and (res > 0 or altar_hp_ok())
 		"cauldron":
 			return items.filter(func(i): return not i.starter).size() >= 2
 	return true
@@ -972,10 +976,21 @@ func ev_buy(i: int) -> bool:
 	return true
 
 
+## What the merchant pays: full list price, but never more than was paid in the shop
+## (no buy-at-discount, sell-at-full loop) and treasure only at its stated value.
+func merchant_price(it: PItem) -> int:
+	if it.def().tags.has("Treasure"):
+		return sell_price(it)
+	var p: int = it.def().cost
+	if it.paid >= 0:
+		p = mini(p, it.paid)
+	return p
+
+
 func ev_sell_full(it: PItem) -> bool:
 	if it.starter or it.def().relic or not items.has(it):
 		return false
-	gold += it.def().cost
+	gold += merchant_price(it)
 	items.erase(it)
 	return true
 
@@ -1025,8 +1040,9 @@ func ev_brew(a: PItem, b: PItem) -> String:
 	if event.get("done", false) or a == b or a.starter or b.starter or a.def().relic or b.def().relic or not items.has(a) or not items.has(b):
 		return ""
 	var top := maxi(a.def().tier, b.def().tier)
-	# one rarity step up (the shop pool tops out at Epic)
-	var id := roll_tiered(4, mini(3, top + 1))
+	# one rarity step up. The shop pool tops out at Epic, so from Epic and above pick straight
+	# from the next rarity (never lower than the best input).
+	var id := roll_tiered(4, top + 1) if top + 1 <= 3 else _brew_high(top)
 	items.erase(a)
 	items.erase(b)
 	items.append(make_item(id, "storage"))
@@ -1036,7 +1052,22 @@ func ev_brew(a: PItem, b: PItem) -> String:
 	return id
 
 
+## Cauldron result for Epic+ inputs: a random non-relic, non-treasure item one rarity higher
+## (capped at the top rarity that exists), falling back to the same rarity.
+func _brew_high(top: int) -> String:
+	for t in [mini(top + 1, 6), top]:
+		var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == t and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
+		if pool.size() > 0:
+			return pool[randi() % pool.size()]
+	return roll_tiered(4, 3)
+
+
 ## Cursed altar: a Legendary item for 10 Max HP forever, or for a Heart.
+## Paying with Max HP is only allowed while it stays at or above the floor.
+func altar_hp_ok() -> bool:
+	return mhp - 10 >= MIN_MAX_HP
+
+
 func ev_altar(i: int, pay: String) -> bool:
 	if event.get("done", false) or i < 0 or i >= event.offer.size():
 		return false
@@ -1046,6 +1077,8 @@ func ev_altar(i: int, pay: String) -> bool:
 		res -= 1
 		event.rew.append({"k": "heart", "v": -1})
 	else:
+		if not altar_hp_ok():
+			return false
 		mhp_mod -= 10
 		sync_hp()
 		event.rew.append({"k": "maxhp", "v": -10})
@@ -1127,7 +1160,7 @@ func to_dict() -> Dictionary:
 		var loc: String = i.loc
 		if loc == "held":
 			loc = "storage"
-		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc})
+		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc, "paid": i.paid})
 	var res_d := {}
 	if not result.is_empty():
 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
@@ -1190,6 +1223,7 @@ static func from_dict(d: Dictionary) -> RunState:
 		it.starter = bool(s.starter)
 		it.pd = float(s.pd)
 		it.pc = float(s.pc)
+		it.paid = int(s.get("paid", -1))
 		it.b = r._zero_b()
 		r.items.append(it)
 	r.tiles = {}

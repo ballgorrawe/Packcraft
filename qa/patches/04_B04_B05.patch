@@ -1,0 +1,100 @@
+From eee15fd065fcd26396b52cb19fe8fcafe0a76451 Mon Sep 17 00:00:00 2001
+From: ballgorrawe <253218482+ballgorrawe@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:22:06 +0700
+Subject: [PATCH] B04/B05 Merchant pays at most the shop price; treasure at
+ stated value
+
+---
+ scripts/core/p_item.gd    |  1 +
+ scripts/core/run_state.gd | 17 +++++++++++++++--
+ scripts/main.gd           |  3 ++-
+ 3 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/core/p_item.gd b/scripts/core/p_item.gd
+index a61671c..c487372 100644
+--- a/scripts/core/p_item.gd
++++ b/scripts/core/p_item.gd
+@@ -11,6 +11,7 @@ var rot := 0
+ var starter := false
+ var pd := 0.0   # permanent bonus damage (forge)
+ var pc := 0.0   # permanent cooldown reduction fraction (campfire polish)
++var paid := -1  # gold paid in the shop (-1 = not bought, e.g. loot or starter)
+ var b := {}     # buffs from stars and sets, recomputed by RunState.calc()
+ 
+ 
+diff --git a/scripts/core/run_state.gd b/scripts/core/run_state.gd
+index 2e19a59..8c93dfa 100644
+--- a/scripts/core/run_state.gd
++++ b/scripts/core/run_state.gd
+@@ -602,6 +602,7 @@ func buy_item(i: int) -> PItem:
+ 	gold -= e.price
+ 	shop.remove_at(i)
+ 	var it := make_item(e.id, "held")
++	it.paid = int(e.price)
+ 	items.append(it)
+ 	return it
+ 
+@@ -973,10 +974,21 @@ func ev_buy(i: int) -> bool:
+ 	return true
+ 
+ 
++## What the merchant pays: full list price, but never more than was paid in the shop
++## (no buy-at-discount, sell-at-full loop) and treasure only at its stated value.
++func merchant_price(it: PItem) -> int:
++	if it.def().tags.has("Treasure"):
++		return sell_price(it)
++	var p: int = it.def().cost
++	if it.paid >= 0:
++		p = mini(p, it.paid)
++	return p
++
++
+ func ev_sell_full(it: PItem) -> bool:
+ 	if it.starter or it.def().relic or not items.has(it):
+ 		return false
+-	gold += it.def().cost
++	gold += merchant_price(it)
+ 	items.erase(it)
+ 	return true
+ 
+@@ -1146,7 +1158,7 @@ func to_dict() -> Dictionary:
+ 		var loc: String = i.loc
+ 		if loc == "held":
+ 			loc = "storage"
+-		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc})
++		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc, "paid": i.paid})
+ 	var res_d := {}
+ 	if not result.is_empty():
+ 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
+@@ -1209,6 +1221,7 @@ static func from_dict(d: Dictionary) -> RunState:
+ 		it.starter = bool(s.starter)
+ 		it.pd = float(s.pd)
+ 		it.pc = float(s.pc)
++		it.paid = int(s.get("paid", -1))
+ 		it.b = r._zero_b()
+ 		r.items.append(it)
+ 	r.tiles = {}
+diff --git a/scripts/main.gd b/scripts/main.gd
+index 892c9f8..09231fa 100644
+--- a/scripts/main.gd
++++ b/scripts/main.gd
+@@ -1784,7 +1784,7 @@ func _ev_merchant(v: VBoxContainer) -> void:
+ 		if it.starter or it.loc == "held" or it.def().relic:
+ 			continue
+ 		var itr: PItem = it
+-		fl.add_child(_item_pick_card(it, "+%d🪙" % it.def().cost, false, func():
++		fl.add_child(_item_pick_card(it, "+%d🪙" % run.merchant_price(it), false, func():
+ 			run.ev_sell_full(itr)
+ 			render()))
+ 	v.add_child(fl)
+@@ -2305,6 +2305,7 @@ func _pay_shop() -> bool:
+ 		run.msg = tr("Not enough gold.")
+ 		return false
+ 	run.gold -= e.price
++	drag_item.paid = int(e.price)
+ 	run.shop.remove_at(drag_shop_idx)
+ 	drag_item.uid = run.uid_ctr
+ 	run.uid_ctr += 1
+-- 
+2.52.0.windows.1
+

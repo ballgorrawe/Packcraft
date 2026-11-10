@@ -1,0 +1,48 @@
+From 00bd4247ab29d0e08f44eb4471a37a41fad57abd Mon Sep 17 00:00:00 2001
+From: ballgorrawe <253218482+ballgorrawe@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:22:07 +0700
+Subject: [PATCH] B06 Path relic can no longer be sold
+
+---
+ scripts/core/run_state.gd | 2 +-
+ scripts/main.gd           | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/core/run_state.gd b/scripts/core/run_state.gd
+index 8c93dfa..3d507e6 100644
+--- a/scripts/core/run_state.gd
++++ b/scripts/core/run_state.gd
+@@ -612,7 +612,7 @@ func sell_price(it: PItem) -> int:
+ 
+ 
+ func sell(it: PItem) -> bool:
+-	if it.starter:
++	if it.starter or it.def().relic:
+ 		return false
+ 	gold += sell_price(it)
+ 	items.erase(it)
+diff --git a/scripts/main.gd b/scripts/main.gd
+index 09231fa..b87b987 100644
+--- a/scripts/main.gd
++++ b/scripts/main.gd
+@@ -1143,7 +1143,7 @@ func _inspector_popup() -> Control:
+ 		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ 		tips.add_child(rb)
+ 		tips.add_child(_tip("📦", tr("drag to storage")))
+-		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not selected.starter else tr("starter")))
++		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not (selected.starter or selected.def().relic) else tr("starter")))
+ 		v.add_child(tips)
+ 	elif not owned and inspect_idx >= 0 and inspect_idx < run.shop.size():
+ 		var e: Dictionary = run.shop[inspect_idx]
+@@ -2270,7 +2270,7 @@ func _drop(pos: Vector2) -> void:
+ 			it.loc = "storage"
+ 			done = true
+ 	elif sell_zone and sell_zone.get_global_rect().has_point(pos) and drag_src != "shop":
+-		if it.starter:
++		if it.starter or it.def().relic:
+ 			run.msg = tr("Starter items can't be sold.")
+ 		else:
+ 			var g := run.sell_price(it)
+-- 
+2.52.0.windows.1
+
