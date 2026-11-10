@@ -194,6 +194,7 @@
   "Path chosen: %s. %s is in your storage — put it in your pack.": "เลือกสาย %s แล้ว %s อยู่ในกล่องเก็บของ ใส่ลงกระเป๋าได้เลย",
   "Boss in %d days": "บอสอีก %d วัน",
   "Boss today!": "บอสวันนี้!",
+  "Boss tomorrow!": "บอสพรุ่งนี้!",
   "Tap with a second finger to rotate": "แตะอีกนิ้วเพื่อหมุน",
   "Tap an item to see it · tap again to rotate": "แตะไอเทมเพื่อดูข้อมูล · แตะซ้ำเพื่อหมุน",
   "match!": "เข้าคู่!",
@@ -209,6 +210,19 @@
   "FIGHT!": "สู้!",
   "Sell: +%d🪙": "ขาย: +%d🪙",
   "Rotated. %d item(s) in the way went to storage.": "หมุนแล้ว ของที่ขวางอยู่ %d ชิ้นย้ายลงกล่อง",
-  "Rotated. Items in the way were moved over.": "หมุนแล้ว ของที่ขวางถูกเลื่อนไปข้างๆ"
+  "Rotated. Items in the way were moved over.": "หมุนแล้ว ของที่ขวางถูกเลื่อนไปข้างๆ",
+  "Gold": "ทอง",
+  "Pack tiles": "ช่องกระเป๋า",
+  "Heart": "หัวใจ",
+  "HP": "HP",
+  "NEW!": "ของใหม่!",
+  "EVOLUTION!": "วิวัฒน์!",
+  "FUSION!": "รวมร่าง!",
+  "in storage": "อยู่ในกล่อง",
+  "🏆 Victory! +%d gold.": "🏆 ชนะ! +%d ทอง",
+  "💔 Defeated! %ssalvaging %d gold.": "💔 แพ้! %sเก็บกู้ได้ %d ทอง",
+  "You spend a Heart and revive at 50% HP, ": "เสียหัวใจ 1 ดวงและฟื้นที่ 50% HP ",
+  "No Hearts left, ": "หัวใจหมดแล้ว ",
+  "🧪 %s was used up.": "🧪 %s ถูกใช้หมดแล้ว"
  }
 }

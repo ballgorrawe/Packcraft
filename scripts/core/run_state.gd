@@ -739,7 +739,7 @@ func to_dict() -> Dictionary:
 		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc})
 	var res_d := {}
 	if not result.is_empty():
-		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory}
+		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
 	return {
 		"v": SAVE_VERSION, "cls": cls, "path": path, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
 		"phase": phase, "items": its, "uid_ctr": uid_ctr,
@@ -814,7 +814,11 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.cur_node = int(d.get("cur_node", -1))
 	r.result = {}
 	if not d.result.is_empty():
-		r.result = {"n": d.result.n, "win": d.result.win, "lines": d.result.lines, "over": d.result.over, "victory": d.result.victory, "cs": null}
+		r.result = {"n": d.result.n, "win": d.result.win, "lines": d.result.lines, "over": d.result.over, "victory": d.result.victory, "cs": null, "rew": d.result.get("rew", []), "fused": d.result.get("fused", [])}
+		for w in r.result.rew:
+			if w.has("v"):
+				w.v = int(w.v)
+		r.result.fused = r.result.fused.map(func(u): return int(u))
 		if r.result.n.has("e") and r.result.n.e.has("d"):
 			r.result.n.e.d = int(r.result.n.e.d)
 	elif r.phase == "night":
@@ -831,7 +835,7 @@ static func from_dict(d: Dictionary) -> RunState:
 
 func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 	phase = "night"
-	var r := {"n": n, "win": win, "cs": cs, "lines": [], "over": false, "victory": false}
+	var r := {"n": n, "win": win, "cs": cs, "lines": [], "over": false, "victory": false, "rew": [], "fused": []}
 	result = r
 	if cs != null:
 		hp = maxf(1.0, roundf(cs.php)) if win else 0.0
@@ -846,21 +850,26 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 				var t: PItem = ws.pick_random()
 				t.pd += 3
 				r.lines.append(I18n.t("🔨 The forge sharpens %s: +3 damage for the rest of the run.") % I18n.t(t.def().n))
+				r.rew.append({"k": "forge", "id": t.id})
 			else:
 				r.lines.append(I18n.t("🔨 You had no weapon in the pack to forge."))
 		"tailor":
 			expand += 3
 			r.lines.append(I18n.t("🧵 The tailor sews 3 extra tiles onto your pack. Place them next morning."))
+			r.rew.append({"k": "tiles", "v": 3})
 		"shrine":
 			var id := roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)
 			items.append(make_item(id, "storage"))
 			hp = maxf(1.0, hp - 15)
 			r.lines.append(I18n.t("🗿 The shrine drains 15 HP and gives you %s %s (in storage).") % [GameData.items[id].ic, I18n.t(GameData.items[id].n)])
+			r.rew.append({"k": "loot", "id": id})
+			r.rew.append({"k": "hp", "v": -15})
 		"camp":
 			if hp < mhp:
 				var h := minf(mhp - hp, roundf(mhp * 0.5))
 				hp += h
 				r.lines.append(I18n.t("🔥 You rest by the fire and recover %d HP.") % roundi(h))
+				r.rew.append({"k": "heal", "v": roundi(h)})
 			else:
 				for w in ws:
 					w.pc = minf(0.5, w.pc + 0.05)
@@ -874,19 +883,24 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					g += 5
 				gold += g
 				r.lines.append(I18n.t("🏆 Victory! +%d gold.") % g)
+				r.rew.append({"k": "gold", "v": g})
 				if n.k == "boss" and res < MAX_HEARTS:
 					res += 1
 					r.lines.append(I18n.t("❤️ Boss reward: +1 Heart."))
+					r.rew.append({"k": "heart", "v": 1})
 				if n.k == "boss":
 					expand += 4
 					r.lines.append(I18n.t("🎒 Boss reward: +4 pack tiles."))
+					r.rew.append({"k": "tiles", "v": 4})
 				if n.k == "elite" or n.k == "ambush":
 					expand += 1
 					r.lines.append(I18n.t("🎒 Spoils: +1 pack tile."))
+					r.rew.append({"k": "tiles", "v": 1})
 				var id := loot_for(n.k)
 				if id != "":
 					items.append(make_item(id, "storage"))
 					r.lines.append(I18n.t("🎁 Loot added to storage: %s %s (%s)") % [GameData.items[id].ic, I18n.t(GameData.items[id].n), I18n.t(GameData.tier_names[GameData.items[id].tier])])
+					r.rew.append({"k": "loot", "id": id})
 			else:
 				# Losing a fight you picked for its loot pays nothing: hearts keep the run alive, not the reward.
 				var c := 0 if n.k == "elite" or n.k == "ambush" else 2 + int(day / 3)
@@ -896,6 +910,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					hp = roundf(mhp * 0.5)
 				var how := I18n.t("You spend a Heart and revive at 50% HP, ") if hp > 0 else I18n.t("No Hearts left, ")
 				r.lines.append(I18n.t("💔 Defeated! %ssalvaging %d gold.") % [how, c])
+				r.rew.append({"k": "gold", "v": c})
 	# Night: Golden Links (recipes and evolutions) fuse
 	for l in links():
 		if off.has(l.key):
@@ -915,6 +930,8 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 		var a: Dictionary = GameData.items[l.a.id]
 		var rd: Dictionary = GameData.items[l.r]
 		var tail := "" if pl != null else I18n.t(" (sent to storage — no room in pack)")
+		r.rew.append({"k": "fusion", "a": l.a.id, "b": l.b.id, "r": l.r, "evo": l.evo, "stored": pl == null})
+		r.fused.append(f.uid)
 		if l.evo:
 			r.lines.append(I18n.t("✨ Evolution! Two %s %s became %s %s!") % [a.ic, I18n.t(a.n), rd.ic, I18n.t(rd.n)] + tail)
 		else:

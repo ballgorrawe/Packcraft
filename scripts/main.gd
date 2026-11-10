@@ -31,11 +31,15 @@ var pops := {}               # uid -> seconds since it landed (squash/stretch)
 var _screen_key := ""
 var _shown_gold := -1
 var _shown_hp := -1
+var _fused_flash: Array = []   # uids created at night: they pop and sparkle when the new day opens
 
 # widgets of the current screen
 var screen: Control
 var grid: BackpackGrid
 var storage_panel: Control
+var storage_scroll: ScrollContainer
+var _storage_x := 0          # storage scroll position, kept across re-renders
+var _press_scroll := 0
 var sell_zone: Control
 var sell_lbl: Label
 var held_lbl: Label
@@ -170,6 +174,7 @@ func render() -> void:
 		screen.queue_free()
 	grid = null
 	storage_panel = null
+	storage_scroll = null
 	sell_zone = null
 	sell_lbl = null
 	held_lbl = null
@@ -244,29 +249,61 @@ func _key() -> String:
 	return k
 
 
-func _overlay(title: String) -> Array:
+## Full-screen popup layer. Content is centred vertically when it is short and scrolls when
+## it is long; `close_cb` adds a ✖️ that stays in the corner whatever the scroll position.
+func _overlay(title: String, close_cb := Callable()) -> Array:
 	var ov := ColorRect.new()
-	ov.color = Color(0.03, 0.02, 0.1, 0.86)
+	ov.color = Color(0.03, 0.02, 0.1, 0.88)
 	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ov.mouse_filter = Control.MOUSE_FILTER_STOP
 	var mc := MarginContainer.new()
 	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right"]:
-		mc.add_theme_constant_override("margin_" + s, 22)
-	mc.add_theme_constant_override("margin_top", 46)
+		mc.add_theme_constant_override("margin_" + s, 20)
+	mc.add_theme_constant_override("margin_top", 30)
 	mc.add_theme_constant_override("margin_bottom", 30)
 	ov.add_child(mc)
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.scroll_deadzone = 8
 	mc.add_child(sc)
+	var outer := UI.vbox(0)
+	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.add_child(outer)
+	outer.add_child(UI.spacer(false))
 	var v := UI.vbox(18)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(v)
+	outer.add_child(v)
+	outer.add_child(UI.spacer(false))
 	if title != "":
 		var t := UI.title(title, 42, UI.GOLD)
 		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(t)
+	if close_cb.is_valid():
+		var x := UI.btn("✖️", close_cb, false, 22, "red")
+		x.custom_minimum_size = Vector2(64, 64)
+		x.anchor_left = 1
+		x.anchor_right = 1
+		x.offset_left = -80
+		x.offset_right = -16
+		x.offset_top = 16
+		x.offset_bottom = 80
+		ov.add_child(x)
+	# let drags that start on cards/chips scroll the list (touch)
+	v.child_entered_tree.connect(func(n): _pass_mouse.call_deferred(n))
 	return [ov, v]
+
+
+## Makes every panel under `n` pass input up, so a finger drag anywhere scrolls the parent.
+func _pass_mouse(n: Node) -> void:
+	if not is_instance_valid(n):
+		return
+	if n is Control and not n is ScrollContainer and n.mouse_filter == Control.MOUSE_FILTER_STOP:
+		n.mouse_filter = Control.MOUSE_FILTER_PASS
+	for c in n.get_children():
+		_pass_mouse(c)
 
 
 func _center(c: Control) -> Control:
@@ -451,6 +488,19 @@ func _run_screen(fresh: bool) -> Control:
 	grid.cell_pressed.connect(_on_grid_press)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	gv.add_child(grid)
+	if not _fused_flash.is_empty():
+		var g := grid
+		for it in run.grid_items():
+			if _fused_flash.has(it.uid):
+				var c: Vector2 = (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
+				var col: Color = GameData.tier_color(it.id)
+				var uid: int = it.uid
+				create_tween().tween_callback(func():
+					if is_instance_valid(g):
+						pops[uid] = 0.0
+						UI.burst(g, c, UI.GOLD, 30, 320, 9)
+						UI.burst(g, c, col, 20, 240, 7)).set_delay(0.45)
+		_fused_flash.clear()
 	held_lbl = UI.wrap_lbl(_held_text(), 16, UI.MU)
 	held_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	held_lbl.custom_minimum_size.y = 26
@@ -480,6 +530,10 @@ func _run_screen(fresh: bool) -> Control:
 	var scr := ScrollContainer.new()
 	scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scr.custom_minimum_size.y = 112
+	storage_scroll = scr
+	var keep_x := _storage_x
+	scr.ready.connect(func(): scr.set_deferred("scroll_horizontal", keep_x))
+	scr.get_h_scroll_bar().value_changed.connect(func(v): _storage_x = int(v))
 	var row := UI.hbox(10)
 	scr.add_child(row)
 	sv.add_child(scr)
@@ -554,16 +608,21 @@ func _hud() -> Control:
 	hr.add_child(dl)
 	hv.add_child(hr)
 	h.add_child(hv)
-	var gp := UI.panel(Color("#1d1546"), UI.GOLD, 3, 99, 10)
+	if run.phase != "morning":
+		h.add_child(_gold_pill())   # in the morning the gold sits on the shop, next to the prices
+	return p
+
+
+func _gold_pill() -> Control:
+	var gp := UI.panel(Color("#1d1546"), UI.GOLD, 3, 99, 8)
 	gp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	gp.custom_minimum_size.x = 120
+	gp.custom_minimum_size.x = 112
 	var gl := UI.title("", 26, UI.GOLD)
 	gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gp.add_child(gl)
 	UI.count_to(gl, _shown_gold if _shown_gold >= 0 else run.gold, run.gold, "🪙 %d")
 	_shown_gold = run.gold
-	h.add_child(gp)
-	return p
+	return gp
 
 
 ## One tidy row of pills: boss warning, today's hazard, modifier, path. Tap one for details.
@@ -576,7 +635,7 @@ func _ribbon() -> Control:
 	var pills := []
 	for b in GameData.bosses:
 		if b.d >= run.day and b.d - run.day <= 3:
-			pills.append(["💀 " + tr("Boss in %d days") % (b.d - run.day) if b.d > run.day else "💀 " + tr("Boss today!"), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm), tr(b.weak)]])
+			pills.append([("💀 " + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else ("💀 " + tr("Boss tomorrow!")) if b.d == run.day + 1 else ("💀 " + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm), tr(b.weak)]])
 	if not run.hz.is_empty():
 		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
 	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
@@ -654,10 +713,8 @@ func _shop_panel(fresh: bool) -> Control:
 	var head := UI.hbox(8)
 	sell_lbl = UI.title("🛒 " + tr("Shop"), 24, UI.GOLD)
 	head.add_child(sell_lbl)
-	var sub := UI.lbl(tr("drag here to sell"), 15, UI.MU, true)
-	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sub.clip_text = true
-	head.add_child(sub)
+	head.add_child(UI.spacer())
+	head.add_child(_gold_pill())
 	var rr := UI.btn("🎲 %d🪙" % run.reroll_cost(), func():
 		if run.reroll():
 			_clear_sel()
@@ -783,14 +840,19 @@ func _inspector_popup() -> Control:
 	var d: Dictionary = GameData.items[id]
 	var col: Color = GameData.tier_colors[d.tier]
 	var p := UI.card(Color("#221b4d"), col, 26, 18)
+	# shop items open at the top so the shop row stays visible for comparing; owned items at the bottom
+	var at_top := not owned
 	p.anchor_left = 0
 	p.anchor_right = 1
-	p.anchor_top = 1
-	p.anchor_bottom = 1
+	p.anchor_top = 0 if at_top else 1
+	p.anchor_bottom = 0 if at_top else 1
 	p.offset_left = 10
 	p.offset_right = -10
-	p.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	p.offset_bottom = -10
+	p.grow_vertical = Control.GROW_DIRECTION_END if at_top else Control.GROW_DIRECTION_BEGIN
+	if at_top:
+		p.offset_top = 10
+	else:
+		p.offset_bottom = -10
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := UI.vbox(10)
 	p.add_child(v)
@@ -839,12 +901,16 @@ func _inspector_popup() -> Control:
 		ah.add_child(bb)
 		v.add_child(ah)
 		v.add_child(UI.wrap_lbl("💡 " + tr("Or drag it straight into your pack."), 15, UI.MU))
-	# slide up
+	# slide in from its edge
 	p.modulate.a = 0
-	p.offset_bottom = 80
 	var tw := p.create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.15)
-	tw.parallel().tween_property(p, "offset_bottom", -10.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if at_top:
+		p.offset_top = -80
+		tw.parallel().tween_property(p, "offset_top", 10.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		p.offset_bottom = 80
+		tw.parallel().tween_property(p, "offset_bottom", -10.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	return p
 
 
@@ -1022,20 +1088,46 @@ func _on_combat_done(won: bool) -> void:
 
 func _night_overlay() -> Control:
 	var r := run.result
-	var o := _overlay(("🏆 " + tr("VICTORY!")) if r.win and r.n.has("e") else ("🌙 " + tr("NIGHT")))
+	var fight: bool = r.n.has("e")
+	var head := "🌙 " + tr("NIGHT")
+	if fight:
+		head = ("🏆 " + tr("VICTORY!")) if r.win else ("💔 " + tr("DEFEAT"))
+	var o := _overlay(head)
 	var v: VBoxContainer = o[1]
+	var rew: Array = r.get("rew", [])
 	var k := 0
+	# rewards as big tiles
+	var tiles := []
+	for w in rew:
+		if w.k != "fusion":
+			tiles.append(w)
+	if not tiles.is_empty():
+		var row := UI.hbox(10)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		for w in tiles:
+			var t := _reward_tile(w, 0.2 + 0.15 * k)
+			row.add_child(t)
+			k += 1
+		v.add_child(row)
+	# other happenings that have no tile (used potions, defeat note...)
+	var covered := ["🏆", "🎁", "🎒", "❤️", "✨", "🧵", "🗿"]
+	if rew.any(func(w): return w.k == "forge"):
+		covered.append("🔨")
+	if rew.any(func(w): return w.k == "heal"):
+		covered.append("🔥")
 	for l in r.lines:
-		var fusion: bool = l.begins_with("✨")
-		var fp := UI.card(Color("#4a3a12") if fusion else Color(UI.PN, 0.95), UI.GOLD if fusion else UI.BD, 18, 14)
-		var line := UI.wrap_lbl(l, 20 if fusion else 18, UI.GOLD if fusion else UI.TX)
-		fp.add_child(line)
+		if covered.any(func(p): return l.begins_with(p)):
+			continue
+		var fp := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 12)
+		fp.add_child(UI.wrap_lbl(l, 18))
 		v.add_child(fp)
-		UI.pop_in(fp, 0.15 + 0.15 * k, 30)
-		if fusion:
-			var ff := fp
-			create_tween().tween_callback(func(): UI.burst(ff, ff.size / 2, UI.GOLD, 36, 380, 9)).set_delay(0.4 + 0.15 * k)
+		UI.pop_in(fp, 0.2 + 0.12 * k, 30)
 		k += 1
+	# evolutions and fusions, animated one after another
+	for w in rew:
+		if w.k == "fusion":
+			v.add_child(_fusion_card(w, 0.4 + 0.5 * k))
+			k += 1
 	var cs: CombatSim = r.cs
 	if cs != null:
 		var tp := UI.card(Color(UI.INK, 0.85), UI.BD, 18, 14)
@@ -1077,7 +1169,9 @@ func _night_overlay() -> Control:
 		v.add_child(tp)
 		UI.pop_in(tp, 0.2 + 0.15 * k, 30)
 	var label := tr("See result") if r.over else tr("Claim victory") if r.victory else tr("Next day") + " ▶️"
+	var fused: Array = r.get("fused", [])
 	var nb := UI.big_btn(label, func():
+		_fused_flash = fused.duplicate()
 		run.next_day()
 		_clear_sel()
 		render(), "green", 28)
@@ -1086,8 +1180,135 @@ func _night_overlay() -> Control:
 	return o[0]
 
 
+## A reward tile: big icon, a number that counts up, a caption. Pops in after `delay`.
+func _reward_tile(w: Dictionary, delay: float) -> Control:
+	var col := UI.GOLD
+	var icon := ""
+	var cap := ""
+	var num := 0
+	var fmt := "+%d"
+	match w.k:
+		"gold":
+			icon = "🪙"
+			num = w.v
+			cap = tr("Gold")
+		"tiles":
+			icon = "🎒"
+			num = w.v
+			cap = tr("Pack tiles")
+			col = Color("#4f8cff")
+		"heart":
+			icon = "❤️"
+			num = w.v
+			cap = tr("Heart")
+			col = UI.BAD
+		"heal":
+			icon = "💚"
+			num = w.v
+			cap = tr("HP")
+			col = UI.GOOD
+		"hp":
+			icon = "💔"
+			num = w.v
+			fmt = "%d"
+			cap = tr("HP")
+			col = UI.BAD
+		"loot", "forge":
+			var d: Dictionary = GameData.items[w.id]
+			icon = d.ic
+			col = GameData.tier_colors[d.tier]
+			cap = tr(d.n)
+			fmt = ""
+	var p := UI.card(col.darkened(0.55), col, 20, 10)
+	p.custom_minimum_size = Vector2(148, 168)
+	var vb := UI.vbox(2)
+	p.add_child(vb)
+	var il := UI.lbl(icon, 56)
+	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(il)
+	if w.k in ["loot", "forge"]:
+		var tag := UI.panel(col, col.darkened(0.3), 2, 99, 4)
+		tag.add_child(UI.plbl(tr("NEW!") if w.k == "loot" else "+3 ⚔️", 14, Color.WHITE, true, true))
+		vb.add_child(tag)
+	else:
+		var nl := UI.title("", 30, col.lightened(0.3))
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vb.add_child(nl)
+		nl.text = fmt % 0
+		var ff := fmt
+		var target := num
+		create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
+	var cl := UI.plbl(cap, 14, Color("#e9e4ff"), true, true)
+	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cl.custom_minimum_size.x = 128
+	vb.add_child(cl)
+	UI.pop_in(p, delay, 30)
+	var pp := p
+	create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
+	return p
+
+
+## Two items slide together, flash, and the new item pops out.
+func _fusion_card(w: Dictionary, delay: float) -> Control:
+	var rd: Dictionary = GameData.items[w.r]
+	var col: Color = GameData.tier_colors[rd.tier]
+	var p := UI.card(Color("#3d2f10"), UI.GOLD, 22, 12)
+	var vb := UI.vbox(4)
+	p.add_child(vb)
+	var t := UI.title(("✨ " + tr("EVOLUTION!")) if w.evo else ("🔗 " + tr("FUSION!")), 26, UI.GOLD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(t)
+	var stage := Control.new()
+	stage.custom_minimum_size = Vector2(0, 120)
+	stage.clip_contents = false
+	vb.add_child(stage)
+	var mk := func(ic: String) -> Label:
+		var l := UI.lbl(ic, 64)
+		l.size = Vector2(96, 96)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.pivot_offset = Vector2(48, 48)
+		stage.add_child(l)
+		return l
+	var la: Label = mk.call(GameData.items[w.a].ic)
+	var lb: Label = mk.call(GameData.items[w.b].ic)
+	var lr: Label = mk.call(rd.ic)
+	lr.scale = Vector2.ZERO
+	var cap := UI.wrap_lbl("%s + %s ➡️ %s" % [tr(GameData.items[w.a].n), tr(GameData.items[w.b].n), tr(rd.n)] + (("  (" + tr("in storage") + ")") if w.get("stored", false) else ""), 18, Color("#fff3c4"))
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.modulate.a = 0
+	vb.add_child(cap)
+	# park both parts apart once the card has its width
+	stage.resized.connect(func():
+		var cx := stage.size.x / 2 - 48
+		if lr.scale == Vector2.ZERO and la.visible:
+			la.position = Vector2(cx - 170, 12)
+			lb.position = Vector2(cx + 170, 12)
+		lr.position = Vector2(cx, 12))
+	var tw := p.create_tween()
+	tw.tween_interval(delay)
+	tw.tween_callback(func():
+		var cx := stage.size.x / 2 - 48
+		var t2 := p.create_tween()
+		t2.tween_property(la, "position:x", cx - 34, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		t2.parallel().tween_property(lb, "position:x", cx + 34, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		t2.parallel().tween_property(la, "rotation", -0.4, 0.45)
+		t2.parallel().tween_property(lb, "rotation", 0.4, 0.45)
+		t2.tween_callback(func():
+			la.visible = false
+			lb.visible = false
+			UI.burst(stage, Vector2(stage.size.x / 2, 60), UI.GOLD, 40, 420, 10)
+			UI.burst(stage, Vector2(stage.size.x / 2, 60), col, 24, 300, 8))
+		t2.tween_property(lr, "scale", Vector2(1.5, 1.5), 0.2).set_trans(Tween.TRANS_BACK)
+		t2.tween_property(lr, "scale", Vector2.ONE, 0.2)
+		t2.parallel().tween_property(cap, "modulate:a", 1.0, 0.3))
+	return p
+
+
 func _book_overlay() -> Control:
-	var o := _overlay(tr("RECIPE BOOK"))
+	var o := _overlay(tr("RECIPE BOOK"), func():
+		show_book = false
+		render())
 	var v: VBoxContainer = o[1]
 	v.add_child(UI.wrap_lbl(tr("Place the two parts so they touch. They fuse at night. Two copies of the same item evolve into something new."), 18, Color("#e9e4ff")))
 	var ep := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 14)
@@ -1142,6 +1363,8 @@ func _press(p: Dictionary) -> void:
 		return
 	pending = p
 	press_pos = get_global_mouse_position()
+	if storage_scroll and is_instance_valid(storage_scroll):
+		_press_scroll = storage_scroll.scroll_horizontal
 
 
 func _input(event: InputEvent) -> void:
@@ -1149,12 +1372,22 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		var pos := get_global_mouse_position()
+		# storage: a sideways swipe scrolls the strip; up/down picks the item up
+		if not pending.is_empty() and drag_item == null and pending.src == "storage" and storage_scroll:
+			var dv := pos - press_pos
+			if pending.get("scroll", false) or (absf(dv.x) > DRAG_THRESHOLD and absf(dv.x) > absf(dv.y) * 1.2):
+				pending["scroll"] = true
+				storage_scroll.scroll_horizontal = maxi(0, _press_scroll - int(dv.x))
+				return
 		if not pending.is_empty() and drag_item == null and pos.distance_to(press_pos) > DRAG_THRESHOLD:
 			_begin_drag()
 		if drag_item != null:
 			_update_drag(pos)
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and not event.pressed and not pending.is_empty():
+			if pending.get("scroll", false):
+				pending = {}
+				return
 			if drag_item != null:
 				_drop(get_global_mouse_position())
 				get_viewport().set_input_as_handled()
@@ -1429,6 +1662,18 @@ func _autoshot(dir: String) -> void:
 					it.x = x
 					it.y = y
 					placed = true
+	# a second Fire Gem touching the first, so the night shows an evolution
+	var gem := run.make_item("fire_gem", "held")
+	run.items.append(gem)
+	var first: PItem = run.grid_items().filter(func(i): return i.id == "fire_gem")[0]
+	for dv in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var a: Vector2i = Vector2i(first.x, first.y) + dv
+		if gem.loc == "held" and run.fits(gem, a.x, a.y):
+			gem.loc = "grid"
+			gem.x = a.x
+			gem.y = a.y
+	if gem.loc == "held":
+		gem.loc = "storage"
 	run.travel()
 	render()
 	await get_tree().create_timer(1.0).timeout
@@ -1439,9 +1684,10 @@ func _autoshot(dir: String) -> void:
 	if _pending_sim != null:
 		_pending_sim.skip_to_end()
 		_on_combat_done(_pending_sim.won)
-	await get_tree().create_timer(1.2).timeout
+	await get_tree().create_timer(3.5).timeout
 	await _shot(dir + "/10_night.png")
-	run.phase = "morning"
+	_fused_flash = run.result.get("fused", []).duplicate()
+	run.next_day()
 	render()
 	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/11_morning_full.png")

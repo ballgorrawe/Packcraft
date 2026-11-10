@@ -241,50 +241,69 @@ func _draw_stage() -> void:
 		stage.draw_rect(Rect2(Vector2.ZERO, s), Color(0.9, 0.2, 0.25, 0.18))
 
 
+## Each item is dark while it charges; its own colour fills it from the bottom up, and it
+## flashes white when it fires. Passive items stay lit.
 func _draw_pack() -> void:
 	var f: Font = UI.font if UI.font else get_theme_default_font()
+	var tile := StyleBoxFlat.new()
+	tile.bg_color = Color("#1c1745")
+	tile.border_color = Color("#3d3383")
+	tile.set_border_width_all(2)
+	tile.set_corner_radius_all(10)
 	for c in run.tiles:
-		pack.draw_rect(Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-2), Color("#1c1745"))
+		pack.draw_style_box(tile, Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-2))
 	for it in run.grid_items():
 		var col: Color = GameData.tier_color(it.id)
 		var cells: Array = it.cells()
 		var x = _xi.get(it.uid)
 		var fl: float = _flash.get(it.uid, 9.0)
-		var lit := clampf(1.0 - fl / 0.35, 0.0, 1.0)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = col.darkened(0.45).lerp(Color.WHITE, lit * 0.55)
-		sb.border_color = col.lerp(Color.WHITE, lit)
-		sb.set_border_width_all(2 + int(lit * 2))
-		sb.set_corner_radius_all(10)
-		var bb := Rect2(Vector2(cells[0] - porg) * pcell, Vector2(pcell, pcell))
-		for c in cells:
-			var r := Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-3)
-			if cells.has(c + Vector2i(1, 0)): r = r.grow_side(SIDE_RIGHT, 3.5)
-			if cells.has(c + Vector2i(-1, 0)): r = r.grow_side(SIDE_LEFT, 3.5)
-			if cells.has(c + Vector2i(0, 1)): r = r.grow_side(SIDE_BOTTOM, 3.5)
-			if cells.has(c + Vector2i(0, -1)): r = r.grow_side(SIDE_TOP, 3.5)
-			pack.draw_style_box(sb, r)
-			bb = bb.merge(Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)))
-		# charge: fill rises from the bottom of each cell, ring around the icon
-		var ratio := 0.0
+		var lit := clampf(1.0 - fl / 0.3, 0.0, 1.0)
+		var ratio := 1.0
+		var used := false
 		if x != null:
 			if x.d.once:
-				ratio = 0.0 if x.used else 1.0
+				used = x.used
+				ratio = 0.0 if used else 1.0
 			else:
 				ratio = clampf(x.p / maxf(0.01, x.cd), 0.0, 1.0)
-			for c in cells:
-				var r := Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-4)
-				var hgt := r.size.y * ratio
-				pack.draw_rect(Rect2(r.position.x, r.end.y - hgt, r.size.x, hgt), Color(1, 1, 1, 0.13))
+		# item height span, so the fill rises across the whole piece, not per cell
+		var top := 999.0
+		var bot := -999.0
+		for c in cells:
+			top = minf(top, (c.y - porg.y) * pcell)
+			bot = maxf(bot, (c.y - porg.y + 1) * pcell)
+		var level := bot - (bot - top) * ratio
+		var charged: bool = ratio >= 0.999 and x != null and not x.d.once
+		var dark := StyleBoxFlat.new()
+		dark.bg_color = col.darkened(0.78)
+		dark.border_color = col.darkened(0.35)
+		dark.set_border_width_all(2)
+		dark.set_corner_radius_all(10)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = col.lerp(Color.WHITE, 0.15 + lit * 0.7)
+		fill.set_corner_radius_all(8)
+		for c in cells:
+			var r := Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-3)
+			var g := Rect2(r)
+			if cells.has(c + Vector2i(1, 0)): g = g.grow_side(SIDE_RIGHT, 3.5)
+			if cells.has(c + Vector2i(-1, 0)): g = g.grow_side(SIDE_LEFT, 3.5)
+			if cells.has(c + Vector2i(0, 1)): g = g.grow_side(SIDE_BOTTOM, 3.5)
+			if cells.has(c + Vector2i(0, -1)): g = g.grow_side(SIDE_TOP, 3.5)
+			pack.draw_style_box(dark, g)
+			# the part of this cell below the fill line
+			var y0 := maxf(g.position.y, level)
+			if y0 < g.end.y and not used:
+				pack.draw_style_box(fill, Rect2(g.position.x + 2, y0, g.size.x - 4, g.end.y - y0 - 2))
+			if lit > 0:
+				pack.draw_rect(g.grow(2 + lit * 3), Color(1, 1, 1, lit * 0.8), false, 3.0)
+			if charged or ratio > 0.85:
+				pack.draw_rect(g.grow(1), Color(1, 1, 1, 0.25 + 0.25 * sin(_t * 18.0)), false, 2.0)
 		var m := GameData.mid_cell(it.id, it.rot)
 		var mc := (Vector2(Vector2i(it.x, it.y) + m - porg) + Vector2(0.5, 0.5)) * pcell
-		if x != null and not x.d.once:
-			pack.draw_arc(mc, pcell * 0.42, -PI / 2, -PI / 2 + TAU * ratio, 32, Color(UI.GOLD, 0.95), 4.0)
-		var used: bool = x != null and x.d.once and x.used
 		var ic: String = it.def().ic
-		var sz := int(pcell * 0.5 * (1.0 + lit * 0.35))
+		var sz := int(pcell * 0.56 * (1.0 + lit * 0.4))
 		var w := f.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
-		pack.draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(1, 1, 1, 0.35 if used else 1.0))
+		pack.draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(1, 1, 1, 0.3 if used else 1.0))
 
 
 # --------------------------------------------------------------- loop
@@ -342,8 +361,10 @@ func _handle(evs: Array) -> void:
 					_lunge(foe, 60)
 				var r := snappedf(ev.dm - ev.ab, 0.1)
 				_flash_lbl(hero)
-				_float_at(_center_of(hero), tr("BLOCK") if r <= 0 else "-" + GameData._num(r), Color("#7dd3fc") if r <= 0 else Color("#ff5a5f"), r >= 10)
-				if r >= 10:
+				_float_at(_center_of(hero), ("🛡️ " + tr("BLOCK")) if r <= 0 else "-" + GameData._num(r), Color("#7dd3fc") if r <= 0 else Color("#ff4d5e"), r >= 8)
+				if r > 0:
+					_hurt_flash(r / sim.mhp * 2.5)
+				if r >= 8:
 					_shake()
 			"res":
 				var tw := res_lbl.create_tween()
@@ -442,20 +463,36 @@ func _projectile(icon: String, from: Vector2, to: Vector2) -> void:
 	tw.chain().tween_callback(p.queue_free)
 
 
+## Floating number: slams in oversized, settles, drifts up and fades. Big hits are huge.
 func _float_at(pos: Vector2, text: String, col: Color, big: bool) -> void:
-	var l := UI.lbl(text, 30 if big else 19, col, true)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 7 if big else 5)
+	var l := UI.lbl(text, 52 if big else 34, col, true)
+	l.add_theme_color_override("font_outline_color", col.darkened(0.8))
+	l.add_theme_constant_override("outline_size", 14 if big else 10)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	l.add_theme_constant_override("shadow_offset_y", 4)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fxl.add_child(l)
-	l.position = pos + Vector2(randf_range(-24, 24), randf_range(-10, 10)) - Vector2(20, 12)
-	l.pivot_offset = Vector2(20, 12)
-	l.scale = Vector2(0.5, 0.5)
+	var sz := l.get_minimum_size()
+	l.position = pos + Vector2(randf_range(-30, 30), randf_range(-14, 14)) - sz / 2
+	l.pivot_offset = sz / 2
+	l.scale = Vector2(2.2, 2.2) if big else Vector2(1.7, 1.7)
+	l.rotation = randf_range(-0.12, 0.12)
 	var tw := l.create_tween()
-	tw.tween_property(l, "scale", Vector2(1.35, 1.35) if big else Vector2(1.1, 1.1), 0.12)
-	tw.parallel().tween_property(l, "position:y", l.position.y - (80 if big else 56), 0.9)
-	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.9).set_delay(0.35)
+	tw.tween_property(l, "scale", Vector2(1.15, 1.15) if big else Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.25 if big else 0.15)
+	tw.tween_property(l, "position:y", l.position.y - (110 if big else 70), 0.7).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.7).set_delay(0.25)
 	tw.tween_callback(l.queue_free)
+
+
+## Red edge flash when you take a big hit.
+func _hurt_flash(strength: float) -> void:
+	var r := ColorRect.new()
+	r.color = Color(1, 0.1, 0.15, clampf(strength, 0.15, 0.45))
+	r.set_anchors_preset(Control.PRESET_FULL_RECT)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fxl.add_child(r)
+	r.create_tween().tween_property(r, "color:a", 0.0, 0.35).finished.connect(r.queue_free)
 
 
 func _ult_banner(text: String) -> void:

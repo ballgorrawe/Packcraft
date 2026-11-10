@@ -294,7 +294,7 @@ static func spacer(h := true) -> Control:
 
 ## Calls `cb` when a Control is tapped (left press).
 static func on_tap(c: Control, cb: Callable) -> void:
-	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.mouse_filter = Control.MOUSE_FILTER_PASS   # PASS: a drag can still scroll the list behind
 	c.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			cb.call())
