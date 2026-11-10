@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1794276227|4594241';
+const CACHE_VERSION = '1794281744|4212637';
 /** @type {string} */
 const CACHE_PREFIX = 'PackCraft-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
