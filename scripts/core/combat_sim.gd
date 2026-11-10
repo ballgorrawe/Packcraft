@@ -40,6 +40,14 @@ var sp := {}                # specials present in the pack
 var turrets := 0
 var gold_mult := 1.0
 var hero_dmg := 1.0         # level-ups: +damage on everything you deal (hits, DoTs, reflect)
+var evade := 0.0            # chance to dodge a monster hit (Phantom Marksman)
+var dodge := 0              # monster hits that will surely miss (Shadowstep)
+var next_crit := false      # Shadowstep: the next weapon hit crits for 250% and Bleeds
+var freeze_t := 0           # ticks the monster's items stay frozen (Supernova, Maelstrom Call)
+var empty_tiles := 0        # unlocked pack tiles with nothing on them
+var dmg_phys := 0.0         # Physical / Magic damage dealt this fight (Judgement Strike)
+var dmg_mag := 0.0
+var _last_cat := -1         # 0 Physical, 1 Magic: the kind of your last hit (Equilibrium)
 var stat_dmg := {}          # status id -> damage dealt
 var dot_src := {}           # status id -> {item uid: stacks it applied}, to credit DoT damage to items
 var _by_uid := {}           # item uid -> combat item dict
@@ -91,6 +99,16 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 			turrets += 1
 		hs["thorns"] = hs.get("thorns", 0.0) + d.pass.thorns
 		shield += d.pass.shield
+	# class passives that are not a resource (e.g. Equilibrium, High Tide)
+	for s_ in str(r.cls_def().get("sp", "")).split(","):
+		if s_.strip_edges() != "":
+			sp[s_.strip_edges()] = true
+	var used := 0
+	for i in g:
+		used += i.cells().size()
+	empty_tiles = maxi(0, r.tiles.size() - used)
+	if sp.has("empty_evasion"):
+		evade = minf(0.3, empty_tiles * 0.03)
 	hero_dmg = 1.0 + r.pv("dmg")
 	if sp.has("gold_power"):
 		gold_mult += minf(0.4, r.gold * 0.005)
@@ -194,6 +212,8 @@ func _gain_res(kind: String, amount: float) -> void:
 		res_acc -= per
 		resv += 1
 		_ev({"t": "res", "v": resv})
+		if sp.has("tide_soak") and resv % 5 == 0:
+			add_status("soaked", 2)   # High Tide: every 5 Tide soaks the enemy
 
 
 func _crit(chance: float, mult: float) -> float:
@@ -220,6 +240,8 @@ func _bleed_trigger(side: String) -> void:
 		ehp -= v
 		stat_dmg["bleed"] = stat_dmg.get("bleed", 0.0) + v
 		_credit_dot("bleed", v)
+		if sp.has("bleed_heal"):
+			heal(v * 0.3)
 	else:
 		php -= v
 	_num(side, "-" + GameData._num(roundf(v * 10) / 10.0), s.col, false, -1, "dot", "bleed" if side == "foe" else "hd:bleed")
@@ -255,6 +277,8 @@ func _pierce(x) -> float:
 		p = 1.0
 	if sp.has("heat_pierce") and x.d.tags.has("Weapon"):
 		p += 0.04 * resv
+	if sp.has("apex") and x.d.tags.has("Beast"):
+		p += 0.3
 	return minf(1.0, p)
 
 
@@ -263,12 +287,33 @@ func _pierce(x) -> float:
 func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", magic := -1) -> float:
 	var is_mag: bool = GameData.is_magic(el) if magic < 0 else magic == 1
 	var m := RunState.elem_mult(e, el)
+	var rd := res_def()
+	var shadow := false
+	if x != null:
+		# Momentum (Rogue): crit chance and crit damage per stack on the tagged items
+		if rd.eff == "crit_tag" and x.d.tags.has(rd.etag):
+			crit += minf(float(rd.get("cap", 0.45)), rd.v * resv)
+			critx += float(rd.get("v2", 0.0)) * resv
+		if next_crit and x.d.tags.has("Weapon"):
+			next_crit = false
+			shadow = true
+			crit = 1.0
+			critx = maxf(critx, 2.5)
 	var cm := _crit(crit, critx)
 	var v := base * m * cm * gold_mult * hero_dmg
+	if rd.eff == "magic_pct" and is_mag:
+		v *= 1.0 + minf(float(rd.get("cap", 1.0)), rd.v * resv)
+	if rd.eff == "dmg_all_pct":
+		v *= 1.0 + minf(float(rd.get("cap", 1.0)), rd.v * resv)
+	if sp.has("siren") and is_mag and (el == "Water" or el == "Shock"):
+		v *= 1.0 + 0.03 * fs.get("soaked", 0.0)
 	if x != null:
-		var rd := res_def()
 		if rd.eff == "dmg_pct_tag" and x.d.tags.has(rd.etag):
 			v *= 1.0 + rd.v * resv
+		if sp.has("void_mana") and x.d.tags.has("Spell"):
+			v *= 1.4
+		if sp.has("empty_evasion") and x.d.tags.has("Ranged"):
+			v *= 1.0 + 0.03 * empty_tiles
 		if x.d.sp == "execute" and ehp < e.hp * 0.3:
 			v *= 2.0
 	v *= _defense_mult(is_mag, _pierce(x))
@@ -282,6 +327,21 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 	var uid: int = x.i.uid if x != null else -1
 	if x != null:
 		x.st.dmg += v
+	if is_mag:
+		dmg_mag += v
+	else:
+		dmg_phys += v
+	if x != null:
+		if cm > 1.0:
+			_gain_res("crit_hit", 1.0)
+		var cat := 1 if is_mag else 0
+		if _last_cat >= 0 and cat != _last_cat:
+			_gain_res("alternate", 1.0)   # Equilibrium: switching between Physical and Magic
+		_last_cat = cat
+		if sp.has("dusk_lifesteal") and not is_mag and x.d.tags.has("Weapon"):
+			heal(v * 0.1)
+		if shadow:
+			add_status("bleed", 10, x.i.uid)
 	var is_crit := cm > 1.0 and not preview
 	_ev({"t": "hit", "uid": uid, "v": v, "el": el, "m": m, "crit": is_crit, "melee": x != null and x.d.tags.has("Melee"), "icon": x.d.ic if x != null else src})
 	var who: String = (x.d.ic + " " + I18n.t(x.d.n)) if x != null else src
@@ -361,6 +421,11 @@ func fire(idx: int) -> void:
 		dmg += mhp * 0.10
 	if dmg > 0:
 		damage(x, dmg, f.el if f.el != "" else "Physical", f.crit, f.critx)
+	if x.get("bonus", 0.0) > 0:
+		# Equilibrium: a Magic item next to this weapon charged it with bonus Magic damage
+		damage(x, x["bonus"], "Arcane", 0, 2, "", 1)
+		x["bonus"] = 0.0
+	_class_trigger(idx, x)
 	for k in f.st:
 		add_status(k, f.st[k], x.i.uid)
 	if f.shield > 0:
@@ -395,6 +460,41 @@ func fire(idx: int) -> void:
 		fire_ult()
 
 
+## Class and path effects that react to one of your items firing.
+func _class_trigger(idx: int, x: Dictionary) -> void:
+	var d: Dictionary = x.d
+	var mag: bool = GameData.is_magic(x.f.el)
+	if sp.has("chill") and d.tags.has("Spell"):
+		add_status("soaked", 1, x.i.uid)
+		gain_shield(3, x.i.uid)
+	if sp.has("void_mana") and d.tags.has("Spell"):
+		php = maxf(1.0, php - 2.0)
+	if sp.has("tempest") and mag:
+		gain_shield(2, x.i.uid)
+	if sp.has("apex") and d.tags.has("Beast"):
+		add_status("bleed", 1, x.i.uid)
+	if sp.has("shaman") and d.tags.has("Beast"):
+		heal(2, x.i.uid)
+	if sp.has("equilibrium") and x.f.dmg > 0:
+		for b in x.nb:
+			var y: Dictionary = items[b]
+			if not mag and GameData.is_magic(y.f.el):
+				_charge(b, y.cd * 0.15)
+			elif mag and y.d.tags.has("Weapon") and not GameData.is_magic(y.f.el):
+				y["bonus"] = 6.0
+
+
+## Per-item charge speed: Pack Hunt (Beasts), Bloodwater Frenzy (Sea creatures vs a bleeding foe).
+func _item_speed(x: Dictionary) -> float:
+	var s := 1.0
+	var rd := res_def()
+	if rd.eff == "haste_tag" and x.d.tags.has(rd.etag):
+		s += minf(float(rd.get("cap", 0.4)), rd.v * resv)
+	if sp.has("frenzy") and x.d.tags.has("Sea") and fs.get("bleed", 0.0) > 0:
+		s += 0.3
+	return s
+
+
 func _charge(idx: int, sec: float) -> void:
 	var y: Dictionary = items[idx]
 	if y.d.once:
@@ -419,6 +519,33 @@ func fire_ult() -> void:
 			for y in items:
 				if not y.d.once:
 					y.p = y.cd
+		"shadowstep":
+			dodge += 1
+			next_crit = true
+		"supernova":
+			resv = 0   # all Mana spent (the damage above already counted it)
+			freeze_t = 20
+		"maelstrom":
+			freeze_t = 15
+			if resv > 0:
+				damage(null, 4.0 * resv, "Water", 0, 2, u.ic)
+		"judgement":
+			var hi := maxf(dmg_phys, dmg_mag)
+			var balanced := hi > 0 and minf(dmg_phys, dmg_mag) >= hi * 0.7
+			var k := 2.0 if balanced else 1.0
+			damage(null, 20.0 * k, "Physical", 0, 2, u.ic)
+			damage(null, 20.0 * k, "Arcane", 0, 2, u.ic)
+			if balanced:
+				heal(20)
+				_log(I18n.t("⚖️ Perfect balance: Judgement strikes twice as hard!"))
+		"alpha_roar":
+			var beasts := 0
+			for bi in items.size():
+				if items[bi].d.tags.has("Beast"):
+					beasts += 1
+					items[bi].p = items[bi].cd   # fires on the next tick
+			if beasts > 0:
+				gain_shield(3.0 * beasts)
 	if dmg > 0:
 		var v := damage(null, dmg, on.el if on.el != "" else "Physical", 0, 2, u.ic)
 		_num("foe", u.ic + " " + GameData._num(v), Color("#ffe14a"), true)
@@ -448,7 +575,7 @@ func step() -> void:
 					gain_shield(x.f.shield, x.i.uid)
 				_log(I18n.t("🧪 %s healed you") % I18n.t(d.n))
 			continue
-		x.p += TICK * speed
+		x.p += TICK * speed * _item_speed(x)
 		if x.p >= x.cd:
 			x.p -= x.cd
 			fire(idx)
@@ -492,6 +619,9 @@ func step() -> void:
 	hastes = hastes.filter(func(x): return x.t > 0)
 	# the monster's items charge and fire
 	var fspeed := (1.0 + _foe_haste()) * _soak_slow(fs)
+	if freeze_t > 0:
+		freeze_t -= 1
+		fspeed = 0.0
 	for fx in fi:
 		if fx.cd <= 0:
 			continue
@@ -540,6 +670,12 @@ func foe_fire(fx: Dictionary) -> void:
 	_bleed_trigger("foe")
 	if on.dmg > 0:
 		var dm: float = roundf(on.dmg * dm_mult * _crit(on.crit, on.critx) * 10.0) / 10.0
+		if dodge > 0 or (evade > 0 and _rng.randf() < evade):
+			# Shadowstep / Phantom evasion: the hit misses completely
+			if dodge > 0:
+				dodge -= 1
+			_num("hero", "💨 " + I18n.t("EVADE"), Color("#c4b5fd"), true)
+			dm = 0.0
 		var ab := minf(shield, dm)
 		shield -= ab
 		blocked += ab
