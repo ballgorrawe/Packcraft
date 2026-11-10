@@ -500,10 +500,13 @@ func roll_item() -> String:
 ## Rolls a shop-pool item using the rarity row `rk` (0..4), never below `min_tier`.
 ## With `partner_bias`, that chance picks an item that fuses with something you own (same tier).
 func roll_tiered(rk: int, min_tier := 0, partner_bias := 0.0) -> String:
-	var w: Array = GameData.rarity_table[clampi(rk, 0, 4)]
-	var r := randf() * 100.0
+	var w: Array = GameData.rarity_table[clampi(rk, 0, GameData.rarity_table.size() - 1)]
+	var tot := 0.0
+	for x in w:
+		tot += x
+	var r := randf() * tot
 	var t := 0
-	while t < 4:
+	while t < w.size() - 1:
 		r -= w[t]
 		if r < 0:
 			break
@@ -925,7 +928,7 @@ func start_event(k: String) -> void:
 			event.pulls = 0
 			event.pot = 0
 		"altar":
-			var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == 3 and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
+			var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == 4 and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
 			pool.shuffle()
 			event.offer = pool.slice(0, 3)
 		"chest":
@@ -1022,7 +1025,8 @@ func ev_brew(a: PItem, b: PItem) -> String:
 	if event.get("done", false) or a == b or a.starter or b.starter or a.def().relic or b.def().relic or not items.has(a) or not items.has(b):
 		return ""
 	var top := maxi(a.def().tier, b.def().tier)
-	var id := roll_tiered(clampi(top + 1, 0, 4), mini(3, top + 1))
+	# one rarity step up (the shop pool tops out at Epic)
+	var id := roll_tiered(4, mini(3, top + 1))
 	items.erase(a)
 	items.erase(b)
 	items.append(make_item(id, "storage"))

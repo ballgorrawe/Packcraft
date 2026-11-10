@@ -83,7 +83,7 @@ func _init() -> void:
 				for l in r.result.lines:
 					if l.begins_with("✨ Evolution"):
 						evos += 1
-				if r.items.any(func(i): return i.def().tier == 4):
+				if r.items.any(func(i): return i.def().lv == 4):
 					got_cap = true
 				r.next_day()
 			if got_cap:

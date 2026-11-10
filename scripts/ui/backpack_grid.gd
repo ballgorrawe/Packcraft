@@ -165,7 +165,7 @@ func _draw() -> void:
 			var r := Rect2((base + Vector2(c)) * cell - center, Vector2(cell, cell)).grow(-4)
 			if linked.has(it.uid):
 				draw_rect(r.grow(1), Color(UI.GOLD, 0.45 + 0.5 * pulse), false, 3.5)
-			if tier >= 3:
+			if tier >= 4:
 				draw_rect(r, Color(col.lightened(0.4), 0.14 * pulse))
 			if pre.has("bf") and pre.bf.has(it.uid):
 				draw_rect(r.grow(-3), UI.STAR, false, 3.5)
