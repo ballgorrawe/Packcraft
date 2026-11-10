@@ -62,7 +62,7 @@ func _draw() -> void:
 			label = "💀"
 			fs = 14
 		elif past:
-			label = "✓"
+			label = "✔"
 			lcol = Color("#4a2800")
 		elif fork:
 			label = "🔀"

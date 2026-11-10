@@ -62,6 +62,9 @@ func _ready() -> void:
 	GameData.ensure_loaded()
 	I18n.setup(SaveGame.get_setting("lang", "th" if OS.get_locale_language() == "th" else "en"))
 	theme = UI.build_theme()
+	# also on the window, so CanvasLayers (toasts, hover cards, drag ghost) and tooltip popups get
+	# the bundled emoji / Thai fonts too (the web build has no system fonts)
+	get_tree().root.theme = theme
 	sel_cls = GameData.class_keys[0]
 	sel_pet = SaveGame.get_setting("pet", GameData.pet_keys[0] if not GameData.pet_keys.is_empty() else "")
 	sel_diff = SaveGame.get_setting("diff", "normal")
@@ -196,6 +199,7 @@ func toast(text: String, col := UI.AC) -> void:
 	for c in toast_layer.get_children():
 		c.queue_free()
 	var p := UI.panel(Color(UI.INK, 0.94), col, 3, 18, 14, 8)
+	p.theme = theme   # a CanvasLayer does not inherit the theme: without it emoji show as boxes
 	p.anchor_left = 0.06
 	p.anchor_right = 0.94
 	if _side_pad() > 0:
@@ -314,7 +318,7 @@ func _key() -> String:
 
 ## Full-screen popup layer. Content is centred vertically when it is short and scrolls when
 ## it is long; `close_cb` adds a ✖️ that stays in the corner whatever the scroll position.
-func _overlay(title: String, close_cb := Callable()) -> Array:
+func _overlay(title: String, close_cb := Callable(), wide := false) -> Array:
 	var ov := ColorRect.new()
 	ov.color = Color(0.03, 0.02, 0.1, 0.88)
 	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -322,7 +326,7 @@ func _overlay(title: String, close_cb := Callable()) -> Array:
 	var mc := MarginContainer.new()
 	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right"]:
-		mc.add_theme_constant_override("margin_" + s, 20 + int(_side_pad()))
+		mc.add_theme_constant_override("margin_" + s, 20 + int(_side_pad(WIDE_W if wide else COLUMN_W)))
 	mc.add_theme_constant_override("margin_top", 30)
 	mc.add_theme_constant_override("margin_bottom", 30)
 	ov.add_child(mc)
@@ -458,11 +462,17 @@ func _start_screen() -> Control:
 	if summary != "":
 		var cb := UI.btn("▶️ " + tr("CONTINUE") + "\n" + summary, _continue_run, false, 20, "gold")
 		cb.custom_minimum_size = Vector2(0, 96)
+		if _wide:
+			cb.custom_minimum_size.x = 640
+			cb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(cb)
 	var play := UI.big_btn("⚔️ " + tr("NEW GAME"), func():
 		title_step = 1
 		render(), "green", 34)
 	play.custom_minimum_size = Vector2(0, 104)
+	if _wide:
+		play.custom_minimum_size.x = 640
+		play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(play)
 	UI.breathe(play, 0.03)
 	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
@@ -1460,6 +1470,7 @@ func _refresh_tip() -> void:
 	if t.is_empty():
 		return
 	_tip_panel = _item_info_card(t)
+	_tip_panel.theme = theme   # CanvasLayer content does not inherit the theme (emoji would be boxes)
 	tip_layer.add_child(_tip_panel)
 	_tip_panel.reset_size()
 	_move_tip()
@@ -1664,14 +1675,22 @@ const EV := {
 
 
 func _road_overlay() -> Control:
-	var o := _overlay(tr("CHOOSE YOUR ROAD"))
+	var o := _overlay(tr("CHOOSE YOUR ROAD"), Callable(), _wide)
 	var v: VBoxContainer = o[1]
 	var s := UI.lbl(tr("Day %d · HP %d/%d · Hearts %d/%d") % [run.day, roundi(run.hp), roundi(run.mhp), run.res, RunState.MAX_HEARTS], 18, UI.MU, true)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
+	var list: BoxContainer = v
+	if _wide:
+		# PC: tall cards side by side, so every road fits on one screen
+		list = UI.hbox(18)
+		v.add_child(list)
 	for i in run.nodes.size():
 		var c := _road_card(run.nodes[i], i)
-		v.add_child(c)
+		if _wide:
+			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			c.size_flags_stretch_ratio = 1.0
+		list.add_child(c)
 		UI.pop_in(c, 0.1 + 0.1 * i, 40)
 	v.add_child(_center(UI.btn("◀️ " + tr("Back to the shop"), func():
 		run.phase = "morning"
@@ -1686,7 +1705,9 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	var p := UI.card(c.darkened(0.62), c, 24, 14)
 	var v := UI.vbox(8)
 	p.add_child(v)
-	var h := UI.hbox(14)
+	var h: BoxContainer = UI.vbox(6) if _wide else UI.hbox(14)   # PC: a tall card, everything centred
+	if _wide:
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(h)
 	var icon := ""
 	var nm := ""
@@ -1709,7 +1730,9 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		icon = k[0]
 		nm = tr(EV[n.k][1]) if EV.has(n.k) else tr("Campfire")
 		sub = tr(EV[n.k][2]) if EV.has(n.k) else tr("Recover 50% HP")
-	var il := UI.lbl(icon, 84 if boss else 68)
+	var il := UI.lbl(icon, (130 if boss else 110) if _wide else (84 if boss else 68))
+	if _wide:
+		il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(il)
 	UI.breathe(il, 0.06)
 	var tv := UI.vbox(4)
@@ -1717,13 +1740,21 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	h.add_child(tv)
 	var tgp := UI.panel(c, c.darkened(0.3), 2, 99, 6)
 	tgp.add_child(UI.lbl(k[0] + " " + tr(k[1]), 15, Color.WHITE, true))
-	tgp.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	tgp.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if _wide else Control.SIZE_SHRINK_BEGIN
 	tv.add_child(tgp)
-	tv.add_child(UI.title(nm, 26))
+	var ttl := UI.title(nm, 30 if _wide else 26)
+	if _wide:
+		ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tv.add_child(ttl)
 	if sub != "":
-		tv.add_child(UI.lbl(sub, 18, sub_col, true))
+		var sl := UI.wrap_lbl(sub, 19, sub_col) if _wide else UI.lbl(sub, 18, sub_col, true)
+		if _wide:
+			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tv.add_child(sl)
 	if not badges.is_empty():
 		var bf := UI.flow(6)
+		if _wide:
+			bf.alignment = FlowContainer.ALIGNMENT_CENTER
 		for b in badges:
 			var bp := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 99, 6)
 			bp.add_child(UI.lbl(b, 14, Color("#e9e4ff"), true))
@@ -1737,6 +1768,8 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		mh.add_child(UI.lbl("🎒", 22))
 		mh.add_child(mp)
 		v.add_child(mh)
+	if _wide:
+		v.add_child(UI.spacer(false))   # buttons line up along the bottom
 	var go := UI.btn(("⚔️ " + tr("FIGHT!")) if n.has("e") else (tr("GO") + " ▶️"), func(): _choose(i), false, 26, k[3])
 	go.custom_minimum_size.y = 78
 	v.add_child(go)
@@ -1766,8 +1799,20 @@ func _night_overlay() -> Control:
 	var head := "🌙 " + tr("NIGHT")
 	if fight:
 		head = ("🏆 " + tr("VICTORY!")) if r.win else ("💔 " + tr("DEFEAT"))
-	var o := _overlay(head)
+	var o := _overlay(head, Callable(), _wide)
 	var v: VBoxContainer = o[1]
+	var side: VBoxContainer = v   # where the fight summary goes
+	if _wide:
+		# PC: rewards, fusions, level-up and "Next day" on the left; the fight summary on the right
+		var cols := UI.hbox(28)
+		cols.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.add_child(cols)
+		v = UI.vbox(16)
+		v.custom_minimum_size.x = 660
+		cols.add_child(v)
+		side = UI.vbox(16)
+		side.custom_minimum_size.x = 660
+		cols.add_child(side)
 	var rew: Array = r.get("rew", [])
 	var k := 0
 	# rewards as big tiles
@@ -1816,7 +1861,7 @@ func _night_overlay() -> Control:
 		extra.append("⭐ " + tr("Ultimates %d") % cs.ults)
 		extra.append("⏱️ %.1fs" % (cs.tk / 10.0))
 		tv.add_child(UI.wrap_lbl(" · ".join(extra), 16, UI.MU))
-		v.add_child(tp)
+		side.add_child(tp)
 		UI.pop_in(tp, 0.2 + 0.15 * k, 30)
 	var choosing: bool = not r.over and not run.picks.is_empty()
 	if choosing:

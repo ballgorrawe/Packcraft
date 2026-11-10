@@ -224,7 +224,10 @@ func _aura_marks(it: PItem, shp: Array, base: Vector2, center: Vector2, occ: Dic
 	if buffed:
 		var rr := Rect2(mr.position + Vector2(mr.size.x - bs - 1, mr.size.y - bs - 1), Vector2(bs, bs))
 		draw_circle(rr.get_center(), bs * 0.5, Color("#14532d"))
-		_text("▲", rr, bs * 0.6, UI.GOOD)
+		# drawn, not a text glyph: the web build has no font with a triangle in it
+		var cc := rr.get_center()
+		var tr_ := bs * 0.26
+		draw_colored_polygon(PackedVector2Array([cc + Vector2(0, -tr_), cc + Vector2(tr_ * 1.05, tr_ * 0.75), cc + Vector2(-tr_ * 1.05, tr_ * 0.75)]), UI.GOOD)
 
 
 func _text(t: String, r: Rect2, fs: float, col: Color) -> void:
