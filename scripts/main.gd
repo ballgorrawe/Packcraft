@@ -31,6 +31,7 @@ var pops := {}               # uid -> seconds since it landed (squash/stretch)
 var _screen_key := ""
 var _shown_gold := -1
 var _shown_hp := -1
+var _shop_anim := false
 var _fused_flash: Array = []   # uids created at night: they pop and sparkle when the new day opens
 
 # widgets of the current screen
@@ -660,6 +661,8 @@ func _held_text() -> String:
 				t = tr("Here: damage %+.1f/s · shield %+.1f/s") % [pr.d.x, pr.d.y]
 				if pr.lk:
 					t += "  ✨ " + tr("forms a Golden Link!")
+			elif run.on_tiles(drag_item.id, drag_item.rot, a):
+				t = "🔄 " + tr("Swap: items here move to where this came from, or to storage.")
 			else:
 				t = "❌ " + tr("Does not fit here.")
 		return t
@@ -718,7 +721,7 @@ func _shop_panel(fresh: bool) -> Control:
 	var rr := UI.btn("🎲 %d🪙" % run.reroll_cost(), func():
 		if run.reroll():
 			_clear_sel()
-			_screen_key = ""   # replay the card animation
+			_shop_anim = true   # only the new cards animate (not the whole screen)
 		render(), false, 18, "purple")
 	rr.disabled = run.gold < run.reroll_cost()
 	head.add_child(rr)
@@ -733,9 +736,10 @@ func _shop_panel(fresh: bool) -> Control:
 		else:
 			var sc := _shop_card(e, i)
 			cards.add_child(sc)
-			if fresh:
+			if fresh or _shop_anim:
 				UI.pop_in(sc, 0.15 + 0.06 * k, 30)
 			k += 1
+	_shop_anim = false
 	for _k in range(cards.get_child_count(), 5):
 		var empty := UI.panel(Color(0, 0, 0, 0.2), UI.BD, 2, 16, 6)
 		empty.custom_minimum_size = Vector2(0, 184)
@@ -840,8 +844,8 @@ func _inspector_popup() -> Control:
 	var d: Dictionary = GameData.items[id]
 	var col: Color = GameData.tier_colors[d.tier]
 	var p := UI.card(Color("#221b4d"), col, 26, 18)
-	# shop items open at the top so the shop row stays visible for comparing; owned items at the bottom
-	var at_top := not owned
+	# always at the top: the shop row and storage stay visible while you read
+	var at_top := true
 	p.anchor_left = 0
 	p.anchor_right = 1
 	p.anchor_top = 0 if at_top else 1
@@ -883,7 +887,9 @@ func _inspector_popup() -> Control:
 		v.add_child(_recipe_row(r))
 	if owned and run.phase == "morning":
 		var tips := UI.hbox(8)
-		tips.add_child(_tip("🔄", tr("tap again")))
+		var rb := UI.btn("🔄 " + tr("Rotate"), func(): _rotate(1), false, 17, "blue")
+		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tips.add_child(rb)
 		tips.add_child(_tip("📦", tr("drag to storage")))
 		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not selected.starter else tr("starter")))
 		v.add_child(tips)
@@ -1027,11 +1033,8 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	var sub_col := Color("#e9e4ff")
 	if n.has("e"):
 		var e: Dictionary = n.e
-		var f := run.forecast(e)
 		icon = GameData.foe_icon(e.n)
 		nm = tr(e.n)
-		sub = {"Safe": "😎 ", "Risky": "😬 ", "Deadly": "☠️ "}.get(f.tag, "") + "%s · ~-%d HP" % [tr(f.tag), roundi(minf(run.hp, f.taken))]
-		sub_col = f.color
 		badges.append("❤️ %d" % roundi(e.hp))
 		badges.append("⚔️ %s" % GameData._num(e.atk))
 		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
@@ -1055,7 +1058,8 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	tgp.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	tv.add_child(tgp)
 	tv.add_child(UI.title(nm, 26))
-	tv.add_child(UI.lbl(sub, 18, sub_col, true))
+	if sub != "":
+		tv.add_child(UI.lbl(sub, 18, sub_col, true))
 	if not badges.is_empty():
 		var bf := UI.flow(6)
 		for b in badges:
@@ -1525,6 +1529,21 @@ func _drop(pos: Vector2) -> void:
 				it.loc = "grid"
 				it.x = a.x
 				it.y = a.y
+				done = true
+				landed = true
+		elif run.on_tiles(it.id, it.rot, a):
+			# items in the way swap into the spot it came from, step aside, or go to storage
+			if drag_src != "shop" or _pay_shop():
+				var before := {}
+				for o in run.grid_items():
+					before[o.uid] = Vector2(o.x, o.y)
+				var origin: Dictionary = drag_orig if drag_src == "grid" and drag_orig.get("loc", "") == "grid" else {}
+				var res := run.place_with_bump(it, a, origin)
+				for uid in res.moved:
+					anim[uid] = before.get(uid, Vector2.ZERO)
+					pops[uid] = 0.0
+				if res.stored > 0:
+					toast("📦 " + tr("%d item(s) had no room and went to storage.") % res.stored, UI.AC)
 				done = true
 				landed = true
 		else:

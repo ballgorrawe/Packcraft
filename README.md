@@ -62,6 +62,7 @@ godot --headless --path . --script res://tests/sim_test.gd -- --losses          
 godot --headless --path . --script res://tests/save_test.gd                       # save/load round-trip
 godot --headless --path . --script res://tests/ui_save_test.gd                    # autosave + Continue through the real UI
 godot --headless --path . --script res://tests/loot_test.gd                       # loot tier odds by day
+godot --headless --path . --script res://tests/swap_test.gd                       # drop-onto-item swap / storage rules
 ```
 After adding a new script with `class_name`, run `godot --headless --path . --import` once so the class is registered.
 

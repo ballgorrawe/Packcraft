@@ -243,6 +243,44 @@ func rotate_in_pack(it: PItem, d: int) -> String:
 	return I18n.t("Rotated. Items in the way were moved over.")
 
 
+## Drops `it` at anchor `a` even if items are in the way (all its cells must be unlocked tiles).
+## Each item in the way first tries the spot the dragged item came from (`origin`, a swap),
+## then a free spot right next to the drop; if neither has room it goes to storage.
+## Returns {"moved": [uids moved in the pack], "stored": count}.
+func place_with_bump(it: PItem, a: Vector2i, origin: Dictionary) -> Dictionary:
+	var out := {"moved": [], "stored": 0}
+	if not on_tiles(it.id, it.rot, a):
+		return out
+	var mine := {}
+	for c in GameData.shape(it.id, it.rot).c:
+		mine[a + c] = true
+	var movers := grid_items().filter(func(o): return o != it and o.cells().any(func(c): return mine.has(c)))
+	it.loc = "grid"
+	it.x = a.x
+	it.y = a.y
+	for o in movers:
+		o.loc = "held"
+		var spot := {}
+		if not origin.is_empty():
+			var s := nearest_spot(o, Vector2i(origin.x, origin.y))
+			if not s.is_empty() and absi(s.x - origin.x) + absi(s.y - origin.y) <= 2:
+				spot = s
+		if spot.is_empty():
+			var s2 := nearest_spot(o, Vector2i(o.x, o.y))
+			if not s2.is_empty() and absi(s2.x - o.x) + absi(s2.y - o.y) <= 2:
+				spot = s2
+		if spot.is_empty():
+			o.loc = "storage"
+			out.stored += 1
+		else:
+			o.loc = "grid"
+			o.x = spot.x
+			o.y = spot.y
+			o.rot = spot.rot
+			out.moved.append(o.uid)
+	return out
+
+
 func anchor_for(it: PItem, cell: Vector2i) -> Vector2i:
 	return cell - GameData.mid_cell(it.id, it.rot)
 

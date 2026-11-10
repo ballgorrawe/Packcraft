@@ -87,6 +87,7 @@ func _draw() -> void:
 	var pre := {}
 	var pv := {}
 	var ok := false
+	var swap := false   # lands on items that will move aside
 	var partners := {}
 	if h != null:
 		for rc in GameData.recipes:
@@ -106,6 +107,7 @@ func _draw() -> void:
 			var a := run.anchor_for(h, hc)
 			pre = run.preview(h, a.x, a.y)
 			ok = pre.ok
+			swap = not ok and run.on_tiles(h.id, h.rot, a)
 			for sc in GameData.shape(h.id, h.rot).c:
 				pv[a + sc] = true
 
@@ -114,8 +116,9 @@ func _draw() -> void:
 		for k in pv:
 			var r := cell_rect(k).grow(-3)
 			var s := StyleBoxFlat.new()
-			s.bg_color = Color(UI.GOOD if ok else UI.BAD, 0.3)
-			s.border_color = UI.GOOD if ok else UI.BAD
+			var pc: Color = UI.GOOD if ok else (UI.AC if swap else UI.BAD)
+			s.bg_color = Color(pc, 0.3)
+			s.border_color = pc
 			s.set_border_width_all(3)
 			s.set_corner_radius_all(10)
 			draw_style_box(s, r)
