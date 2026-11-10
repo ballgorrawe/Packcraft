@@ -1408,31 +1408,7 @@ func _night_overlay() -> Control:
 		var tp := UI.card(Color(UI.INK, 0.85), UI.BD, 18, 14)
 		var tv := UI.vbox(6)
 		tp.add_child(tv)
-		tv.add_child(UI.title("📊 " + tr("Damage"), 20))
-		var rows := cs.items.duplicate()
-		rows.sort_custom(func(a, b): return a.st.dmg + a.st.heal + a.st.shield > b.st.dmg + b.st.heal + b.st.shield)
-		var top := 1.0
-		for x in rows:
-			top = maxf(top, x.st.dmg + x.st.heal + x.st.shield)
-		for x in rows.slice(0, 8):
-			var rh := UI.hbox(8)
-			var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 16, UI.TX, true)
-			nl.clip_text = true
-			nl.custom_minimum_size.x = 230
-			rh.add_child(nl)
-			var bar := ProgressBar.new()
-			bar.show_percentage = false
-			bar.max_value = 1
-			bar.custom_minimum_size = Vector2(0, 18)
-			bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			var heal_only: bool = x.st.dmg <= 0
-			bar.add_theme_stylebox_override("fill", UI.box(Color("#7dd3fc") if heal_only else Color("#ff9b5e"), Color(0, 0, 0, 0), 0, 99, 0))
-			bar.value = 0
-			bar.create_tween().tween_property(bar, "value", (x.st.dmg + x.st.heal + x.st.shield) / top, 0.6).set_delay(0.3)
-			rh.add_child(bar)
-			rh.add_child(UI.lbl(str(roundi(x.st.dmg + x.st.heal + x.st.shield)), 16, UI.TX, true))
-			tv.add_child(rh)
+		tv.add_child(_summary_rows(cs))
 		var extra := []
 		for kk in cs.stat_dmg:
 			if cs.stat_dmg[kk] > 0:
@@ -1453,6 +1429,87 @@ func _night_overlay() -> Control:
 	v.add_child(nb)
 	UI.pop_in(nb, 0.3 + 0.15 * k, 30)
 	return o[0]
+
+
+const SUM_COLS := {
+	"Fire": Color("#ff7a3d"), "Nature": Color("#7ee06e"), "Physical": Color("#e5e7eb"), "Shock": Color("#facc15"),
+	"burn": Color("#e11d48"), "poison": Color("#b26bff"), "shield": Color("#60a5fa"), "heal": Color("#4ade80"),
+}
+
+
+## Fight summary: per item a stacked bar (hit damage by element, Burn, Poison, Shield, Heal)
+## and the numbers for each part, so you can see what every item actually did.
+func _summary_rows(cs: CombatSim) -> Control:
+	var v := UI.vbox(10)
+	v.add_child(UI.title("📊 " + tr("What each item did"), 20))
+	# legend
+	var lg := UI.flow(10)
+	for pair in [["⚔️", tr("Hit"), Color("#e5e7eb")], ["🔥", tr("Burn"), SUM_COLS.burn], ["☠️", tr("Poison"), SUM_COLS.poison], ["🛡️", tr("Shield"), SUM_COLS.shield], ["💚", tr("Heal"), SUM_COLS.heal]]:
+		var p := UI.panel(Color(pair[2], 0.2), pair[2], 2, 99, 6)
+		p.add_child(UI.lbl(pair[0] + " " + pair[1], 13, Color.WHITE, true))
+		lg.add_child(p)
+	v.add_child(lg)
+	var parts_of := func(x: Dictionary) -> Array:
+		var out := []
+		if x.st.dmg > 0:
+			out.append(["hit", x.st.dmg, SUM_COLS.get(x.st.get("el", ""), SUM_COLS.Physical), "⚔️"])
+		for k in x.st.get("dot", {}):
+			if x.st.dot[k] > 0:
+				out.append([k, x.st.dot[k], SUM_COLS.get(k, Color.WHITE), GameData.statuses[k].ic])
+		if x.st.shield > 0:
+			out.append(["shield", x.st.shield, SUM_COLS.shield, "🛡️"])
+		if x.st.heal > 0:
+			out.append(["heal", x.st.heal, SUM_COLS.heal, "💚"])
+		return out
+	var rows := []
+	var top := 1.0
+	for x in cs.items:
+		var parts: Array = parts_of.call(x)
+		var tot := 0.0
+		for p in parts:
+			tot += p[1]
+		rows.append([x, parts, tot])
+		top = maxf(top, tot)
+	rows.sort_custom(func(a, b): return a[2] > b[2])
+	for row in rows.slice(0, 10):
+		var x: Dictionary = row[0]
+		var parts: Array = row[1]
+		var tot: float = row[2]
+		var rv := UI.vbox(3)
+		var head := UI.hbox(8)
+		var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 16, UI.TX, true)
+		nl.clip_text = true
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(nl)
+		for p in parts:
+			var chip := UI.lbl("%s %d" % [p[3], roundi(p[1])], 15, p[2], true)
+			chip.add_theme_color_override("font_outline_color", Color.BLACK)
+			chip.add_theme_constant_override("outline_size", 4)
+			head.add_child(chip)
+		if parts.is_empty():
+			head.add_child(UI.lbl("-", 15, UI.MU))
+		rv.add_child(head)
+		# stacked bar, grows in
+		var track := UI.panel(Color(0, 0, 0, 0.45), Color(0, 0, 0, 0), 0, 99, 0)
+		track.custom_minimum_size.y = 16
+		var bar := UI.hbox(0)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		track.add_child(bar)
+		for p in parts:
+			var seg := ColorRect.new()
+			seg.color = p[2]
+			seg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			seg.size_flags_stretch_ratio = maxf(0.001, p[1])
+			bar.add_child(seg)
+		var empty := Control.new()
+		empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		empty.size_flags_stretch_ratio = maxf(0.001, top - tot)
+		bar.add_child(empty)
+		bar.scale.x = 0.0
+		bar.create_tween().tween_property(bar, "scale:x", 1.0, 0.6).set_delay(0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		rv.add_child(track)
+		v.add_child(rv)
+	return v
 
 
 ## A reward tile: big icon, a number that counts up, a caption. Pops in after `delay`.

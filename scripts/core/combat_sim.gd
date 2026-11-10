@@ -40,6 +40,8 @@ var sp := {}                # specials present in the pack
 var turrets := 0
 var gold_mult := 1.0
 var stat_dmg := {}          # status id -> damage dealt
+var dot_src := {}           # status id -> {item uid: stacks it applied}, to credit DoT damage to items
+var _by_uid := {}           # item uid -> combat item dict
 var done := false
 var won := false
 var log_lines: Array = []
@@ -95,7 +97,9 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 		var d: Dictionary = i.def()
 		if d.cd > 0 or d.once:
 			var f := r.eff(i)
-			items.append({"i": i, "d": d, "f": f, "p": 0.0, "cd": f.cd, "used": false, "ramp": 0.0, "nb": [], "st": {"dmg": 0.0, "heal": 0.0, "shield": 0.0, "hits": 0}})
+			items.append({"i": i, "d": d, "f": f, "p": 0.0, "cd": f.cd, "used": false, "ramp": 0.0, "nb": [], "st": {"dmg": 0.0, "heal": 0.0, "shield": 0.0, "hits": 0, "el": f.el, "dot": {}}})
+	for x in items:
+		_by_uid[x.i.uid] = x
 	# neighbour lists (item indices) for Charge
 	for a in items.size():
 		for b in items.size():
@@ -199,6 +203,10 @@ func add_status(k: String, n: float, uid := -1) -> void:
 	var s: Dictionary = GameData.statuses[k]
 	if s.side == "foe":
 		fs[k] = minf(s.max, fs.get(k, 0.0) + n)
+		if uid >= 0:
+			if not dot_src.has(k):
+				dot_src[k] = {}
+			dot_src[k][uid] = dot_src[k].get(uid, 0.0) + n
 		if k == "poison":
 			_gain_res("poison_applied", n)
 		_num("foe", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid)
@@ -362,6 +370,7 @@ func step() -> void:
 			if v > 0:
 				ehp -= v
 				stat_dmg[k] += v
+				_credit_dot(k, v)
 				_num("foe", s.ic + GameData._num(roundf(v * 10) / 10.0), s.col)
 			if s.decay > 0 and not (k == "burn" and sp.has("burn_nodecay")):
 				fs[k] = maxf(0.0, fs[k] - s.decay)
@@ -492,3 +501,17 @@ func take_events() -> Array:
 	var out := events
 	events = []
 	return out
+
+
+## Splits a status tick's damage between the items that applied that status (by stacks applied).
+func _credit_dot(k: String, v: float) -> void:
+	var src: Dictionary = dot_src.get(k, {})
+	var tot := 0.0
+	for u in src:
+		tot += src[u]
+	if tot <= 0:
+		return
+	for u in src:
+		var x = _by_uid.get(u)
+		if x != null:
+			x.st.dot[k] = x.st.dot.get(k, 0.0) + v * src[u] / tot
