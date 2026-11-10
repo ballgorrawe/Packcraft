@@ -333,6 +333,7 @@
   "Start every fight with 12 Shield.": "เริ่มทุกการต่อสู้พร้อมโล่ 12",
   "+1 Toxin per 5 Poison applied. Poison and Burn deal +1.5% damage per Toxin.": "ได้ท็อกซิน 1 ทุกครั้งที่ใส่พิษ 5 พิษและไฟแรงขึ้น +1.5% ต่อท็อกซิน",
   "+1 Gear per 2 Mech triggers. All items charge 1.5% faster per Gear (max 40%).": "ได้เฟือง 1 ทุกครั้งที่ไอเทมจักรกลทำงาน 2 ครั้ง ไอเทมทุกชิ้นชาร์จเร็วขึ้น 1.5% ต่อเฟือง (สูงสุด 40%)",
-  "Adds half the enemy's Poison again (+50%) and heals you for 12.": "เพิ่มพิษบนศัตรูอีกครึ่งหนึ่ง (+50%) และฟื้น HP 12"
+  "Adds half the enemy's Poison again (+50%) and heals you for 12.": "เพิ่มพิษบนศัตรูอีกครึ่งหนึ่ง (+50%) และฟื้น HP 12",
+  "Right-click, scroll or R to rotate": "คลิกขวา เลื่อนลูกกลิ้ง หรือกด R เพื่อหมุน"
  }
 }

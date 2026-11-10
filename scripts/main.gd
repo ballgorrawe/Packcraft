@@ -76,6 +76,11 @@ func _ready() -> void:
 	toast_layer.layer = 60
 	add_child(toast_layer)
 	get_tree().auto_accept_quit = false
+	get_tree().root.size_changed.connect(func():
+		if _fit_screen() and not _render_queued:
+			_render_queued = true
+			render.call_deferred())
+	_fit_screen()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--autoshot="):
 			_dev = true
@@ -130,8 +135,40 @@ func _clear_sel() -> void:
 
 
 ## Safe-area margins (notches / rounded corners) converted to canvas units.
-func _safe_margins() -> Vector4:
+## Screen modes. Phones (portrait): the 720x1280 layout fills the screen.
+## Wider than a phone: screens stay a phone-shaped column (COLUMN_W) in the middle.
+## PC / landscape (_wide): the logical height drops to WIDE_H so everything is drawn bigger,
+## and the morning screen splits into two columns (pack + storage | shop), WIDE_W across.
+const COLUMN_W := 760.0
+const WIDE_W := 1400.0
+const WIDE_H := 1000
+var _landscape := false   # anything wider than a phone (mouse hints, centred column)
+var _wide := false        # landscape wide enough for the two-column morning screen
+var _render_queued := false
+
+
+## Returns true when the screen needs a re-render (mode changed, or the column must re-centre).
+func _fit_screen() -> bool:
+	var win := Vector2(get_window().size)
+	if win.y <= 0:
+		return false
+	var aspect := win.x / win.y
+	var was := [_landscape, _wide]
+	_landscape = aspect > 0.8
+	_wide = aspect >= 1.3
+	return was != [_landscape, _wide] or _landscape
+
+
+## Extra space on each side that keeps the game inside a centred column of width w.
+func _side_pad(w := COLUMN_W) -> float:
+	return maxf(0.0, (get_viewport_rect().size.x - w) / 2.0)
+
+
+func _safe_margins(col_w := COLUMN_W) -> Vector4:
 	var m := Vector4(14, 14, 14, 14)
+	var pad := _side_pad(col_w)
+	if pad > 0:
+		return Vector4(14 + pad, 14, 14 + pad, 14)
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
 		return m
 	var win := Vector2(DisplayServer.window_get_size())
@@ -156,6 +193,11 @@ func toast(text: String, col := UI.AC) -> void:
 	var p := UI.panel(Color(UI.INK, 0.94), col, 3, 18, 14, 8)
 	p.anchor_left = 0.06
 	p.anchor_right = 0.94
+	if _side_pad() > 0:
+		p.anchor_left = 0
+		p.anchor_right = 1
+		p.offset_left = _side_pad() + 20
+		p.offset_right = -_side_pad() - 20
 	p.offset_top = 24
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := UI.wrap_lbl(text, 19, Color.WHITE)
@@ -178,6 +220,7 @@ func toast(text: String, col := UI.AC) -> void:
 # =============================================================== render
 
 func render() -> void:
+	_render_queued = false
 	if screen:
 		screen.queue_free()
 	grid = null
@@ -195,7 +238,12 @@ func render() -> void:
 	move_child(screen, 1)
 	var m := MarginContainer.new()
 	m.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var sm := _safe_margins()
+	var wide_run := _wide and run != null and run.end_state == "" and not (run.phase == "evening" and _pending_sim != null)
+	# only the two-column run screen is drawn bigger; the other screens need the full 1280 height
+	var want := Vector2i(720, WIDE_H if wide_run else 1280)
+	if get_window().content_scale_size != want:
+		get_window().content_scale_size = want
+	var sm := _safe_margins(WIDE_W if wide_run else COLUMN_W)
 	m.add_theme_constant_override("margin_left", int(sm.x))
 	m.add_theme_constant_override("margin_top", int(sm.y))
 	m.add_theme_constant_override("margin_right", int(sm.z))
@@ -269,7 +317,7 @@ func _overlay(title: String, close_cb := Callable()) -> Array:
 	var mc := MarginContainer.new()
 	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right"]:
-		mc.add_theme_constant_override("margin_" + s, 20)
+		mc.add_theme_constant_override("margin_" + s, 20 + int(_side_pad()))
 	mc.add_theme_constant_override("margin_top", 30)
 	mc.add_theme_constant_override("margin_bottom", 30)
 	ov.add_child(mc)
@@ -696,6 +744,9 @@ func _run_screen(fresh: bool) -> Control:
 	run.sync_hp()
 	# everything else on this screen is ~940px tall; the pack gets the rest (phones vary a lot)
 	cell_px = clampf(floorf((get_viewport_rect().size.y - 940.0) / GameData.H), 46.0, 74.0)
+	if _wide:
+		# two columns: the pack only shares its column with storage (~560px of other stuff)
+		cell_px = clampf(floorf((get_viewport_rect().size.y - 610.0) / GameData.H), 40.0, 74.0)
 	var root := UI.vbox(10)
 	root.add_child(_hud())
 	root.add_child(_ribbon())
@@ -788,6 +839,22 @@ func _run_screen(fresh: bool) -> Control:
 	if run.phase == "morning":
 		var shop := _shop_panel(fresh)
 		root.add_child(shop)
+	if _wide:
+		# PC: pack + storage on the left, shop (with Depart) on the right
+		var cols := UI.hbox(14)
+		cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var left := UI.vbox(10)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var right := UI.vbox(10)
+		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cols.add_child(left)
+		cols.add_child(right)
+		for c in root.get_children().slice(2):
+			root.remove_child(c)
+			(left if c == gp or c == sp else right).add_child(c)
+		if right.get_child_count() == 0:
+			right.queue_free()
+		root.add_child(cols)
 	if fresh:
 		var k := 0
 		for c in root.get_children():
@@ -958,7 +1025,7 @@ func _ribbon() -> Control:
 
 func _held_text() -> String:
 	if drag_item != null:
-		var t := "✌️ " + tr("Tap with a second finger to rotate")
+		var t := ("🖱️ " + tr("Right-click, scroll or R to rotate")) if _landscape else ("✌️ " + tr("Tap with a second finger to rotate"))
 		if hover_cell.x >= 0:
 			var a := run.anchor_for(drag_item, hover_cell)
 			var pr := run.preview(drag_item, a.x, a.y)
@@ -1155,13 +1222,25 @@ func _inspector_popup() -> Control:
 	p.anchor_right = 1
 	p.anchor_top = 0 if at_top else 1
 	p.anchor_bottom = 0 if at_top else 1
-	p.offset_left = 10
-	p.offset_right = -10
+	p.offset_left = 10 + _side_pad()
+	p.offset_right = -10 - _side_pad()
 	p.grow_vertical = Control.GROW_DIRECTION_END if at_top else Control.GROW_DIRECTION_BEGIN
 	if at_top:
 		p.offset_top = 10
 	else:
 		p.offset_bottom = -10
+	if _wide and run.phase == "morning":
+		# PC: in the free space under the shop (right column), anchored to the bottom
+		var half := WIDE_W / 2.0
+		p.anchor_left = 0.5
+		p.anchor_right = 0.5
+		p.anchor_top = 1
+		p.anchor_bottom = 1
+		p.offset_left = 7
+		p.offset_right = half - 14
+		p.offset_top = 0
+		p.offset_bottom = -14
+		p.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := UI.vbox(10)
 	p.add_child(v)
@@ -2174,6 +2253,9 @@ func _input(event: InputEvent) -> void:
 			else:
 				_tap()
 			pending = {}
+		elif (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN) and event.pressed and drag_item != null:
+			_rotate(1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1)
+			get_viewport().set_input_as_handled()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and drag_item != null:
 			_rotate(1)
 			get_viewport().set_input_as_handled()
