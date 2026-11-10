@@ -35,6 +35,8 @@ var _screen_key := ""
 var _shown_gold := -1
 var _shown_hp := -1
 var _shop_anim := false
+var _last_shop_tap_idx := -1   # for double-tap to lock
+var _last_shop_tap_ms := 0
 var _fused_flash: Array = []   # uids created at night: they pop and sparkle when the new day opens
 
 # widgets of the current screen
@@ -519,7 +521,8 @@ func _hero_screen() -> Control:
 	var pd := UI.hbox(8)
 	pd.alignment = BoxContainer.ALIGNMENT_CENTER
 	for i in GameData.class_keys.size():
-		var d := UI.lbl("●" if i == idx else "○", 20, UI.GOLD if i == idx else UI.MU)
+		var d := UI.panel(UI.GOLD if i == idx else Color(1, 1, 1, 0.2), Color(0, 0, 0, 0), 0, 99, 0)
+		d.custom_minimum_size = Vector2(34 if i == idx else 12, 12)
 		pd.add_child(d)
 	v.add_child(pd)
 	v.add_child(_step_nav(func():
@@ -528,13 +531,13 @@ func _hero_screen() -> Control:
 		title_step = 2
 		render()))
 	if _hero_dir != 0:
+		# fade and grow in place: the card's position belongs to its row, so never tween it
 		card.modulate.a = 0
-		var dir := _hero_dir
-		card.resized.connect(func(): card.pivot_offset = card.size / 2, CONNECT_ONE_SHOT)
+		card.scale = Vector2(0.92, 0.92)
+		card.resized.connect(func(): card.pivot_offset = card.size / 2)
 		var tw := card.create_tween()
-		tw.tween_callback(func(): card.position.x += 120 * dir)
 		tw.tween_property(card, "modulate:a", 1.0, 0.18)
-		tw.parallel().tween_property(card, "position:x", card.position.x, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(card, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_hero_dir = 0
 	return v
 
@@ -1155,7 +1158,7 @@ func _inspector_popup() -> Control:
 		bb.disabled = run.gold < e.price
 		ah.add_child(bb)
 		v.add_child(ah)
-		v.add_child(UI.wrap_lbl("💡 " + tr("Or drag it straight into your pack."), 15, UI.MU))
+		v.add_child(UI.wrap_lbl("💡 " + tr("Or drag it straight into your pack. Double-tap a shop card to lock it."), 15, UI.MU))
 	# slide in from its edge
 	p.modulate.a = 0
 	var tw := p.create_tween()
@@ -2065,6 +2068,16 @@ func _tap() -> void:
 	var p := pending
 	match p.src:
 		"shop":
+			# a second tap on the same card within 0.4 s locks / unlocks it for tomorrow
+			var now := Time.get_ticks_msec()
+			if p.idx == _last_shop_tap_idx and now - _last_shop_tap_ms < 400 and p.idx < run.shop.size():
+				run.toggle_lock(p.idx)
+				var locked: bool = run.shop[p.idx].get("lock", false)
+				toast(("🔒 " + tr("Locked: it stays in the shop tomorrow.")) if locked else ("🔓 " + tr("Unlocked.")), UI.STAR)
+				_last_shop_tap_idx = -1
+			else:
+				_last_shop_tap_idx = p.idx
+				_last_shop_tap_ms = now
 			selected = null
 			inspect_id = p.id
 			inspect_idx = p.idx
