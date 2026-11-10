@@ -79,7 +79,7 @@ static func ensure_loaded() -> void:
 	for k in d.get("pets", {}):
 		var p: Dictionary = d.pets[k]
 		pets[k] = {"n": p.n, "ic": p.ic, "d": p.d}
-		for key in ["hp", "crit", "income", "shield", "haste", "regen", "free_reroll", "ult"]:
+		for key in ["hp", "crit", "income", "shield", "haste", "regen", "free_reroll", "ult", "dmg"]:
 			pets[k][key] = float(p.get(key, 0.0))
 		pet_keys.append(k)
 	for df in d.get("difficulties", []):

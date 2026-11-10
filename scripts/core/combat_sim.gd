@@ -33,7 +33,7 @@ var hs := {}                # hero statuses: id -> stacks
 var hastes: Array = []      # [{v, t}] ticks left
 var resv := 0               # class resource (Heat, Toxin, Gears, Guard)
 var res_acc := 0.0
-var ult := 0                # ultimate meter (item triggers)
+var ult := 0.0                # ultimate meter (item triggers)
 var ult_need := 24
 var ults := 0
 var sp := {}                # specials present in the pack
@@ -48,6 +48,8 @@ var empty_tiles := 0        # unlocked pack tiles with nothing on them
 var dmg_phys := 0.0         # Physical / Magic damage dealt this fight (Judgement Strike)
 var dmg_mag := 0.0
 var _last_cat := -1         # 0 Physical, 1 Magic: the kind of your last hit (Equilibrium)
+var _tick_toggle := false   # alternates for "every other" path effects (Tempest, Void Caller)
+var _void_toggle := false
 var stat_dmg := {}          # status id -> damage dealt
 var dot_src := {}           # status id -> {item uid: stacks it applied}, to credit DoT damage to items
 var _by_uid := {}           # item uid -> combat item dict
@@ -108,7 +110,7 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 		used += i.cells().size()
 	empty_tiles = maxi(0, r.tiles.size() - used)
 	if sp.has("empty_evasion"):
-		evade = minf(0.3, empty_tiles * 0.03)
+		evade = minf(0.45, 0.15 + empty_tiles * 0.04)
 	hero_dmg = 1.0 + r.pv("dmg")
 	if sp.has("gold_power"):
 		gold_mult += minf(0.4, r.gold * 0.005)
@@ -241,7 +243,7 @@ func _bleed_trigger(side: String) -> void:
 		stat_dmg["bleed"] = stat_dmg.get("bleed", 0.0) + v
 		_credit_dot("bleed", v)
 		if sp.has("bleed_heal"):
-			heal(v * 0.3)
+			heal(v * 0.08)
 	else:
 		php -= v
 	_num(side, "-" + GameData._num(roundf(v * 10) / 10.0), s.col, false, -1, "dot", "bleed" if side == "foe" else "hd:bleed")
@@ -269,7 +271,7 @@ func _defense_mult(is_mag: bool, pierce: float) -> float:
 
 ## Armor Pierce of a hit: the item's own, Arsenal turrets (all of it), Forgeblade Heat.
 func _pierce(x) -> float:
-	var p := 0.5 if sp.has("colossus_pierce") else 0.0   # Colossus: every Physical hit, Titan strikes too
+	var p := 1.0 if sp.has("colossus_pierce") else 0.0   # Colossus: every Physical hit, Titan strikes too
 	if x == null:
 		return p
 	p += x.f.get("pierce", 0.0)
@@ -293,7 +295,7 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 		# Momentum (Rogue): crit chance and crit damage per stack on the tagged items
 		if rd.eff == "crit_tag" and x.d.tags.has(rd.etag):
 			crit += minf(float(rd.get("cap", 0.45)), rd.v * resv)
-			critx += float(rd.get("v2", 0.0)) * resv
+			critx += minf(1.0, float(rd.get("v2", 0.0)) * resv)   # at most +100% crit damage
 		if next_crit and x.d.tags.has("Weapon"):
 			next_crit = false
 			shadow = true
@@ -306,14 +308,16 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 	if rd.eff == "dmg_all_pct":
 		v *= 1.0 + minf(float(rd.get("cap", 1.0)), rd.v * resv)
 	if sp.has("siren") and is_mag and (el == "Water" or el == "Shock"):
-		v *= 1.0 + 0.03 * fs.get("soaked", 0.0)
+		v *= 1.0 + 0.09 * fs.get("soaked", 0.0)
 	if x != null:
 		if rd.eff == "dmg_pct_tag" and x.d.tags.has(rd.etag):
-			v *= 1.0 + rd.v * resv
+			v *= 1.0 + minf(float(rd.get("cap", 99.0)), rd.v * resv)
 		if sp.has("void_mana") and x.d.tags.has("Spell"):
-			v *= 1.4
+			v *= 1.6
+		if sp.has("fire_convert") and el == "Fire":
+			v *= 1.7   # Inferno: every Fire hit 70% harder
 		if sp.has("empty_evasion") and x.d.tags.has("Ranged"):
-			v *= 1.0 + 0.03 * empty_tiles
+			v *= 1.0 + 0.05 * empty_tiles
 		if x.d.sp == "execute" and ehp < e.hp * 0.3:
 			v *= 2.0
 	v *= _defense_mult(is_mag, _pierce(x))
@@ -339,9 +343,9 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 			_gain_res("alternate", 1.0)   # Equilibrium: switching between Physical and Magic
 		_last_cat = cat
 		if sp.has("dusk_lifesteal") and not is_mag and x.d.tags.has("Weapon"):
-			heal(v * 0.1)
+			heal(v * 0.12)
 		if shadow:
-			add_status("bleed", 10, x.i.uid)
+			add_status("bleed", 6, x.i.uid)
 	var is_crit := cm > 1.0 and not preview
 	_ev({"t": "hit", "uid": uid, "v": v, "el": el, "m": m, "crit": is_crit, "melee": x != null and x.d.tags.has("Melee"), "icon": x.d.ic if x != null else src})
 	var who: String = (x.d.ic + " " + I18n.t(x.d.n)) if x != null else src
@@ -407,8 +411,14 @@ func fire(idx: int) -> void:
 	_ev({"t": "trigger", "uid": x.i.uid})
 	_bleed_trigger("hero")
 	var dmg: float = f.dmg + x.ramp
+	if sp.has("apex") and d.tags.has("Beast"):
+		dmg += 4.0
+	if sp.has("tempest") and d.tags.has("Rune") and f.el == "Shock":
+		dmg += 1.0
+	if sp.has("chill") and d.tags.has("Spell") and f.el == "Water":
+		dmg += 1.0
 	if sp.has("turret_count") and d.tags.has("Turret"):
-		dmg += turrets * 2
+		dmg += turrets * 3
 	if sp.has("weapon_ramp") and d.tags.has("Weapon"):
 		x.ramp += 1.0
 	if f.ramp > 0:
@@ -416,7 +426,7 @@ func fire(idx: int) -> void:
 	if d.sp == "shield_dmg":
 		dmg += shield * 0.25
 	if d.sp == "gold_shot":
-		dmg += floorf(run.gold / 8.0)
+		dmg += floorf(run.gold / 6.0)
 	if d.sp == "hp_strike_big":
 		dmg += mhp * 0.10
 	if dmg > 0:
@@ -444,7 +454,7 @@ func fire(idx: int) -> void:
 	if sp.has("charge_chain"):
 		for b in x.nb:
 			if items[b].d.tags.has("Mech"):
-				_charge(b, 0.2)
+				_charge(b, 0.15)
 	if sp.has("perpetual"):
 		for c in items.size():
 			if items[c].d.sp == "perpetual" and c != idx:
@@ -454,9 +464,9 @@ func fire(idx: int) -> void:
 	var rd := res_def()
 	if rd.gain == "trigger_tag" and d.tags.has(rd.tag):
 		_gain_res("trigger_tag", 1.0)
-	ult += 1
+	ult += 1.0
 	if ult >= ult_need:
-		ult = 0
+		ult = 0.0
 		fire_ult()
 
 
@@ -464,24 +474,21 @@ func fire(idx: int) -> void:
 func _class_trigger(idx: int, x: Dictionary) -> void:
 	var d: Dictionary = x.d
 	var mag: bool = GameData.is_magic(x.f.el)
-	if sp.has("chill") and d.tags.has("Spell"):
-		add_status("soaked", 1, x.i.uid)
-		gain_shield(3, x.i.uid)
 	if sp.has("void_mana") and d.tags.has("Spell"):
-		php = maxf(1.0, php - 2.0)
-	if sp.has("tempest") and mag:
-		gain_shield(2, x.i.uid)
+		_void_toggle = not _void_toggle
+		if _void_toggle:
+			php = maxf(1.0, php - 1.0)
 	if sp.has("apex") and d.tags.has("Beast"):
 		add_status("bleed", 1, x.i.uid)
 	if sp.has("shaman") and d.tags.has("Beast"):
-		heal(2, x.i.uid)
+		heal(0.7, x.i.uid)
 	if sp.has("equilibrium") and x.f.dmg > 0:
 		for b in x.nb:
 			var y: Dictionary = items[b]
 			if not mag and GameData.is_magic(y.f.el):
 				_charge(b, y.cd * 0.15)
 			elif mag and y.d.tags.has("Weapon") and not GameData.is_magic(y.f.el):
-				y["bonus"] = 6.0
+				y["bonus"] = 3.0
 
 
 ## Per-item charge speed: Pack Hunt (Beasts), Bloodwater Frenzy (Sea creatures vs a bleeding foe).
@@ -491,7 +498,7 @@ func _item_speed(x: Dictionary) -> float:
 	if rd.eff == "haste_tag" and x.d.tags.has(rd.etag):
 		s += minf(float(rd.get("cap", 0.4)), rd.v * resv)
 	if sp.has("frenzy") and x.d.tags.has("Sea") and fs.get("bleed", 0.0) > 0:
-		s += 0.3
+		s += 0.25
 	return s
 
 
@@ -528,24 +535,23 @@ func fire_ult() -> void:
 		"maelstrom":
 			freeze_t = 15
 			if resv > 0:
-				damage(null, 4.0 * resv, "Water", 0, 2, u.ic)
+				damage(null, 2.0 * mini(resv, 15), "Water", 0, 2, u.ic)
 		"judgement":
 			var hi := maxf(dmg_phys, dmg_mag)
 			var balanced := hi > 0 and minf(dmg_phys, dmg_mag) >= hi * 0.7
 			var k := 2.0 if balanced else 1.0
-			damage(null, 20.0 * k, "Physical", 0, 2, u.ic)
-			damage(null, 20.0 * k, "Arcane", 0, 2, u.ic)
+			damage(null, 15.0 * k, "Physical", 0, 2, u.ic)
+			damage(null, 15.0 * k, "Arcane", 0, 2, u.ic)
 			if balanced:
-				heal(20)
+				heal(12)
 				_log(I18n.t("⚖️ Perfect balance: Judgement strikes twice as hard!"))
 		"alpha_roar":
 			var beasts := 0
 			for bi in items.size():
 				if items[bi].d.tags.has("Beast"):
 					beasts += 1
-					items[bi].p = items[bi].cd   # fires on the next tick
 			if beasts > 0:
-				gain_shield(3.0 * beasts)
+				gain_shield(2.0 * beasts)
 	if dmg > 0:
 		var v := damage(null, dmg, on.el if on.el != "" else "Physical", 0, 2, u.ic)
 		_num("foe", u.ic + " " + GameData._num(v), Color("#ffe14a"), true)
@@ -581,7 +587,7 @@ func step() -> void:
 			fire(idx)
 	# relic timer
 	if sp.has("hp_strike") and tk % HP_STRIKE_TICKS == 0:
-		damage(null, mhp * 0.05, "Physical", 0, 2, "🌲")
+		damage(null, mhp * 0.14, "Physical", 0, 2, "🌲")
 	# once per second: regen and status ticks
 	if tk % 10 == 0:
 		if rg > 0 and php < mhp:
