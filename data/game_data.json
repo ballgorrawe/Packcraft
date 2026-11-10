@@ -207,7 +207,26 @@
   "m_titan_hammer": {"n": "Titan Hammer",   "ic": "🔨", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "cd": 3.0, "on": {"dmg": 25}},
   "m_granite_skin": {"n": "Granite Skin",   "ic": "🪨", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 5.0, "on": {"shield": 12}},
   "m_quake":        {"n": "Quake",          "ic": "💥", "t": 4, "c": [[0,0],[1,0]], "cd": 6.0, "on": {"dmg": 30}},
-  "m_pebble":       {"n": "Pebble Toss",    "ic": "⚪", "t": 4, "c": [[0,0]], "cd": 1.0, "on": {"dmg": 3}}
+  "m_pebble":       {"n": "Pebble Toss",    "ic": "⚪", "t": 4, "c": [[0,0]], "cd": 1.0, "on": {"dmg": 3}},
+  "m_venom_fang":   {"n": "Venom Fang",     "ic": "🦷", "t": 4, "c": [[0,0],[0,1]], "cd": 2.2, "on": {"dmg": 7, "st": {"poison": 3}}},
+  "m_egg_sac":      {"n": "Egg Sac",        "ic": "🥚", "t": 4, "c": [[0,0],[1,0]], "cd": 6, "on": {"heal": 10}},
+  "m_spiderling":   {"n": "Spiderling",     "ic": "🕷️", "t": 4, "c": [[0,0]], "cd": 1.3, "on": {"dmg": 3}},
+  "m_war_axe":      {"n": "Warlord Axe",    "ic": "🪓", "t": 4, "c": [[0,0],[0,1],[1,0]], "cd": 2.4, "on": {"dmg": 13}},
+  "m_war_banner":   {"n": "War Banner",     "ic": "🚩", "t": 4, "c": [[0,0],[0,1]], "cd": 7, "on": {"haste": [0.35, 3]}},
+  "m_iron_buckler": {"n": "Iron Buckler",   "ic": "🛡️", "t": 4, "c": [[0,0],[1,0]], "cd": 4.5, "on": {"shield": 8}},
+  "m_storm_breath": {"n": "Storm Breath",   "ic": "🌩️", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 3.2, "on": {"dmg": 18}},
+  "m_drake_scale":  {"n": "Drake Scale",    "ic": "🔰", "t": 4, "c": [[0,0],[1,0]], "cd": 5, "on": {"shield": 10}},
+  "m_static":       {"n": "Static Spark",   "ic": "⚡", "t": 4, "c": [[0,0]], "cd": 0.9, "on": {"dmg": 2}},
+  "m_plague_cloud": {"n": "Plague Cloud",   "ic": "☁️", "t": 4, "c": [[0,0],[1,0]], "cd": 3, "on": {"dmg": 3, "st": {"poison": 5}}},
+  "m_rot_blade":    {"n": "Rot Blade",      "ic": "🗡️", "t": 4, "c": [[0,0],[0,1],[0,2]], "cd": 2, "on": {"dmg": 10, "st": {"poison": 2}}},
+  "m_corpse_feast": {"n": "Corpse Feast",   "ic": "🍖", "t": 4, "c": [[0,0],[1,0]], "cd": 7, "on": {"heal": 15}},
+  "m_tentacle":     {"n": "Tentacle",       "ic": "🦑", "t": 4, "c": [[0,0],[0,1]], "cd": 1.6, "on": {"dmg": 9}},
+  "m_ink_cloud":    {"n": "Ink Cloud",      "ic": "🌫️", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 5, "on": {"shield": 14}},
+  "m_maelstrom":    {"n": "Maelstrom",      "ic": "🌀", "t": 4, "c": [[0,0],[1,0]], "cd": 7, "on": {"dmg": 35}},
+  "m_dragon_fire":  {"n": "Dragon Fire",    "ic": "🔥", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 3.2, "on": {"dmg": 20, "st": {"burn": 5}}},
+  "m_dragon_hide":  {"n": "Dragon Hide",    "ic": "🟥", "t": 4, "c": [[0,0],[1,0],[2,0]], "cd": 5, "on": {"shield": 14}},
+  "m_claw":         {"n": "Dragon Claw",    "ic": "🐾", "t": 4, "c": [[0,0]], "cd": 1.4, "on": {"dmg": 8}},
+  "m_roar":         {"n": "Dread Roar",     "ic": "📢", "t": 4, "c": [[0,0]], "cd": 8, "on": {"haste": [0.4, 3]}}
  },
  "families": {
   "Cave Rat": ["m_rat_fang", "m_plague_tooth", "m_rat_swarm", "m_rat_crown", "m_bandit_knife"],
@@ -219,12 +238,24 @@
  "boss_packs": {
   "Magma Golem":  {"w": 5, "h": 4, "items": [["m_magma_fist", 0, 0], ["m_lava_heart", 2, 0], ["m_obsidian", 2, 1], ["m_ember_spark", 4, 0], ["m_ember_spark", 2, 2]]},
   "Frost Wraith": {"w": 5, "h": 4, "items": [["m_frost_scythe", 0, 0], ["m_soul_lantern", 1, 0], ["m_wail", 2, 0], ["m_ice_shard", 3, 0], ["m_ice_shard", 2, 1], ["m_ice_shard", 3, 1]]},
-  "Stone Titan":  {"w": 6, "h": 4, "items": [["m_titan_hammer", 0, 0], ["m_granite_skin", 2, 0], ["m_quake", 4, 0], ["m_pebble", 4, 1], ["m_pebble", 5, 1], ["m_pebble", 2, 2]]}
+  "Stone Titan":  {"w": 6, "h": 4, "items": [["m_titan_hammer", 0, 0], ["m_granite_skin", 2, 0], ["m_quake", 4, 0], ["m_pebble", 4, 1], ["m_pebble", 5, 1], ["m_pebble", 2, 2]]},
+  "Broodmother":  {"w": 5, "h": 4, "items": [["m_venom_fang", 0, 0], ["m_egg_sac", 1, 0], ["m_spiderling", 3, 0], ["m_spiderling", 1, 1], ["m_spiderling", 2, 1], ["m_spiderling", 4, 2]]},
+  "Goblin Warlord": {"w": 5, "h": 4, "items": [["m_war_axe", 0, 0], ["m_goblin_dagger", 2, 0], ["m_iron_buckler", 3, 0], ["m_throwing_axe", 3, 1]]},
+  "Storm Drake":  {"w": 5, "h": 4, "items": [["m_storm_breath", 0, 0], ["m_drake_scale", 2, 0], ["m_static", 4, 0], ["m_static", 2, 1], ["m_static", 3, 1], ["m_static", 4, 1]]},
+  "Plague Lord":  {"w": 5, "h": 4, "items": [["m_rot_blade", 0, 0], ["m_plague_cloud", 1, 0], ["m_corpse_feast", 3, 0], ["m_poison_dart", 1, 1], ["m_poison_dart", 2, 1]]},
+  "Abyss Kraken": {"w": 6, "h": 4, "items": [["m_tentacle", 0, 0], ["m_tentacle", 1, 0], ["m_ink_cloud", 2, 0], ["m_maelstrom", 4, 0], ["m_tentacle", 4, 1], ["m_tentacle", 5, 1]]},
+  "Inferno Dragon": {"w": 6, "h": 4, "items": [["m_dragon_fire", 0, 0], ["m_dragon_hide", 2, 0], ["m_claw", 5, 0], ["m_claw", 2, 1], ["m_claw", 3, 1], ["m_roar", 4, 1]]}
  },
  "_boss_drops": "One roll per boss kill. w = weight (higher = more common). Treasure is sell-only filler that keeps the strong drops rare.",
  "boss_drops": {
   "Magma Golem":  [["gold_nugget", 45], ["big_ruby", 15], ["magma_core", 15], ["obsidian_band", 15], ["golem_heart", 10], ["phoenix_plume", 4]],
   "Frost Wraith": [["gold_nugget", 35], ["big_ruby", 20], ["wraith_lantern", 18], ["soul_gem", 15], ["wraith_scythe", 12], ["eternal_ice", 4]],
+  "Broodmother":  [["gold_nugget", 45], ["big_ruby", 15], ["golem_heart", 15], ["obsidian_band", 15], ["magma_core", 10], ["phoenix_plume", 4]],
+  "Goblin Warlord": [["gold_nugget", 45], ["big_ruby", 15], ["obsidian_band", 15], ["magma_core", 15], ["golem_heart", 10], ["phoenix_plume", 4]],
+  "Storm Drake":  [["gold_nugget", 35], ["big_ruby", 20], ["soul_gem", 18], ["wraith_scythe", 15], ["wraith_lantern", 12], ["eternal_ice", 4]],
+  "Plague Lord":  [["gold_nugget", 35], ["big_ruby", 20], ["wraith_lantern", 18], ["wraith_scythe", 15], ["soul_gem", 12], ["eternal_ice", 4]],
+  "Abyss Kraken": [["big_ruby", 100]],
+  "Inferno Dragon": [["big_ruby", 100]],
   "Stone Titan":  [["big_ruby", 100]]
  },
 
@@ -277,7 +308,13 @@
  "bosses": [
   {"d": 5,  "n": "Magma Golem",  "hp": 220, "atk": 6.4,  "cd": 1.5, "imm": "",       "weak": "Nature"},
   {"d": 10, "n": "Frost Wraith", "hp": 360, "atk": 9.0,  "cd": 1.4, "imm": "Physical", "weak": "Fire"},
-  {"d": 15, "n": "Stone Titan",  "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Nature", "weak": "Shock"}
+  {"d": 15, "n": "Stone Titan",  "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Nature", "weak": "Shock"},
+  {"d": 5,  "n": "Broodmother",  "hp": 200, "atk": 6.8,  "cd": 1.5, "imm": "",       "weak": "Fire"},
+  {"d": 5,  "n": "Goblin Warlord", "hp": 215, "atk": 6.0, "cd": 1.5, "imm": "",      "weak": "Shock"},
+  {"d": 10, "n": "Storm Drake",  "hp": 360, "atk": 9.0,  "cd": 1.4, "imm": "Fire",   "weak": "Nature"},
+  {"d": 10, "n": "Plague Lord",  "hp": 380, "atk": 8.6,  "cd": 1.4, "imm": "Nature", "weak": "Fire"},
+  {"d": 15, "n": "Abyss Kraken", "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Shock",  "weak": "Fire"},
+  {"d": 15, "n": "Inferno Dragon", "hp": 520, "atk": 11.8, "cd": 1.5, "imm": "Fire", "weak": "Physical"}
  ],
  "mods": [
   {"id": "guild", "n": "Merchant’s Guild Strike", "d": "Rerolls cost +1 gold; all gold rewards +40%."},
@@ -301,7 +338,7 @@
  "tier_names": ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Unique", "Mythical"],
  "tier_colors": ["#9ca3af", "#4ade80", "#3b82f6", "#a855f7", "#f59e0b", "#f43f5e", "#22d3ee"],
  "atk_curve": [[1, 0.9], [4, 0.9], [7, 0.72], [10, 0.75], [15, 0.75]],
- "foe_icons": {"Cave Rat": "🐀", "Goblin": "👺", "Bandit": "🥷", "Slime": "🦠", "Skeleton": "💀", "Magma Golem": "🌋", "Frost Wraith": "👻", "Stone Titan": "🗿"},
+ "foe_icons": {"Cave Rat": "🐀", "Goblin": "👺", "Bandit": "🥷", "Slime": "🦠", "Skeleton": "💀", "Magma Golem": "🌋", "Frost Wraith": "👻", "Stone Titan": "🗿", "Broodmother": "🕷️", "Goblin Warlord": "👹", "Storm Drake": "🐉", "Plague Lord": "🧟", "Abyss Kraken": "🐙", "Inferno Dragon": "🐲"},
  "elem_colors": {"Fire": "#ff8a3d", "Nature": "#86efac", "Physical": "#f3f4f6", "Shock": "#facc15"},
  "elem_icons": {"Fire": "🔥", "Nature": "🌿", "Physical": "⚔️", "Shock": "⚡"},
  "days": 15,

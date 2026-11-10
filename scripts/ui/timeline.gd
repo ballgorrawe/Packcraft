@@ -59,7 +59,7 @@ func _draw() -> void:
 			label = phases.get(run.phase, str(d))
 			fs = 17
 		elif boss:
-			label = "💀"
+			label = GameData.foe_icon(run.boss_on(d).n)
 			fs = 14
 		elif past:
 			label = "✔"

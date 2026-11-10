@@ -44,6 +44,7 @@ var lv := 1                      # hero level (fights give EXP)
 var xp := 0                      # EXP toward the next level
 var lvl_bonus := {}              # buffs chosen at level-up picks: key -> total (same keys as pets)
 var picks: Array = []            # level-up offers waiting for a choice: each is 3 pick ids
+var boss_pick := {}              # boss day -> the boss met this run (one of that day's pool)
 
 
 func _init(c: String, p := "", df := "normal") -> void:
@@ -54,6 +55,7 @@ func _init(c: String, p := "", df := "normal") -> void:
 	mhp = GameData.base_hp + pv("hp")
 	hp = mhp
 	mod = GameData.mods.pick_random()
+	pick_bosses()
 	for t in cls_def().bag:
 		tiles[t] = true
 		start[t] = true
@@ -856,11 +858,28 @@ func with_hazard(e: Dictionary) -> Dictionary:
 	return o
 
 
+## Picks this run's boss for every boss day from that day's pool.
+func pick_bosses() -> void:
+	boss_pick = {}
+	var pools := {}
+	for b in GameData.bosses:
+		if not pools.has(b.d):
+			pools[b.d] = []
+		pools[b.d].append(b.n)
+	for d in pools:
+		boss_pick[d] = pools[d].pick_random()
+
+
 func boss_on(d: int):
+	var want: String = boss_pick.get(d, "")
+	var first = null
 	for b in GameData.bosses:
 		if b.d == d:
-			return b
-	return null
+			if b.n == want:
+				return b
+			if first == null:
+				first = b
+	return first
 
 
 const EVENTS := ["smith", "merchant", "roulette", "cauldron", "altar", "chest"]
@@ -873,7 +892,7 @@ func event_ok(k: String) -> bool:
 		"roulette":
 			return day >= 2
 		"altar":
-			return day >= 3 and (res > 0 or altar_hp_ok())
+			return day >= 3 and res > 0
 		"cauldron":
 			return items.filter(func(i): return not i.starter).size() >= 2
 	return true
@@ -1120,7 +1139,7 @@ func _brew_high(top: int) -> String:
 	return roll_tiered(4, 3)
 
 
-## Cursed altar: a Legendary item for 10 Max HP forever, or for a Heart.
+## Cursed altar: a Legendary item for a Heart.
 ## Paying with Max HP is only allowed while it stays at or above the floor.
 func altar_hp_ok() -> bool:
 	return mhp - 10 >= MIN_MAX_HP
@@ -1129,17 +1148,11 @@ func altar_hp_ok() -> bool:
 func ev_altar(i: int, pay: String) -> bool:
 	if event.get("done", false) or i < 0 or i >= event.offer.size():
 		return false
-	if pay == "heart":
-		if res <= 0:
-			return false
-		res -= 1
-		event.rew.append({"k": "heart", "v": -1})
-	else:
-		if not altar_hp_ok():
-			return false
-		mhp_mod -= 10
-		sync_hp()
-		event.rew.append({"k": "maxhp", "v": -10})
+	# the only price is a Heart (paying with Max HP was removed)
+	if pay != "heart" or res <= 0:
+		return false
+	res -= 1
+	event.rew.append({"k": "heart", "v": -1})
 	var id: String = event.offer[i]
 	items.append(make_item(id, "storage"))
 	event.rew.append({"k": "loot", "id": id})
@@ -1230,6 +1243,7 @@ func to_dict() -> Dictionary:
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
 		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks,
+		"boss_pick": boss_pick,
 	}
 
 
@@ -1253,6 +1267,10 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.xp = int(d.get("xp", 0))
 	r.lvl_bonus = d.get("lvl_bonus", {})
 	r.picks = d.get("picks", [])
+	if d.has("boss_pick"):
+		r.boss_pick = {}
+		for k in d.boss_pick:
+			r.boss_pick[int(k)] = str(d.boss_pick[k])
 	r.event = d.get("event", {})
 	for s in r.event.get("stock", []):
 		s.price = int(s.price)

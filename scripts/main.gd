@@ -815,7 +815,7 @@ func _end_screen() -> Control:
 	i.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(i)
 	UI.breathe(i, 0.06)
-	var s := UI.wrap_lbl(tr("The Stone Titan falls. Your build held.") if w else tr("You fell on day %d of %d.") % [run.day, GameData.days], 22)
+	var s := UI.wrap_lbl((tr("%s falls. Your build held.") % tr(run.boss_on(GameData.days).n if run.boss_on(GameData.days) != null else "")) if w else tr("You fell on day %d of %d.") % [run.day, GameData.days], 22)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	var path_txt := ""
@@ -1115,9 +1115,12 @@ func _ribbon() -> Control:
 	var h := UI.hbox(8)
 	sc.add_child(h)
 	var pills := []
-	for b in GameData.bosses:
-		if b.d >= run.day and b.d - run.day <= 3:
-			pills.append([("💀 " + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else ("💀 " + tr("Boss tomorrow!")) if b.d == run.day + 1 else ("💀 " + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm), tr(b.weak)]])
+	for bd in range(run.day, run.day + 4):
+		var b = run.boss_on(bd)
+		if b == null:
+			continue
+		var bi := GameData.foe_icon(b.n) + " "
+		pills.append([(bi + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else (bi + tr("Boss tomorrow!")) if b.d == run.day + 1 else (bi + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm) if b.imm != "" else "-", tr(b.weak)]])
 	if not run.hz.is_empty():
 		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
 	if run.diff != "normal":
@@ -1669,7 +1672,7 @@ const EV := {
 	"merchant": ["🛒", "Wandering Merchant", "Rare wares, and he buys your items at full price."],
 	"roulette": ["🔫", "Russian Roulette", "One bullet, six chambers. Every empty click grows the pot. Walk away any time."],
 	"cauldron": ["⚗️", "Alchemist's Cauldron", "Put in two items, get one better item back."],
-	"altar": ["🗿", "Cursed Altar", "Take a Legendary item. Pay with 10 Max HP forever, or with a Heart."],
+	"altar": ["🗿", "Cursed Altar", "Take a Legendary item. The price: one Heart."],
 	"chest": ["📦", "Mystery Chests", "Open one. Treasure, gold... or a trap."],
 }
 
@@ -2344,11 +2347,6 @@ func _ev_altar(v: VBoxContainer) -> void:
 		tv.add_child(UI.wrap_lbl(GameData.describe_lines(id)[0], 15, Color("#e9e4ff")))
 		var br := UI.hbox(8)
 		var ii: int = i
-		var mb := UI.btn("-10 " + tr("Max HP"), func():
-			run.ev_altar(ii, "hp")
-			render(), false, 16, "red")
-		mb.disabled = not run.altar_hp_ok()
-		br.add_child(mb)
 		var hb := UI.btn("-1 ❤️", func():
 			run.ev_altar(ii, "heart")
 			render(), false, 16, "purple")

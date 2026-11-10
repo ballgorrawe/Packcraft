@@ -14,6 +14,7 @@ var mode := "edge"
 var style := "smart"
 var cls_filter := ""
 var diff := "normal"
+var force_boss := ""   # --boss=Name: every run meets this boss on its day (balance checks)
 var start := 0
 var count := 10
 var runs := 20
@@ -37,6 +38,7 @@ func _init() -> void:
 			"count": count = int(v)
 			"runs": runs = int(v)
 			"seed": repro_seed = int(v)
+			"boss": force_boss = v
 	match mode:
 		"edge": _edge_cases()
 		"inv": _invariant_runs()
@@ -298,6 +300,10 @@ func pick_node(r: RunState, st: String) -> int:
 func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -> Dictionary:
 	seed(seed_v)
 	var r := RunState.new(cls, pet, diff)
+	if force_boss != "":
+		for b in GameData.bosses:
+			if b.n == force_boss:
+				r.boss_pick[b.d] = b.n
 	var info := {"gold": [], "deaths": [], "kinds": {}, "elite_w": 0, "elite_l": 0, "camp_hp": [], "fights": 0, "losses": 0, "max_gold": 0}
 	var guard := 0
 	while r.end_state == "" and guard < 60:
@@ -581,17 +587,21 @@ func _edge_cases() -> void:
 	var n8: int = r8.shop.filter(func(e): return e.has("bag"))[0].n
 	_edge("E8 bag piece 2 tiles on day 7, 3 on day 8", n7 == 2 and n8 == 3, "d7=%d d8=%d" % [n7, n8])
 
-	# E9 Cursed Altar paid with Max HP again and again
+	# E9 Cursed Altar: the only price is a Heart (never Max HP), and not when you have none
 	var r9 := _fresh()
 	r9.day = 5
-	var paid := 0
-	for _i in 10:
+	var mhp9 := r9.mhp
+	var hp_paid := 0
+	var hearts_paid := 0
+	for _i in 5:
 		r9.start_event("altar")
 		if r9.ev_altar(0, "hp"):
-			paid += 1
+			hp_paid += 1
+		if r9.ev_altar(0, "heart"):
+			hearts_paid += 1
 		r9.phase = "afternoon"
 		r9.event = {}
-	_edge("E9 Max HP never reaches 0 through the altar", r9.mhp > 0, "after %d payments mhp=%.0f hp=%.0f" % [paid, r9.mhp, r9.hp])
+	_edge("E9 altar takes only Hearts", hp_paid == 0 and hearts_paid == RunState.MAX_HEARTS and r9.res == 0 and r9.mhp == mhp9 and not r9.event_ok("altar"), "hp payments=%d heart payments=%d hearts left=%d mhp %.0f->%.0f" % [hp_paid, hearts_paid, r9.res, mhp9, r9.mhp])
 
 	# E10 cauldron with Legendary / Mythical inputs
 	var r10 := _fresh()
