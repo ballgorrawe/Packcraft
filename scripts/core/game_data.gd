@@ -77,7 +77,7 @@ static func ensure_loaded() -> void:
 			pets[k][key] = float(p.get(key, 0.0))
 		pet_keys.append(k)
 	for df in d.get("difficulties", []):
-		difficulties.append({"id": df.id, "n": df.n, "ic": df.ic, "hp": float(df.hp), "dps": float(df.dps), "elite": float(df.get("elite", 0.0))})
+		difficulties.append({"id": df.id, "n": df.n, "ic": df.ic, "d": str(df.get("d", "")), "hp": float(df.hp), "dps": float(df.dps), "elite": float(df.get("elite", 0.0))})
 	for k in d.get("boss_packs", {}):
 		var bp: Dictionary = d.boss_packs[k]
 		boss_packs[k] = {"w": int(bp.w), "h": int(bp.h), "items": bp.items.map(func(e): return [str(e[0]), int(e[1]), int(e[2])])}
@@ -96,6 +96,7 @@ static func ensure_loaded() -> void:
 		var res: Dictionary = c.res
 		classes[k] = {
 			"n": c.n, "ic": c.ic, "hero": c.hero, "d": c.d, "st": st, "bag": _cells(c.bag),
+			"col": Color(c.get("col", "#a77bff")), "stats": c.get("stats", {}), "comp": c.get("comp", []),
 			"res": {
 				"id": res.id, "n": res.n, "ic": res.ic, "gain": res.gain, "tag": str(res.get("tag", "")),
 				"per": float(res.per), "eff": res.eff, "etag": str(res.get("etag", "")), "v": float(res.v),

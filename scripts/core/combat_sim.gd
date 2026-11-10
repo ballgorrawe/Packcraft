@@ -24,6 +24,7 @@ var blocked := 0.0
 var tk := 0
 var fi: Array = []          # the monster's items: {id, d, x, y, rot, p, cd, uid, st}
 var fshield := 0.0
+var enraged := false        # bosses rage once at half HP: their items charge 25% faster
 var fhastes: Array = []
 var hd := {}                # statuses the monster put on you: id -> stacks
 var rg := 0.0
@@ -393,6 +394,13 @@ func step() -> void:
 	for x in fhastes:
 		x.t -= 1
 	fhastes = fhastes.filter(func(x): return x.t > 0)
+	# boss rage at half HP
+	if not enraged and node.get("k", "") == "boss" and ehp <= e.hp * 0.5 and ehp > 0:
+		enraged = true
+		for fx in fi:
+			fx.cd *= 0.8
+		_ev({"t": "enrage"})
+		_log(I18n.t("💢 %s is ENRAGED!") % I18n.t(e.n))
 	# sudden-death fatigue
 	if tk > FATIGUE_TICK and tk % 10 == 0:
 		var fd := (tk - FATIGUE_TICK) / 10.0

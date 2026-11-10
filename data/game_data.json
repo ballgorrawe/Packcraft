@@ -10,6 +10,8 @@
  "classes": {
   "ember": {
    "n": "Ember Knight", "ic": "🔥", "hero": "🤺", "d": "Fire blades that hit harder the longer the fight burns.",
+   "col": "#ff7a3d", "stats": {"Damage": 4, "Defense": 1, "Sustain": 2, "Difficulty": 2},
+   "comp": ["Core: two Ember Swords evolve into a Flame Saber; Smith Hammer + Ember Sword fuse into a Magma Hammer.", "🌋 Inferno: put Fire Gems next to Fire weapons and stack Burn; the Cinder Heart detonates it at 20. Capstone: Sunforge Crown.", "⚒️ Forgeblade: fewer, bigger weapons; the Anvil Sigil makes every swing hit harder. Capstone: Worldsplitter."],
    "st": [["ember_sword", 3, 2], ["fire_gem", 4, 2]],
    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
    "res": {"id": "heat", "n": "Heat", "ic": "🌡️", "gain": "trigger_tag", "tag": "Fire", "per": 1, "eff": "dmg_pct_tag", "etag": "Weapon", "v": 0.04, "d": "+1 Heat each time a Fire item triggers. Weapons deal +4% damage per Heat."},
@@ -18,6 +20,8 @@
   },
   "venom": {
    "n": "Venom Alchemist", "ic": "🧪", "hero": "🧙", "d": "Poison that never stops climbing, and potions that keep you standing.",
+   "col": "#5ed16a", "stats": {"Damage": 3, "Defense": 2, "Sustain": 4, "Difficulty": 3},
+   "comp": ["Core: Venom Vial + Mortar fuse into a Toxic Draught; Herb Pouches keep you alive while Poison works.", "🦠 Plague: Poison never wears off. Pile it on with Viper Flasks and the Rot Idol. Capstone: Mother of Rot.", "🪙 Transmuter: keep your gold, the Gilded Scale turns it into damage. Capstone: Philosopher's Engine."],
    "st": [["venom_vial", 3, 3], ["herb_pouch", 5, 3]],
    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
    "res": {"id": "toxin", "n": "Toxin", "ic": "🧫", "gain": "poison_applied", "per": 5, "eff": "dot_pct", "v": 0.03, "d": "+1 Toxin per 5 Poison applied. Poison and Burn deal +3% damage per Toxin."},
@@ -26,6 +30,8 @@
   },
   "tinker": {
    "n": "Clockwork Tinker", "ic": "⚙️", "hero": "🧑‍🔧", "d": "Gadgets that charge each other into a storm of tiny hits.",
+   "col": "#f5c542", "stats": {"Damage": 4, "Defense": 1, "Sustain": 1, "Difficulty": 4},
+   "comp": ["Core: Batteries next to guns make them fire more often; Spark Pistol + Gear Box fuse into an Arc Repeater.", "🔋 Overclock: chain Charge so everything fires nonstop. Capstone: Perpetual Core.", "🛠️ Arsenal: fill the pack with Turrets; each one makes the others stronger. Capstone: Siege Walker."],
    "st": [["spark_pistol", 3, 3], ["battery", 4, 3]],
    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
    "res": {"id": "gears", "n": "Gears", "ic": "🔩", "gain": "trigger_tag", "tag": "Mech", "per": 3, "eff": "haste_pct", "v": 0.01, "cap": 0.4, "d": "+1 Gear per 3 Mech triggers. All items charge 1% faster per Gear (max 40%)."},
@@ -34,6 +40,8 @@
   },
   "warden": {
    "n": "Stone Warden", "ic": "🗿", "hero": "🧔", "d": "A wall of stone and thorns that punishes every hit.",
+   "col": "#9fb3c8", "stats": {"Damage": 2, "Defense": 5, "Sustain": 3, "Difficulty": 1},
+   "comp": ["Core: Stone Shield + Moss Charm fuse into a Living Shield. Easy to start: block first, hit back later.", "🌵 Thorns: stack Thorns and let every enemy hit hurt itself. Capstone: Bramble Bastion.", "⛰️ Colossus: huge Max HP that turns into big strikes. Capstone: Titan Heart."],
    "st": [["stone_shield", 3, 2], ["rock_club", 5, 2]],
    "bag": [[3,2],[4,2],[5,2],[3,3],[4,3],[5,3],[3,4],[4,4],[5,4]],
    "res": {"id": "guard", "n": "Guard", "ic": "🪨", "gain": "shield_gained", "per": 10, "eff": "reflect", "v": 0.5, "d": "+1 Guard per 10 Shield gained. Each Guard deals 0.5 damage back when you are hit."},
@@ -251,10 +259,10 @@
 
  "_difficulties": "Enemy HP and damage multipliers per mode, applied on top of the curve. elite: chance an extra Elite/Ambush road appears.",
  "difficulties": [
-  {"id": "normal", "n": "Normal",    "ic": "🙂", "hp": 1.0,  "dps": 1.0,  "elite": 0.0},
-  {"id": "hard",   "n": "Hard",      "ic": "😠", "hp": 1.3,  "dps": 1.2,  "elite": 0.1},
-  {"id": "vhard",  "n": "Very Hard", "ic": "😈", "hp": 1.45, "dps": 1.35, "elite": 0.2},
-  {"id": "abyss",  "n": "Abyss",     "ic": "🕳️", "hp": 1.7,  "dps": 1.55, "elite": 0.35}
+  {"id": "normal", "n": "Normal",    "ic": "🙂", "d": "A fair fight. Learn the classes.", "hp": 1.0,  "dps": 1.0,  "elite": 0.0},
+  {"id": "hard",   "n": "Hard",      "ic": "😠", "d": "Monsters hit harder and Elites show up more.", "hp": 1.3,  "dps": 1.2,  "elite": 0.1},
+  {"id": "vhard",  "n": "Very Hard", "ic": "😈", "d": "For seasoned packers. Every fight matters.", "hp": 1.45, "dps": 1.35, "elite": 0.2},
+  {"id": "abyss",  "n": "Abyss",     "ic": "🕳️", "d": "The dungeon wants you dead. Good luck.", "hp": 1.7,  "dps": 1.55, "elite": 0.35}
  ],
  "foe_hp_mult": 1.7,
  "foe_atk_mult": 1.4,

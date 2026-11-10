@@ -246,7 +246,7 @@ func render() -> void:
 
 func _key() -> String:
 	if run == null:
-		return "title"
+		return "title" + str(title_step)
 	if run.end_state != "":
 		return "end"
 	var k := run.phase + str(run.day)
@@ -320,13 +320,31 @@ func _center(c: Control) -> Control:
 
 
 # --------------------------------------------------------------- title
+# 0 start screen → 1 hero → 2 pet → 3 difficulty → run
+
+var title_step := 0
+var _hero_dir := 0      # -1 / +1 when the hero card was just swiped, for its slide-in
+var _swipe_x := 0.0
+
 
 func _title_screen() -> Control:
+	var body: Control
+	match title_step:
+		1: body = _hero_screen()
+		2: body = _pet_screen()
+		3: body = _diff_screen()
+		_: body = _start_screen()
+	# scrolls on short screens; spacers inside still centre things on tall ones
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var v := UI.vbox(18)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(v)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.add_child(body)
+	return sc
+
+
+func _start_screen() -> Control:
+	var v := UI.vbox(16)
 	var lang := UI.hbox(8)
 	lang.add_child(UI.spacer())
 	for code in ["en", "th"]:
@@ -336,101 +354,237 @@ func _title_screen() -> Control:
 			SaveGame.set_setting("lang", cc)
 			render(), false, 16, "blue" if I18n.lang() == code else "gray"))
 	v.add_child(lang)
-	var logo := UI.title("PACKCRAFT", 76, UI.GOLD, Color("#5a2300"))
+	v.add_child(UI.spacer(false))
+	var logo := UI.title("PACKCRAFT", 84, UI.GOLD, Color("#5a2300"))
 	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(logo)
-	UI.breathe(logo, 0.03)
-	var tag := UI.lbl(tr("Pack it. Craft it. Watch it fight."), 20, UI.MU, true)
+	UI.breathe(logo, 0.035)
+	var tag := UI.lbl(tr("Pack it. Craft it. Watch it fight."), 22, UI.MU, true)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tag)
-	var ver := UI.lbl("v" + str(ProjectSettings.get_setting("application/config/version", "")), 14, Color(UI.MU, 0.7))
-	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(ver)
+	# the party waiting at the dungeon door
+	var party := UI.hbox(18)
+	party.alignment = BoxContainer.ALIGNMENT_CENTER
+	var k := 0
+	for c in GameData.class_keys:
+		var hl := UI.lbl(GameData.classes[c].hero, 64)
+		party.add_child(hl)
+		var tw := hl.create_tween().set_loops()
+		tw.tween_interval(0.15 * k)
+		tw.tween_property(hl, "position:y", -14.0, 0.45).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(hl, "position:y", 0.0, 0.45).set_trans(Tween.TRANS_SINE)
+		k += 1
+	v.add_child(party)
+	var door := UI.lbl("🔥  🚪  🔥", 54)
+	door.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(door)
+	v.add_child(UI.spacer(false))
 	var summary := "" if _dev else SaveGame.run_summary()
 	if summary != "":
 		var cb := UI.btn("▶️ " + tr("CONTINUE") + "\n" + summary, _continue_run, false, 20, "gold")
-		cb.custom_minimum_size = Vector2(0, 90)
+		cb.custom_minimum_size = Vector2(0, 96)
 		v.add_child(cb)
-	var hh := UI.title(tr("Choose your hero"), 26)
-	v.add_child(hh)
-	var g := GridContainer.new()
-	g.columns = 2
-	g.add_theme_constant_override("h_separation", 14)
-	g.add_theme_constant_override("v_separation", 14)
-	var i := 0
-	for k in GameData.class_keys:
-		var kk: String = k
-		var c: Dictionary = GameData.classes[k]
-		var on: bool = k == sel_cls
-		var p := UI.card(Color("#4a3a92") if on else UI.PN, UI.GOLD if on else UI.BD, 22, 14)
-		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		p.custom_minimum_size.y = 178
-		UI.on_tap(p, func():
-			sel_cls = kk
-			render())
-		UI.juice(p)
-		var cv := UI.vbox(4)
-		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		p.add_child(cv)
-		var ic := UI.plbl(c.hero, 58, UI.TX, false, true)
-		cv.add_child(ic)
-		var nm := UI.title(tr(c.n), 22, Color.WHITE)
-		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cv.add_child(nm)
-		var dl := UI.plbl(c.ic + " " + tr(c.res.n), 16, UI.GOLD if on else UI.MU, true, true)
-		cv.add_child(dl)
-		g.add_child(p)
-		if on:
-			UI.breathe(ic, 0.08)
-		i += 1
-	v.add_child(g)
-	v.add_child(_class_info(sel_cls))
-	v.add_child(_pet_picker())
-	v.add_child(_diff_picker())
-	var start := UI.big_btn("▶️ " + tr("START RUN"), func():
-		SaveGame.set_setting("pet", sel_pet)
-		SaveGame.set_setting("diff", sel_diff)
-		run = RunState.new(sel_cls, sel_pet, sel_diff)
-		_clear_sel()
-		anim.clear()
-		render(), "green", 32)
-	start.custom_minimum_size = Vector2(0, 96)
-	v.add_child(start)
-	UI.breathe(start, 0.025)
+	var play := UI.big_btn("⚔️ " + tr("NEW GAME"), func():
+		title_step = 1
+		render(), "green", 34)
+	play.custom_minimum_size = Vector2(0, 104)
+	v.add_child(play)
+	UI.breathe(play, 0.03)
 	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
 		show_how = not show_how
 		render(), false, 17, "purple")))
 	if show_how:
-		var hp := UI.panel(Color(UI.INK, 0.8), UI.BD, 2, 18, 16)
+		var hp := UI.panel(Color(UI.INK, 0.85), UI.BD, 2, 18, 16)
 		hp.add_child(UI.wrap_lbl(tr("HOW_TO_PLAY"), 18, Color("#e9e4ff")))
 		v.add_child(hp)
-	v.add_child(UI.spacer(false))
-	return sc
+	var ver := UI.lbl("v" + str(ProjectSettings.get_setting("application/config/version", "")), 14, Color(UI.MU, 0.7))
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ver)
+	return v
 
 
-## Pick a companion: a small, always-on buff.
-func _pet_picker() -> Control:
-	var p := UI.panel(Color(UI.INK, 0.75), UI.BD, 2, 20, 14)
-	var v := UI.vbox(10)
-	p.add_child(v)
-	v.add_child(UI.title("🐾 " + tr("Choose your pet"), 24))
+## Header for the three setup steps: "STEP 2 / 3" with dots.
+func _step_head(n: int, title: String) -> Control:
+	var v := UI.vbox(4)
+	var dots := UI.hbox(10)
+	dots.alignment = BoxContainer.ALIGNMENT_CENTER
+	for i in range(1, 4):
+		var d := UI.panel(UI.GOLD if i <= n else Color(1, 1, 1, 0.15), Color(0, 0, 0, 0), 0, 99, 0)
+		d.custom_minimum_size = Vector2(48 if i == n else 18, 12)
+		dots.add_child(d)
+	v.add_child(dots)
+	var t := UI.title(title, 36, UI.GOLD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	return v
+
+
+func _step_nav(back_cb: Callable, next_text: String, next_cb: Callable, kind := "green") -> Control:
+	var h := UI.hbox(10)
+	var b := UI.btn("◀️ " + tr("Back"), back_cb, false, 20, "gray")
+	b.custom_minimum_size = Vector2(150, 84)
+	h.add_child(b)
+	var n := UI.btn(next_text, next_cb, false, 26, kind)
+	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	n.custom_minimum_size.y = 84
+	h.add_child(n)
+	UI.breathe(n, 0.02)
+	return h
+
+
+func _hero_screen() -> Control:
+	var v := UI.vbox(12)
+	v.add_child(_step_head(1, tr("Choose your hero")))
+	var idx: int = GameData.class_keys.find(sel_cls)
+	var c: Dictionary = GameData.classes[sel_cls]
+	var col: Color = c.col
+	# swipeable hero card, with arrows either side
+	var row := UI.hbox(6)
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var prev := UI.btn("◀️", func(): _hero_step(-1), false, 26, "purple")
+	prev.custom_minimum_size = Vector2(58, 120)
+	prev.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(prev)
+	var card := UI.card(col.darkened(0.62), col, 26, 16)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				_swipe_x = e.position.x
+			elif absf(e.position.x - _swipe_x) > 70:
+				_hero_step(-1 if e.position.x > _swipe_x else 1))
+	row.add_child(card)
+	var nxt := UI.btn("▶️", func(): _hero_step(1), false, 26, "purple")
+	nxt.custom_minimum_size = Vector2(58, 120)
+	nxt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(nxt)
+	var cv := UI.vbox(8)
+	cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(cv)
+	var hero := UI.plbl(c.hero, 120, UI.TX, false, true)
+	cv.add_child(hero)
+	UI.breathe(hero, 0.06)
+	var nm := UI.title(c.ic + " " + tr(c.n), 34, Color.WHITE, col.darkened(0.7))
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cv.add_child(nm)
+	var dl := UI.wrap_lbl(tr(c.d), 18, Color("#f1edff"))
+	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cv.add_child(dl)
+	# stat bars
+	var sg := GridContainer.new()
+	sg.columns = 2
+	sg.add_theme_constant_override("h_separation", 12)
+	sg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icons := {"Damage": "⚔️", "Defense": "🛡️", "Sustain": "💚", "Difficulty": "🧠"}
+	for s in ["Damage", "Defense", "Sustain", "Difficulty"]:
+		sg.add_child(UI.plbl(icons[s] + " " + tr(s), 16, Color("#e9e4ff"), true))
+		var pips := UI.hbox(4)
+		pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var val := int(c.stats.get(s, 0))
+		for p in 5:
+			var pip := UI.panel(col if p < val else Color(0, 0, 0, 0.35), Color(0, 0, 0, 0), 0, 6, 0)
+			pip.custom_minimum_size = Vector2(36, 16)
+			pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			pips.add_child(pip)
+		sg.add_child(pips)
+	cv.add_child(sg)
+	# signature skills
+	var sk := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 14, 10)
+	sk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var skv := UI.vbox(6)
+	skv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sk.add_child(skv)
+	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 16, Color("#e9e4ff")))
+	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 16, UI.GOLD))
+	cv.add_child(sk)
+	# how it is usually built
+	var bt := UI.title("🧩 " + tr("How to build it"), 20, col.lightened(0.3))
+	bt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cv.add_child(bt)
+	for line in c.comp:
+		var ll := UI.wrap_lbl("• " + tr(line), 15, Color("#f1edff"))
+		ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cv.add_child(ll)
+	var chips := UI.hbox(8)
+	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chips.add_child(UI.plbl(tr("Starts with"), 15, UI.MU, true))
+	for st in c.st:
+		chips.add_child(UI.item_chip(st[0]))
+	cv.add_child(chips)
+	v.add_child(row)
+	# page dots
+	var pd := UI.hbox(8)
+	pd.alignment = BoxContainer.ALIGNMENT_CENTER
+	for i in GameData.class_keys.size():
+		var d := UI.lbl("●" if i == idx else "○", 20, UI.GOLD if i == idx else UI.MU)
+		pd.add_child(d)
+	v.add_child(pd)
+	v.add_child(_step_nav(func():
+		title_step = 0
+		render(), tr("Next") + " ▶️", func():
+		title_step = 2
+		render()))
+	if _hero_dir != 0:
+		card.modulate.a = 0
+		var dir := _hero_dir
+		card.resized.connect(func(): card.pivot_offset = card.size / 2, CONNECT_ONE_SHOT)
+		var tw := card.create_tween()
+		tw.tween_callback(func(): card.position.x += 120 * dir)
+		tw.tween_property(card, "modulate:a", 1.0, 0.18)
+		tw.parallel().tween_property(card, "position:x", card.position.x, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_hero_dir = 0
+	return v
+
+
+func _hero_step(d: int) -> void:
+	var keys := GameData.class_keys
+	var i: int = (keys.find(sel_cls) + d + keys.size()) % keys.size()
+	sel_cls = keys[i]
+	_hero_dir = d
+	render()
+
+
+func _pet_screen() -> Control:
+	var v := UI.vbox(14)
+	v.add_child(_step_head(2, tr("Choose your pet")))
+	var sub := UI.wrap_lbl(tr("Your pet gives a small buff for the whole run."), 18, UI.MU)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	if not GameData.pets.has(sel_pet):
+		sel_pet = GameData.pet_keys[0]
+	var pd: Dictionary = GameData.pets[sel_pet]
+	var big := UI.card(Color("#3a2d7a"), UI.GOLD, 26, 18)
+	var bv := UI.vbox(6)
+	big.add_child(bv)
+	var bi := UI.lbl(pd.ic, 110)
+	bi.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bv.add_child(bi)
+	UI.breathe(bi, 0.08)
+	var bn := UI.title(tr(pd.n), 32, UI.GOLD)
+	bn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bv.add_child(bn)
+	var bd := UI.wrap_lbl(tr(pd.d), 22, Color.WHITE)
+	bd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bv.add_child(bd)
+	v.add_child(big)
 	var g := GridContainer.new()
 	g.columns = 4
 	g.add_theme_constant_override("h_separation", 10)
 	g.add_theme_constant_override("v_separation", 10)
 	for k in GameData.pet_keys:
 		var kk: String = k
-		var pd: Dictionary = GameData.pets[k]
+		var p: Dictionary = GameData.pets[k]
 		var on: bool = k == sel_pet
 		var c := UI.card(Color("#4a3a92") if on else UI.PN, UI.GOLD if on else UI.BD, 18, 6)
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var cv := UI.vbox(0)
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.add_child(cv)
-		var il := UI.plbl(pd.ic, 40, UI.TX, false, true)
-		cv.add_child(il)
-		var nl := UI.plbl(tr(pd.n), 13, UI.GOLD if on else UI.MU, true, true)
+		cv.add_child(UI.plbl(p.ic, 46, UI.TX, false, true))
+		var nl := UI.plbl(tr(p.n), 13, UI.GOLD if on else UI.MU, true, true)
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.custom_minimum_size.x = 120
 		cv.add_child(nl)
@@ -438,71 +592,68 @@ func _pet_picker() -> Control:
 			sel_pet = kk
 			render())
 		UI.juice(c)
-		if on:
-			UI.breathe(il, 0.1)
 		g.add_child(c)
 	v.add_child(g)
-	if GameData.pets.has(sel_pet):
-		var dl := UI.wrap_lbl(GameData.pets[sel_pet].ic + " " + tr(GameData.pets[sel_pet].n) + ": " + tr(GameData.pets[sel_pet].d), 17, UI.GOLD)
-		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(dl)
-	return p
+	v.add_child(UI.spacer(false))
+	v.add_child(_step_nav(func():
+		title_step = 1
+		render(), tr("Next") + " ▶️", func():
+		title_step = 3
+		render()))
+	return v
 
 
-## Pick a difficulty: enemies get tougher (HP and damage) step by step.
-func _diff_picker() -> Control:
-	var p := UI.panel(Color(UI.INK, 0.75), UI.BD, 2, 20, 14)
-	var v := UI.vbox(10)
-	p.add_child(v)
-	v.add_child(UI.title("⚔️ " + tr("Difficulty"), 24))
-	var row := UI.hbox(8)
-	var kinds := ["green", "gold", "red", "purple"]
-	var i := 0
+func _diff_screen() -> Control:
+	var v := UI.vbox(12)
+	v.add_child(_step_head(3, tr("Difficulty")))
+	var kinds := {"normal": Color("#3fd17a"), "hard": Color("#ffc93c"), "vhard": Color("#ff5d6c"), "abyss": Color("#a77bff")}
 	for df in GameData.difficulties:
 		var id: String = df.id
 		var on: bool = id == sel_diff
-		var b := UI.btn(df.ic + "
-" + tr(df.n), func():
-			sel_diff = id
-			render(), false, 16, kinds[mini(i, 3)] if on else "gray")
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 84
+		var col: Color = kinds.get(id, UI.BD)
+		var c := UI.card(col.darkened(0.55) if on else UI.PN, col if on else UI.BD, 22, 14)
+		var h := UI.hbox(14)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(h)
+		var il := UI.plbl(df.ic, 60)
+		h.add_child(il)
+		var tv := UI.vbox(2)
+		tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(tv)
+		var tl := UI.title(tr(df.n), 26, col.lightened(0.2) if on else Color.WHITE)
+		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tv.add_child(tl)
+		var dl := UI.wrap_lbl(tr(df.d), 16, Color("#e9e4ff"))
+		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tv.add_child(dl)
+		var ml := UI.plbl(tr("Enemies: HP ×%.2f · damage ×%.2f") % [df.hp, df.dps] + ("" if df.elite <= 0 else "  ·  " + tr("more Elites")), 14, UI.MU, true)
+		tv.add_child(ml)
 		if on:
-			UI.breathe(b, 0.03)
-		row.add_child(b)
-		i += 1
-	v.add_child(row)
-	var cur := GameData.diff_def(sel_diff)
-	var dl := UI.wrap_lbl(tr("Enemies: HP ×%.2f · damage ×%.2f") % [cur.hp, cur.dps] + ("" if cur.elite <= 0 else "  ·  " + tr("more Elites")), 16, UI.MU)
-	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(dl)
-	return p
-
-
-func _class_info(k: String) -> Control:
-	var c: Dictionary = GameData.classes[k]
-	var p := UI.panel(Color(UI.INK, 0.75), UI.BD, 2, 20, 16)
-	var v := UI.vbox(10)
-	p.add_child(v)
-	var t := UI.title("%s %s" % [c.hero, tr(c.n)], 24, UI.GOLD)
-	v.add_child(t)
-	v.add_child(UI.wrap_lbl(tr(c.d), 18, Color("#e9e4ff")))
-	v.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 17, Color("#cfc8ff")))
-	v.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 17, UI.GOLD))
-	var pr := UI.hbox(8)
-	pr.add_child(UI.lbl(tr("Paths (day %d):") % GameData.path_day, 17, UI.MU, true))
-	for pid in c.paths:
-		var pd: Dictionary = GameData.paths[pid]
-		var pp := UI.panel(Color(1, 1, 1, 0.1), Color(0, 0, 0, 0), 0, 99, 8)
-		pp.add_child(UI.lbl(pd.ic + " " + tr(pd.n), 17, UI.TX, true))
-		pr.add_child(pp)
-	v.add_child(pr)
-	var chips := UI.hbox(8)
-	chips.add_child(UI.lbl(tr("Starts with"), 17, UI.MU, true))
-	for st in c.st:
-		chips.add_child(UI.item_chip(st[0]))
-	v.add_child(chips)
-	return p
+			h.add_child(UI.plbl("✅", 34))
+			UI.breathe(il, 0.1)
+		UI.on_tap(c, func():
+			sel_diff = id
+			render())
+		UI.juice(c)
+		v.add_child(c)
+	v.add_child(UI.spacer(false))
+	var cls: Dictionary = GameData.classes[sel_cls]
+	var pet: Dictionary = GameData.pets.get(sel_pet, {})
+	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n)], 18, UI.GOLD, true)
+	sum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sum)
+	v.add_child(_step_nav(func():
+		title_step = 2
+		render(), "⚔️ " + tr("START RUN"), func():
+		SaveGame.set_setting("pet", sel_pet)
+		SaveGame.set_setting("diff", sel_diff)
+		run = RunState.new(sel_cls, sel_pet, sel_diff)
+		title_step = 0
+		_clear_sel()
+		anim.clear()
+		render(), "red" if sel_diff in ["vhard", "abyss"] else "green"))
+	return v
 
 
 func _end_screen() -> Control:
@@ -2124,6 +2275,12 @@ func _autoshot(dir: String) -> void:
 			render()
 	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/01_title.png")
+	for st in [1, 2, 3]:
+		title_step = st
+		render()
+		await get_tree().create_timer(0.8).timeout
+		await _shot(dir + "/01_title_step%d.png" % st)
+	title_step = 0
 	run = RunState.new(sel_cls, sel_pet, sel_diff)
 	run.gold = 40
 	for id in ["flame_saber", "bellows", "ash_plate", "health_potion", "smith_hammer"]:
@@ -2222,6 +2379,13 @@ func _autoshot(dir: String) -> void:
 	render()
 	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/11_morning_full.png")
+	# boss entrance
+	run.day = 5
+	run.nodes = [{"k": "boss", "e": run.boss_foe(run.boss_on(5))}]
+	run.travel()
+	_choose(0)
+	await get_tree().create_timer(1.3).timeout
+	await _shot(dir + "/12_boss_intro.png")
 	get_tree().quit()
 
 

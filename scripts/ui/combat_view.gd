@@ -39,6 +39,7 @@ var _combo_t := 0.0
 var _flash := {}        # uid -> seconds since it fired
 var _xi := {}           # uid -> combat item dict
 var _shake_tw: Tween
+var _intro := 0.0        # seconds of boss entrance left (the fight waits)
 
 
 func setup(r: RunState, s: CombatSim) -> CombatView:
@@ -187,6 +188,9 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	fxl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fxl)
 	_refresh()
+	if s.node.k == "boss":
+		_intro = 2.6
+		_boss_intro.call_deferred()
 	return self
 
 
@@ -334,6 +338,9 @@ func _process(delta: float) -> void:
 			if _end_wait <= 0:
 				finished.emit(sim.won)
 		return
+	if _intro > 0:
+		_intro -= delta
+		return
 	_acc += delta
 	while _acc >= CombatSim.TICK and not sim.done:
 		_acc -= CombatSim.TICK
@@ -385,6 +392,12 @@ func _handle(evs: Array) -> void:
 				tw.tween_property(res_lbl, "scale", Vector2.ONE, 0.25)
 			"ult":
 				_ult_banner(ev.ic + " " + tr(ev.n) + "!")
+			"enrage":
+				_ult_banner("💢 " + tr("ENRAGED!"))
+				foe.self_modulate = Color(1.4, 0.55, 0.55)
+				var tw := foe.create_tween().set_loops(3)
+				tw.tween_property(foe, "scale", Vector2(1.25, 1.25), 0.12)
+				tw.tween_property(foe, "scale", Vector2.ONE, 0.12)
 			"burst":
 				_shake()
 				_float_at(_center_of(foe), "💥 " + GameData._num(ev.v), Color("#ff8a3d"), true)
@@ -592,3 +605,62 @@ func _refresh() -> void:
 	res_lbl.text = "%s %s %d" % [rd.ic, tr(rd.n), sim.resv]
 	ult_bar.value = float(sim.ult) / float(sim.ult_need)
 	log_lbl.text = "  ·  ".join(sim.log_lines.slice(0, 2))
+
+
+## Boss entrance: the screen darkens, the boss slams in huge, its name crashes down with
+## a shake, and its resist / weakness flash up. The fight waits until it is over.
+func _boss_intro() -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0.05, 0, 0.02, 0.92)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fxl.add_child(dim)
+	var v := UI.vbox(10)
+	v.set_anchors_preset(Control.PRESET_CENTER)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(v)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var warn := UI.title("⚠️ " + tr("BOSS") + " ⚠️", 34, UI.BAD, Color.BLACK)
+	warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(warn)
+	var ic := UI.lbl(GameData.foe_icon(sim.e.n), 160)
+	ic.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ic)
+	var nm := UI.title(tr(sim.e.n), 56, UI.GOLD, Color("#4a0000"))
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(nm)
+	var info := []
+	if sim.e.get("imm", "") != "":
+		info.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(sim.e.imm) + tr(sim.e.imm)))
+	if sim.e.get("weak", "") != "":
+		info.append("💥 " + tr("weak to %s") % (GameData.elem_icon(sim.e.weak) + tr(sim.e.weak)))
+	info.append("❤️ %d" % roundi(sim.e.hp))
+	var il := UI.lbl("   ".join(info), 20, Color("#ffd0d0"), true)
+	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(il)
+	var rage := UI.lbl(tr("Enrages at half HP!"), 18, UI.BAD, true)
+	rage.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(rage)
+	for c in [warn, ic, nm, il, rage]:
+		c.modulate.a = 0
+	await get_tree().process_frame
+	ic.pivot_offset = ic.size / 2
+	nm.pivot_offset = nm.size / 2
+	var tw := dim.create_tween()
+	tw.tween_property(warn, "modulate:a", 1.0, 0.15)
+	tw.tween_callback(func():
+		ic.scale = Vector2(3, 3)
+		ic.modulate.a = 1)
+	tw.tween_property(ic, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func():
+		_shake()
+		UI.burst(fxl, fxl.size / 2, UI.BAD, 40, 520, 10)
+		nm.scale = Vector2(2.4, 2.4)
+		nm.modulate.a = 1)
+	tw.tween_property(nm, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(il, "modulate:a", 1.0, 0.2)
+	tw.parallel().tween_property(rage, "modulate:a", 1.0, 0.2)
+	tw.tween_interval(0.9)
+	tw.tween_property(dim, "modulate:a", 0.0, 0.35)
+	tw.tween_callback(dim.queue_free)
