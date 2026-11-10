@@ -224,6 +224,8 @@ func render() -> void:
 		ov = _path_choice_overlay()
 	elif run.phase == "afternoon":
 		ov = _road_overlay()
+	elif run.phase == "event":
+		ov = _event_overlay()
 	elif run.phase == "night":
 		ov = _night_overlay()
 	elif show_book:
@@ -1002,6 +1004,17 @@ const NK := {
 	"combat": ["⚔️", "FIGHT", "#6b7bd6", "red"], "elite": ["👹", "ELITE", "#ef4444", "red"], "boss": ["💀", "BOSS", "#a855f7", "red"],
 	"forge": ["🔨", "FORGE", "#f59e0b", "gold"], "camp": ["🏕️", "CAMPFIRE", "#22c55e", "green"], "ambush": ["⚠️", "AMBUSH", "#f97316", "red"],
 	"shrine": ["🗿", "DARK SHRINE", "#7c3aed", "purple"], "tailor": ["🧵", "TAILOR", "#0ea5e9", "blue"],
+	"smith": ["🔨", "EVENT", "#f59e0b", "gold"], "merchant": ["🛒", "EVENT", "#0ea5e9", "blue"], "roulette": ["🔫", "EVENT", "#ef4444", "red"],
+	"cauldron": ["⚗️", "EVENT", "#22c55e", "green"], "altar": ["🗿", "EVENT", "#7c3aed", "purple"], "chest": ["📦", "EVENT", "#d97706", "gold"],
+}
+
+const EV := {
+	"smith": ["🔨", "Blacksmith", "Pay to evolve one item right now: no second copy needed."],
+	"merchant": ["🛒", "Wandering Merchant", "Rare wares, and he buys your items at full price."],
+	"roulette": ["🔫", "Russian Roulette", "One bullet, six chambers. Every empty click grows the pot. Walk away any time."],
+	"cauldron": ["⚗️", "Alchemist's Cauldron", "Put in two items, get one better item back."],
+	"altar": ["🗿", "Cursed Altar", "Take a Legendary item. Pay with 10 Max HP forever, or with a Heart."],
+	"chest": ["📦", "Mystery Chests", "Open one. Treasure, gold... or a trap."],
 }
 
 
@@ -1040,7 +1053,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		icon = GameData.foe_icon(e.n)
 		nm = tr(e.n)
 		badges.append("❤️ %d" % roundi(e.hp))
-		badges.append("⚔️ %s" % GameData._num(e.atk))
+		badges.append("⚔️ %.1f/s" % (e.get("dps", 0.0) * run.hz.get("atk", 1.0)))
 		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
 		if e.weak != "": badges.append("💥 " + tr("weak to %s") % (GameData.elem_icon(e.weak) + tr(e.weak)))
 		if e.tr != "": badges.append(GameData.traits[e.tr].ic + " " + tr(GameData.traits[e.tr].n))
@@ -1049,8 +1062,8 @@ func _road_card(n: Dictionary, i: int) -> Control:
 			badges.append("🎒+1")
 	else:
 		icon = k[0]
-		nm = tr({"forge": "Forge", "camp": "Campfire", "shrine": "Dark Shrine", "tailor": "Tailor"}[n.k])
-		sub = tr({"forge": "+3 damage on a random weapon", "camp": "Recover 50% HP", "shrine": "Free Epic+ item · -15 HP", "tailor": "+3 pack tiles"}[n.k])
+		nm = tr(EV[n.k][1]) if EV.has(n.k) else tr("Campfire")
+		sub = tr(EV[n.k][2]) if EV.has(n.k) else tr("Recover 50% HP")
 	var il := UI.lbl(icon, 84 if boss else 68)
 	h.add_child(il)
 	UI.breathe(il, 0.06)
@@ -1071,6 +1084,14 @@ func _road_card(n: Dictionary, i: int) -> Control:
 			bp.add_child(UI.lbl(b, 14, Color("#e9e4ff"), true))
 			bf.add_child(bp)
 		v.add_child(bf)
+	if n.has("e") and n.e.has("items"):
+		var mp := MiniPack.new().setup(n.e, 34.0)
+		mp.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		var mh := UI.hbox(8)
+		mh.alignment = BoxContainer.ALIGNMENT_CENTER
+		mh.add_child(UI.lbl("🎒", 22))
+		mh.add_child(mp)
+		v.add_child(mh)
 	var go := UI.btn(("⚔️ " + tr("FIGHT!")) if n.has("e") else (tr("GO") + " ▶️"), func(): _choose(i), false, 26, k[3])
 	go.custom_minimum_size.y = 78
 	v.add_child(go)
@@ -1206,10 +1227,17 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
 			cap = tr("Pack tiles")
 			col = Color("#4f8cff")
 		"heart":
-			icon = "❤️"
+			icon = "❤️" if w.v > 0 else "💔"
 			num = w.v
+			fmt = "+%d" if w.v > 0 else "%d"
 			cap = tr("Heart")
 			col = UI.BAD
+		"maxhp":
+			icon = "🖤"
+			num = w.v
+			fmt = "%d"
+			cap = tr("Max HP")
+			col = UI.STAR
 		"heal":
 			icon = "💚"
 			num = w.v
@@ -1311,6 +1339,271 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 		t2.tween_property(lr, "scale", Vector2.ONE, 0.2)
 		t2.parallel().tween_property(cap, "modulate:a", 1.0, 0.3))
 	return p
+
+
+# --------------------------------------------------------------- events
+
+var _cauldron_pick: Array = []   # uids picked for the cauldron
+
+
+func _event_overlay() -> Control:
+	var ev: Dictionary = run.event
+	var info: Array = EV.get(ev.k, ["❔", "Event", ""])
+	var o := _overlay("")
+	var v: VBoxContainer = o[1]
+	var big := UI.lbl(info[0], 96)
+	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(big)
+	UI.breathe(big, 0.05)
+	var t := UI.title(tr(info[1]), 38, UI.GOLD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var d := UI.wrap_lbl(tr(info[2]), 18, Color("#e9e4ff"))
+	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(d)
+	var gl := UI.lbl("🪙 %d    ❤️ %d/%d    %s" % [run.gold, roundi(run.hp), roundi(run.mhp), "❤️".repeat(run.res)], 18, UI.MU, true)
+	gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(gl)
+	if ev.get("done", false):
+		_event_result(v)
+	else:
+		match ev.k:
+			"smith": _ev_smith(v)
+			"merchant": _ev_merchant(v)
+			"roulette": _ev_roulette(v)
+			"cauldron": _ev_cauldron(v)
+			"altar": _ev_altar(v)
+			"chest": _ev_chest(v)
+	var done: bool = ev.get("done", false)
+	var leave := UI.big_btn((tr("Continue") if done else tr("Leave")) + " ▶️", func():
+		_cauldron_pick.clear()
+		run.ev_leave()
+		render(), "green" if done else "gray", 24)
+	v.add_child(leave)
+	return o[0]
+
+
+## What the event gave you: reward tiles and an evolution/fusion card.
+func _event_result(v: VBoxContainer) -> void:
+	var ev: Dictionary = run.event
+	var tiles := UI.hbox(10)
+	tiles.alignment = BoxContainer.ALIGNMENT_CENTER
+	var k := 0
+	for w in ev.rew:
+		if w.k == "fusion":
+			v.add_child(_fusion_card(w, 0.2))
+		elif w.k in ["gold", "loot", "hp", "heart", "maxhp"]:
+			tiles.add_child(_reward_tile(w, 0.15 * k))
+			k += 1
+	if tiles.get_child_count() > 0:
+		v.add_child(tiles)
+	for l in ev.lines:
+		if l.begins_with("💥") or l.begins_with("📦") or l.begins_with("🗿"):
+			var p := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 12)
+			p.add_child(UI.wrap_lbl(l, 18))
+			v.add_child(p)
+
+
+func _item_pick_card(it: PItem, sub: String, on: bool, cb: Callable) -> Control:
+	var d: Dictionary = it.def()
+	var col: Color = GameData.tier_colors[d.tier]
+	var p := UI.card(col.darkened(0.5), Color.WHITE if on else col, 16, 8)
+	p.custom_minimum_size = Vector2(150, 0)
+	var vb := UI.vbox(2)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(vb)
+	vb.add_child(UI.plbl(d.ic, 40, UI.TX, false, true))
+	var nl := UI.plbl(tr(d.n), 15, UI.TX, true, true)
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nl.custom_minimum_size.x = 130
+	vb.add_child(nl)
+	if sub != "":
+		vb.add_child(UI.plbl(sub, 14, UI.GOLD, true, true))
+	UI.on_tap(p, cb)
+	UI.juice(p)
+	return p
+
+
+func _ev_smith(v: VBoxContainer) -> void:
+	var cost := run.smith_cost()
+	var hl := UI.title(tr("Reforge price: %d🪙") % cost, 24, UI.GOLD)
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(hl)
+	var fl := UI.flow(10)
+	fl.alignment = FlowContainer.ALIGNMENT_CENTER
+	var any := false
+	for it in run.items:
+		if it.loc == "held" or it.def().evo == "":
+			continue
+		any = true
+		var nx: Dictionary = GameData.items[it.def().evo]
+		var itr: PItem = it
+		fl.add_child(_item_pick_card(it, "➡️ " + nx.ic + " " + tr(nx.n), false, func():
+			if run.ev_smith(itr):
+				render()
+			else:
+				toast(tr("Not enough gold."), UI.BAD)))
+	if not any:
+		v.add_child(UI.wrap_lbl(tr("You have nothing he can reforge."), 18, UI.MU))
+	v.add_child(fl)
+
+
+func _ev_merchant(v: VBoxContainer) -> void:
+	var row := UI.hbox(10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for i in run.event.stock.size():
+		var s: Dictionary = run.event.stock[i]
+		var d: Dictionary = GameData.items[s.id]
+		var col: Color = GameData.tier_colors[d.tier]
+		var p := UI.card(col.darkened(0.5), col, 18, 10)
+		p.custom_minimum_size = Vector2(200, 0)
+		var vb := UI.vbox(4)
+		p.add_child(vb)
+		vb.add_child(UI.plbl(d.ic, 48, UI.TX, false, true))
+		var nl := UI.plbl(tr(d.n), 16, UI.TX, true, true)
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.custom_minimum_size.x = 180
+		vb.add_child(nl)
+		vb.add_child(UI.plbl(GameData.short_stats(s.id), 14, Color("#e9e4ff"), true, true))
+		var ii: int = i
+		var b := UI.btn((tr("Sold") if s.get("sold", false) else "🪙 %d" % s.price), func():
+			if run.ev_buy(ii):
+				toast("✅ " + tr("Bought %s — it's in storage.") % tr(d.n), UI.GOOD)
+			render(), false, 20, "gold")
+		b.disabled = s.get("sold", false) or run.gold < s.price
+		vb.add_child(b)
+		row.add_child(p)
+	v.add_child(row)
+	var st := UI.title("💰 " + tr("Sell at full price"), 22, UI.GOLD)
+	v.add_child(st)
+	var fl := UI.flow(10)
+	for it in run.items:
+		if it.starter or it.loc == "held" or it.def().relic:
+			continue
+		var itr: PItem = it
+		fl.add_child(_item_pick_card(it, "+%d🪙" % it.def().cost, false, func():
+			run.ev_sell_full(itr)
+			render()))
+	v.add_child(fl)
+
+
+func _ev_roulette(v: VBoxContainer) -> void:
+	var ev: Dictionary = run.event
+	var cyl := UI.hbox(10)
+	cyl.alignment = BoxContainer.ALIGNMENT_CENTER
+	for i in 6:
+		var used: bool = i < ev.pulls
+		var c := UI.lbl("⭕" if used else "⚪", 44)
+		c.modulate = Color(1, 1, 1, 0.35) if used else Color.WHITE
+		cyl.add_child(c)
+	v.add_child(cyl)
+	var left: int = 6 - ev.pulls
+	var odds := UI.title(tr("Chance of the bullet: 1 in %d") % left, 22, UI.BAD if left <= 3 else Color.WHITE)
+	odds.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(odds)
+	var pot := UI.title(tr("Pot: %d🪙") % ev.pot, 40, UI.GOLD)
+	pot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(pot)
+	var nxt := run.roulette_pot(ev.pulls + 1)
+	var hint := UI.wrap_lbl(tr("Next empty click: pot becomes %d🪙. Bullet: lose 35%% Max HP and the pot. 3+ clicks also win an item.") % nxt, 16, UI.MU)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(hint)
+	var row := UI.hbox(10)
+	var pull := UI.btn("🔫 " + tr("PULL"), func():
+		var r := run.ev_pull()
+		if r == "click":
+			toast("*click* 😅", UI.GOOD)
+		elif r == "bang":
+			toast("💥 " + tr("BANG!"), UI.BAD)
+		render(), false, 26, "red")
+	pull.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pull.custom_minimum_size.y = 84
+	row.add_child(pull)
+	var cash := UI.btn("💰 " + tr("Take %d🪙") % ev.pot, func():
+		run.ev_cash_out()
+		render(), false, 22, "green")
+	cash.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cash.custom_minimum_size.y = 84
+	cash.disabled = ev.pulls == 0
+	row.add_child(cash)
+	v.add_child(row)
+
+
+func _ev_cauldron(v: VBoxContainer) -> void:
+	var hl := UI.title(tr("Pick two items (%d/2)") % _cauldron_pick.size(), 24, UI.GOLD)
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(hl)
+	var fl := UI.flow(10)
+	fl.alignment = FlowContainer.ALIGNMENT_CENTER
+	for it in run.items:
+		if it.starter or it.loc == "held" or it.def().relic:
+			continue
+		var uid: int = it.uid
+		fl.add_child(_item_pick_card(it, "✅" if _cauldron_pick.has(uid) else "", _cauldron_pick.has(uid), func():
+			if _cauldron_pick.has(uid):
+				_cauldron_pick.erase(uid)
+			elif _cauldron_pick.size() < 2:
+				_cauldron_pick.append(uid)
+			render()))
+	v.add_child(fl)
+	var brew := UI.btn("⚗️ " + tr("Brew"), func():
+		var a: PItem = null
+		var b: PItem = null
+		for it in run.items:
+			if it.uid == _cauldron_pick[0]:
+				a = it
+			elif it.uid == _cauldron_pick[1]:
+				b = it
+		if a != null and b != null:
+			run.ev_brew(a, b)
+		_cauldron_pick.clear()
+		render(), false, 26, "green")
+	brew.custom_minimum_size.y = 80
+	brew.disabled = _cauldron_pick.size() < 2
+	v.add_child(brew)
+
+
+func _ev_altar(v: VBoxContainer) -> void:
+	for i in run.event.offer.size():
+		var id: String = run.event.offer[i]
+		var d: Dictionary = GameData.items[id]
+		var col: Color = GameData.tier_colors[d.tier]
+		var p := UI.card(col.darkened(0.55), col, 20, 12)
+		var h := UI.hbox(12)
+		p.add_child(h)
+		h.add_child(UI.lbl(d.ic, 56))
+		var tv := UI.vbox(4)
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(tv)
+		tv.add_child(UI.title(tr(d.n), 22))
+		tv.add_child(UI.wrap_lbl(GameData.describe_lines(id)[0], 15, Color("#e9e4ff")))
+		var br := UI.hbox(8)
+		var ii: int = i
+		br.add_child(UI.btn("-10 " + tr("Max HP"), func():
+			run.ev_altar(ii, "hp")
+			render(), false, 16, "red"))
+		var hb := UI.btn("-1 ❤️", func():
+			run.ev_altar(ii, "heart")
+			render(), false, 16, "purple")
+		hb.disabled = run.res <= 0
+		br.add_child(hb)
+		tv.add_child(br)
+		v.add_child(p)
+
+
+func _ev_chest(v: VBoxContainer) -> void:
+	var row := UI.hbox(14)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for i in 3:
+		var ii: int = i
+		var b := UI.btn("📦", func():
+			var c := run.ev_chest(ii)
+			if c.get("k", "") == "curse":
+				toast("💥 " + tr("A trap!"), UI.BAD)
+			render(), false, 64, "gold")
+		b.custom_minimum_size = Vector2(170, 170)
+		row.add_child(b)
+	v.add_child(row)
 
 
 const BOOK_PER_PAGE := 4
@@ -1806,6 +2099,24 @@ func _autoshot(dir: String) -> void:
 	render()
 	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/08_road.png")
+	# every event screen
+	var keep_nodes := run.nodes.duplicate(true)
+	var gold0 := run.gold
+	for k in RunState.EVENTS:
+		run.gold = 60
+		run.nodes = [{"k": k}]
+		run.cur_node = 0
+		run.start_event(k)
+		if k == "roulette":
+			run.ev_pull()
+		render()
+		await get_tree().create_timer(0.8).timeout
+		await _shot(dir + "/08_event_%s.png" % k)
+		run.phase = "afternoon"
+		run.event = {}
+	run.nodes = keep_nodes
+	run.gold = gold0
+	render()
 	_choose(0)
 	await get_tree().create_timer(3.5).timeout
 	await _shot(dir + "/09_combat.png")

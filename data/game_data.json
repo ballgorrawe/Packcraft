@@ -144,7 +144,74 @@
   "leather_vest":  {"n": "Leather Vest",  "ic": "🦺", "t": 0, "lv": 1, "cost": 4, "cl": "", "shop": 1, "c": [[0,0],[1,0],[0,1],[1,1]], "tags": ["Armor"], "cd": 0, "pass": {"hp": 12}},
   "lucky_clover":  {"n": "Lucky Clover",  "ic": "☘️", "t": 1, "lv": 1, "cost": 4, "cl": "", "shop": 1, "c": [[0,0]], "tags": ["Charm"], "cd": 0, "adj": [{"tag": "Weapon", "k": "crit", "v": 0.1}]},
   "honed_blade":   {"n": "Honed Blade",   "ic": "🔪", "t": 2, "lv": 2, "cost": 11, "cl": "", "shop": 0, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee"], "cd": 1.9, "on": {"dmg": 9, "el": "Physical", "crit": 0.1}},
-  "brigandine":    {"n": "Brigandine",    "ic": "🥋", "t": 2, "lv": 2, "cost": 11, "cl": "", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1]], "tags": ["Armor"], "cd": 4.0, "on": {"shield": 8}, "pass": {"hp": 10}}
+  "brigandine":    {"n": "Brigandine",    "ic": "🥋", "t": 2, "lv": 2, "cost": 11, "cl": "", "shop": 0, "c": [[0,0],[1,0],[0,1],[1,1]], "tags": ["Armor"], "cd": 4.0, "on": {"shield": 8}, "pass": {"hp": 10}},
+
+  "gold_nugget":   {"n": "Gold Nugget",   "ic": "🪙", "t": 1, "lv": 1, "cost": 24, "cl": "", "shop": 0, "c": [[0,0]], "tags": ["Treasure"], "cd": 0, "d": "Worth 12 gold at the shop."},
+  "big_ruby":      {"n": "Big Ruby",      "ic": "💎", "t": 2, "lv": 1, "cost": 40, "cl": "", "shop": 0, "c": [[0,0]], "tags": ["Treasure"], "cd": 0, "d": "Worth 20 gold at the shop."},
+  "magma_core":    {"n": "Magma Core",    "ic": "🌋", "t": 3, "lv": 3, "cost": 20, "cl": "", "shop": 0, "c": [[0,0]], "tags": ["Gem","Fire"], "cd": 3.0, "on": {"dmg": 7, "el": "Fire", "st": {"burn": 3}}},
+  "obsidian_band": {"n": "Obsidian Band", "ic": "💍", "t": 3, "lv": 3, "cost": 20, "cl": "", "shop": 0, "c": [[0,0]], "tags": ["Charm"], "cd": 0, "adj": [{"tag": "Weapon", "k": "dmg", "v": 3}], "pass": {"hp": 10}},
+  "golem_heart":   {"n": "Golem Heart",   "ic": "🫀", "t": 3, "lv": 3, "cost": 22, "cl": "", "shop": 0, "c": [[0,0],[1,0]], "tags": ["Armor"], "cd": 4.0, "on": {"shield": 9, "heal": 3}, "pass": {"hp": 15}},
+  "wraith_lantern":{"n": "Wraith Lantern","ic": "🏮", "t": 3, "lv": 3, "cost": 22, "cl": "", "shop": 0, "c": [[0,0]], "tags": ["Tool"], "cd": 5.0, "on": {"heal": 8, "haste": [0.15, 3]}},
+  "wraith_scythe": {"n": "Wraith Scythe", "ic": "🪦", "t": 3, "lv": 3, "cost": 24, "cl": "", "shop": 0, "c": [[0,0],[0,1],[0,2]], "tags": ["Weapon","Melee"], "cd": 2.0, "on": {"dmg": 13, "el": "Physical", "crit": 0.15}},
+  "soul_gem":      {"n": "Soul Gem",      "ic": "🔮", "t": 3, "lv": 3, "cost": 22, "cl": "", "shop": 0, "c": [[0,0]], "tags": ["Gem"], "cd": 0, "adj": [{"tag": "Weapon", "k": "crit", "v": 0.12}, {"tag": "Weapon", "k": "cdr", "v": 0.08}]}
+ },
+
+ "_monsters": "Monster items fight for the enemy. Their damage is scaled per fight (dmg_mult) so every pack hits as hard as the day's curve says; the items decide HOW it hits (fast, poison, shields, heals). t = tier: a pack only uses tiers up to the day's rank.",
+ "monster_items": {
+  "m_rat_fang":     {"n": "Rusty Fang",     "ic": "🦷", "t": 0, "c": [[0,0]], "cd": 1.2, "on": {"dmg": 2}},
+  "m_plague_tooth": {"n": "Plague Tooth",   "ic": "🦠", "t": 1, "c": [[0,0]], "cd": 2.4, "on": {"dmg": 1, "st": {"poison": 2}}},
+  "m_rat_swarm":    {"n": "Rat Swarm",      "ic": "🐀", "t": 2, "c": [[0,0],[1,0]], "cd": 0.9, "on": {"dmg": 2}},
+  "m_rat_crown":    {"n": "Rat King Crown", "ic": "👑", "t": 3, "c": [[0,0]], "cd": 4.0, "on": {"haste": [0.3, 2]}},
+  "m_goblin_dagger":{"n": "Goblin Dagger",  "ic": "🗡️", "t": 0, "c": [[0,0],[0,1]], "cd": 1.5, "on": {"dmg": 3}},
+  "m_buckler":      {"n": "Wooden Buckler", "ic": "🪵", "t": 0, "c": [[0,0],[1,0]], "cd": 3.5, "on": {"shield": 4}},
+  "m_spiked_club":  {"n": "Spiked Club",    "ic": "🏏", "t": 1, "c": [[0,0],[0,1],[0,2]], "cd": 2.4, "on": {"dmg": 6}},
+  "m_bomb_pouch":   {"n": "Bomb Pouch",     "ic": "💣", "t": 2, "c": [[0,0]], "cd": 4.0, "on": {"dmg": 8, "st": {"burn": 2}}},
+  "m_war_drum":     {"n": "War Drum",       "ic": "🥁", "t": 3, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 5.0, "on": {"haste": [0.25, 3]}},
+  "m_bandit_knife": {"n": "Bandit Knife",   "ic": "🔪", "t": 0, "c": [[0,0]], "cd": 1.3, "on": {"dmg": 2.5, "crit": 0.2}},
+  "m_throwing_axe": {"n": "Throwing Axe",   "ic": "🪓", "t": 1, "c": [[0,0],[0,1]], "cd": 2.0, "on": {"dmg": 5}},
+  "m_leather_guard":{"n": "Leather Guard",  "ic": "🦺", "t": 1, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 4.0, "on": {"shield": 6}},
+  "m_poison_dart":  {"n": "Poison Dart",    "ic": "🎯", "t": 2, "c": [[0,0]], "cd": 2.5, "on": {"dmg": 2, "st": {"poison": 3}}},
+  "m_crossbow":     {"n": "Crossbow",       "ic": "🏹", "t": 3, "c": [[0,0],[1,0],[2,0]], "cd": 2.2, "on": {"dmg": 9}},
+  "m_slime_glob":   {"n": "Slime Glob",     "ic": "🟢", "t": 0, "c": [[0,0]], "cd": 2.0, "on": {"dmg": 2, "st": {"poison": 1}}},
+  "m_ooze_core":    {"n": "Ooze Core",      "ic": "🫧", "t": 1, "c": [[0,0]], "cd": 4.0, "on": {"heal": 5}},
+  "m_jelly_wall":   {"n": "Jelly Wall",     "ic": "🧊", "t": 1, "c": [[0,0],[1,0]], "cd": 4.0, "on": {"shield": 6}},
+  "m_acid_spit":    {"n": "Acid Spit",      "ic": "🧪", "t": 2, "c": [[0,0],[0,1]], "cd": 3.0, "on": {"dmg": 4, "st": {"poison": 3}}},
+  "m_royal_jelly":  {"n": "Royal Jelly",    "ic": "🍯", "t": 3, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 5.0, "on": {"heal": 12}},
+  "m_bone_sword":   {"n": "Bone Sword",     "ic": "🦴", "t": 0, "c": [[0,0],[0,1]], "cd": 2.0, "on": {"dmg": 4}},
+  "m_bone_shield":  {"n": "Bone Shield",    "ic": "🛡️", "t": 0, "c": [[0,0],[0,1]], "cd": 3.5, "on": {"shield": 5}},
+  "m_grave_bow":    {"n": "Grave Bow",      "ic": "🏹", "t": 1, "c": [[0,0],[0,1],[0,2]], "cd": 1.7, "on": {"dmg": 4}},
+  "m_death_rattle": {"n": "Death Rattle",   "ic": "☠️", "t": 2, "c": [[0,0]], "cd": 5.0, "on": {"dmg": 10}},
+  "m_lich_tome":    {"n": "Lich Tome",      "ic": "📕", "t": 3, "c": [[0,0],[1,0]], "cd": 3.0, "on": {"dmg": 6, "st": {"burn": 3}}},
+  "m_magma_fist":   {"n": "Magma Fist",     "ic": "👊", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 2.5, "on": {"dmg": 14, "st": {"burn": 3}}},
+  "m_lava_heart":   {"n": "Lava Heart",     "ic": "❤️‍🔥", "t": 4, "c": [[0,0],[1,0]], "cd": 7.0, "on": {"heal": 12}},
+  "m_obsidian":     {"n": "Obsidian Plate", "ic": "⬛", "t": 4, "c": [[0,0],[1,0],[2,0]], "cd": 5.0, "on": {"shield": 7}},
+  "m_ember_spark":  {"n": "Ember Spark",    "ic": "✨", "t": 4, "c": [[0,0]], "cd": 1.5, "on": {"dmg": 3, "st": {"burn": 1}}},
+  "m_frost_scythe": {"n": "Frost Scythe",   "ic": "🪦", "t": 4, "c": [[0,0],[0,1],[0,2]], "cd": 2.0, "on": {"dmg": 12}},
+  "m_soul_lantern": {"n": "Soul Lantern",   "ic": "🏮", "t": 4, "c": [[0,0],[0,1]], "cd": 6.0, "on": {"heal": 12}},
+  "m_wail":         {"n": "Banshee Wail",   "ic": "😱", "t": 4, "c": [[0,0]], "cd": 6.0, "on": {"haste": [0.4, 3]}},
+  "m_ice_shard":    {"n": "Ice Shard",      "ic": "❄️", "t": 4, "c": [[0,0]], "cd": 1.2, "on": {"dmg": 3}},
+  "m_titan_hammer": {"n": "Titan Hammer",   "ic": "🔨", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]], "cd": 3.0, "on": {"dmg": 25}},
+  "m_granite_skin": {"n": "Granite Skin",   "ic": "🪨", "t": 4, "c": [[0,0],[1,0],[0,1],[1,1]], "cd": 5.0, "on": {"shield": 12}},
+  "m_quake":        {"n": "Quake",          "ic": "💥", "t": 4, "c": [[0,0],[1,0]], "cd": 6.0, "on": {"dmg": 30}},
+  "m_pebble":       {"n": "Pebble Toss",    "ic": "⚪", "t": 4, "c": [[0,0]], "cd": 1.0, "on": {"dmg": 3}}
+ },
+ "families": {
+  "Cave Rat": ["m_rat_fang", "m_plague_tooth", "m_rat_swarm", "m_rat_crown", "m_bandit_knife"],
+  "Goblin": ["m_goblin_dagger", "m_buckler", "m_spiked_club", "m_bomb_pouch", "m_war_drum"],
+  "Bandit": ["m_bandit_knife", "m_throwing_axe", "m_leather_guard", "m_poison_dart", "m_crossbow"],
+  "Slime": ["m_slime_glob", "m_ooze_core", "m_jelly_wall", "m_acid_spit", "m_royal_jelly"],
+  "Skeleton": ["m_bone_sword", "m_bone_shield", "m_grave_bow", "m_death_rattle", "m_lich_tome"]
+ },
+ "boss_packs": {
+  "Magma Golem":  {"w": 5, "h": 4, "items": [["m_magma_fist", 0, 0], ["m_lava_heart", 2, 0], ["m_obsidian", 2, 1], ["m_ember_spark", 4, 0], ["m_ember_spark", 2, 2]]},
+  "Frost Wraith": {"w": 5, "h": 4, "items": [["m_frost_scythe", 0, 0], ["m_soul_lantern", 1, 0], ["m_wail", 2, 0], ["m_ice_shard", 3, 0], ["m_ice_shard", 2, 1], ["m_ice_shard", 3, 1]]},
+  "Stone Titan":  {"w": 6, "h": 4, "items": [["m_titan_hammer", 0, 0], ["m_granite_skin", 2, 0], ["m_quake", 4, 0], ["m_pebble", 4, 1], ["m_pebble", 5, 1], ["m_pebble", 2, 2]]}
+ },
+ "_boss_drops": "One roll per boss kill. w = weight (higher = more common). Treasure is sell-only filler that keeps the strong drops rare.",
+ "boss_drops": {
+  "Magma Golem":  [["gold_nugget", 45], ["big_ruby", 15], ["magma_core", 15], ["obsidian_band", 15], ["golem_heart", 10]],
+  "Frost Wraith": [["gold_nugget", 35], ["big_ruby", 20], ["wraith_lantern", 18], ["soul_gem", 15], ["wraith_scythe", 12]],
+  "Stone Titan":  [["big_ruby", 100]]
  },
 
  "recipes": [
@@ -171,9 +238,10 @@
  "path_day": 4,
  "foe_hp_mult": 1.7,
  "foe_atk_mult": 1.4,
+ "late_ramp": 0.05,
 
  "bosses": [
-  {"d": 5,  "n": "Magma Golem",  "hp": 220, "atk": 6.4,  "cd": 1.5, "imm": "Shock",  "weak": "Nature"},
+  {"d": 5,  "n": "Magma Golem",  "hp": 220, "atk": 6.4,  "cd": 1.5, "imm": "",       "weak": "Nature"},
   {"d": 10, "n": "Frost Wraith", "hp": 400, "atk": 9.0,  "cd": 1.4, "imm": "Physical", "weak": "Fire"},
   {"d": 15, "n": "Stone Titan",  "hp": 545, "atk": 11.3, "cd": 1.5, "imm": "Nature", "weak": "Shock"}
  ],

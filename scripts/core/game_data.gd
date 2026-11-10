@@ -16,10 +16,15 @@ static var recipes: Array = []          # {a, b, r, path}; evolutions are added 
 static var classes := {}
 static var class_keys: Array = []
 static var paths := {}
+static var monster_items: Array = []   # ids of enemy-only items (also stored in `items`)
+static var families := {}              # foe name -> monster item ids
+static var boss_packs := {}            # boss name -> {w, h, items: [[id, x, y]]}
+static var boss_drops := {}            # boss name -> [[item id, weight]]
 static var statuses := {}
 static var path_day := 4
 static var foe_hp_mult := 1.0       # global difficulty knobs (enemies and bosses)
 static var foe_atk_mult := 1.0
+static var late_ramp := 0.0          # extra enemy damage per day after day 8
 static var bosses: Array = []
 static var mods: Array = []
 static var traits := {}
@@ -53,6 +58,20 @@ static func ensure_loaded() -> void:
 		}
 	for k in d.items:
 		items[k] = _norm_item(d.items[k])
+	# monster items share the item format (and shape code); cl "monster" keeps them out of every player pool
+	for k in d.get("monster_items", {}):
+		var m: Dictionary = d.monster_items[k].duplicate()
+		m["cost"] = 0
+		m["cl"] = "monster"
+		m["tags"] = ["Monster"]
+		items[k] = _norm_item(m)
+		monster_items.append(k)
+	families = d.get("families", {})
+	for k in d.get("boss_packs", {}):
+		var bp: Dictionary = d.boss_packs[k]
+		boss_packs[k] = {"w": int(bp.w), "h": int(bp.h), "items": bp.items.map(func(e): return [str(e[0]), int(e[1]), int(e[2])])}
+	for k in d.get("boss_drops", {}):
+		boss_drops[k] = d.boss_drops[k].map(func(e): return [str(e[0]), float(e[1])])
 	for r in d.recipes:
 		recipes.append({"a": str(r.a), "b": str(r.b), "r": str(r.r), "path": str(r.get("path", "")), "evo": false})
 	for k in items:
@@ -80,6 +99,7 @@ static func ensure_loaded() -> void:
 	path_day = int(d.get("path_day", 4))
 	foe_hp_mult = float(d.get("foe_hp_mult", 1.0))
 	foe_atk_mult = float(d.get("foe_atk_mult", 1.0))
+	late_ramp = float(d.get("late_ramp", 0.0))
 	for b in d.bosses:
 		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": ""})
 	mods = d.mods

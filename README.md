@@ -41,7 +41,7 @@ The Web build must be served over HTTP (for example `python -m http.server` in `
 ## Layout
 | Path | What |
 |---|---|
-| `data/game_data.json` | All content: statuses, classes, paths, items, recipes, bosses, modifiers, difficulty (`foe_hp_mult`, `foe_atk_mult`). Edit to rebalance. |
+| `data/game_data.json` | All content: statuses, classes, paths, items, recipes, monster items + families, boss packs + drop tables, bosses, modifiers, difficulty (`foe_hp_mult`, `foe_atk_mult`, `late_ramp`). Edit to rebalance. |
 | `data/i18n.json` | Translations |
 | `scripts/core/game_data.gd` | Loads the JSON, shapes, item descriptions |
 | `scripts/core/run_state.gd` | Run rules: day loop, shop, grid buffs, evolutions/recipes, paths, loot, night, save/load |
@@ -59,6 +59,7 @@ Add it to `statuses` in `game_data.json`. A status with `tick` deals `stacks × 
 godot --headless --path . --script res://tests/sim_test.gd -- --runs=10 --quiet   # bot plays full runs per class
 godot --headless --path . --script res://tests/sim_test.gd -- --greedy           # bot always takes Elite/Ambush
 godot --headless --path . --script res://tests/sim_test.gd -- --losses           # print every lost fight
+godot --headless --path . --script res://tests/sim_test.gd -- --events           # bot takes events whenever offered
 godot --headless --path . --script res://tests/save_test.gd                       # save/load round-trip
 godot --headless --path . --script res://tests/ui_save_test.gd                    # autosave + Continue through the real UI
 godot --headless --path . --script res://tests/loot_test.gd                       # loot tier odds by day

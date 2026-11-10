@@ -5,10 +5,12 @@ extends SceneTree
 ##                      --runs=N  runs per class (default 5)
 ##                      --quiet   only print the summary
 ##                      --losses  print every lost fight with the pack's numbers
+##                      --events  take an event whenever one is offered
 
 var greedy := false
 var quiet := false
 var losses := false
+var events := false
 
 
 func _init() -> void:
@@ -18,6 +20,8 @@ func _init() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "--greedy":
 			greedy = true
+		elif a == "--events":
+			events = true
 		elif a == "--losses":
 			losses = true
 		elif a == "--quiet":
@@ -48,10 +52,16 @@ func _init() -> void:
 				for i in r.nodes.size():
 					if greedy and (r.nodes[i].k == "elite" or r.nodes[i].k == "ambush"):
 						best = i
+				if events:
+					for i in r.nodes.size():
+						if RunState.EVENTS.has(r.nodes[i].k):
+							best = i
 				for i in r.nodes.size():
 					if r.nodes[i].k == "camp" and r.hp < r.mhp * 0.5:
 						best = i
 				var cs := r.choose(best)
+				if r.phase == "event":
+					r.auto_event()
 				if cs != null:
 					cs.skip_to_end()
 					assert(cs.done, "combat did not finish")
@@ -59,7 +69,7 @@ func _init() -> void:
 					fights += 1
 					if losses and not cs.won:
 						var pr := r.pack_rates()
-						print("  LOSS %s day %d vs %s (%s, %d hp, %.1f atk, resist %s) pack %.1f dps %.1f shield/s, hp %d/%d, items %d, enemy left %d" % [cls, r.day, r.nodes[best].e.n, r.nodes[best].k, r.nodes[best].e.hp, r.nodes[best].e.atk, r.nodes[best].e.imm, pr.x, pr.y, r.hp, r.mhp, r.grid_items().size(), cs.ehp])
+						print("  LOSS %s day %d vs %s (%s, %d hp, %.1f dps, resist %s) pack %.1f dps %.1f shield/s, hp %d/%d, items %d, enemy left %d" % [cls, r.day, r.nodes[best].e.n, r.nodes[best].k, r.nodes[best].e.hp, r.nodes[best].e.dps, r.nodes[best].e.imm, pr.x, pr.y, r.hp, r.mhp, r.grid_items().size(), cs.ehp])
 					r.go_night(r.nodes[best], cs.won, cs)
 				for l in r.result.lines:
 					if l.begins_with("✨ Evolution"):

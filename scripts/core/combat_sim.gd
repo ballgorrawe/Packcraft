@@ -22,7 +22,10 @@ var mhp := 60.0
 var shield := 0.0
 var blocked := 0.0
 var tk := 0
-var et := 0.0
+var fi: Array = []          # the monster's items: {id, d, x, y, rot, p, cd, uid, st}
+var fshield := 0.0
+var fhastes: Array = []
+var hd := {}                # statuses the monster put on you: id -> stacks
 var rg := 0.0
 var fs := {}                # foe statuses: id -> stacks
 var hs := {}                # hero statuses: id -> stacks
@@ -53,7 +56,15 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 	else:
 		_rng.randomize()
 	e = r.with_hazard(n.e)
+	if not e.has("items"):
+		e.merge(r.build_pack(str(e.get("fam", "Goblin")), e.get("tier", "") == "elite"), true)
+		r._tune_pack(e)
 	ehp = e.hp
+	var fidx := 0
+	for it in e.items:
+		var fd: Dictionary = GameData.items[it[0]]
+		fi.append({"id": it[0], "d": fd, "x": int(it[1]), "y": int(it[2]), "rot": int(it[3]) if it.size() > 3 else 0, "p": 0.0, "cd": fd.cd * e.get("cd_mult", 1.0), "uid": -100 - fidx, "st": {"dmg": 0.0, "hits": 0}})
+		fidx += 1
 	php = r.hp
 	mhp = r.mhp
 	rg = r.regen()
@@ -161,7 +172,12 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "") ->
 		if x.d.sp == "execute" and ehp < e.hp * 0.3:
 			v *= 2.0
 	v = maxf(1.0, roundf(v) - (3.0 if e.tr == "armored" else 0.0))
-	ehp -= v
+	if fshield > 0:
+		var ab := minf(fshield, v)
+		fshield -= ab
+		ehp -= v - ab
+	else:
+		ehp -= v
 	var uid: int = x.i.uid if x != null else -1
 	if x != null:
 		x.st.dmg += v
@@ -347,6 +363,16 @@ func step() -> void:
 				_num("foe", s.ic + GameData._num(roundf(v * 10) / 10.0), s.col)
 			if s.decay > 0 and not (k == "burn" and sp.has("burn_nodecay")):
 				fs[k] = maxf(0.0, fs[k] - s.decay)
+		# poison / burn the monster put on you
+		for k in hd:
+			var s: Dictionary = GameData.statuses[k]
+			if s.tick <= 0 or hd[k] <= 0 or tk % roundi(s.tick * 10) != 0:
+				continue
+			var v: float = hd[k] * s.dmg
+			php -= v
+			_num("hero", s.ic + "-" + GameData._num(roundf(v * 10) / 10.0), s.col)
+			if s.decay > 0:
+				hd[k] = maxf(0.0, hd[k] - s.decay)
 		if e.tr == "regen" and ehp < e.hp:
 			var v := maxf(1.0, roundf(e.hp * 0.015))
 			ehp = minf(e.hp, ehp + v)
@@ -354,17 +380,18 @@ func step() -> void:
 	for x in hastes:
 		x.t -= 1
 	hastes = hastes.filter(func(x): return x.t > 0)
-	# enemy attack
-	et += 1.0
-	if et >= roundi(e.cd * 10):
-		et = 0.0
-		var dm: float = e.atk
-		var ab := minf(shield, dm)
-		shield -= ab
-		blocked += ab
-		php -= dm - ab
-		_ev({"t": "foe_atk", "dm": dm, "ab": ab})
-		_reflect()
+	# the monster's items charge and fire
+	var fspeed := 1.0 + _foe_haste()
+	for fx in fi:
+		if fx.cd <= 0:
+			continue
+		fx.p += TICK * fspeed
+		if fx.p >= fx.cd:
+			fx.p -= fx.cd
+			foe_fire(fx)
+	for x in fhastes:
+		x.t -= 1
+	fhastes = fhastes.filter(func(x): return x.t > 0)
 	# sudden-death fatigue
 	if tk > FATIGUE_TICK and tk % 10 == 0:
 		var fd := (tk - FATIGUE_TICK) / 10.0
@@ -377,6 +404,46 @@ func step() -> void:
 	elif php <= 0:
 		_finish(false)
 
+
+
+func _foe_haste() -> float:
+	var h := 0.0
+	for x in fhastes:
+		h += x.v
+	return minf(1.0, h)
+
+
+## One monster item fires: hits you (through your Shield), puts statuses on you, or shields / heals / hastes the monster.
+func foe_fire(fx: Dictionary) -> void:
+	var on: Dictionary = fx.d.on
+	var dm_mult: float = e.get("dmg_mult", 1.0)
+	var sup: float = e.get("sup_mult", 1.0)
+	fx.st.hits += 1
+	_ev({"t": "foe_trigger", "uid": fx.uid})
+	if on.dmg > 0:
+		var dm: float = roundf(on.dmg * dm_mult * _crit(on.crit, on.critx) * 10.0) / 10.0
+		var ab := minf(shield, dm)
+		shield -= ab
+		blocked += ab
+		php -= dm - ab
+		fx.st.dmg += dm
+		_ev({"t": "foe_atk", "dm": dm, "ab": ab, "uid": fx.uid, "icon": fx.d.ic})
+		_reflect()
+	for k in on.st:
+		var s: Dictionary = GameData.statuses[k]
+		var n: float = snappedf(on.st[k] * dm_mult, 0.1)   # scaled like the hits, no rounding up
+		hd[k] = minf(s.max, hd.get(k, 0.0) + n)
+		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col)
+	if on.shield > 0:
+		fshield += roundf(on.shield * sup)
+		_num("foe", "🛡️+" + GameData._num(roundf(on.shield * sup)), Color("#7dd3fc"))
+	if on.heal > 0 and ehp < e.hp:
+		var h := minf(e.hp - ehp, roundf(on.heal * sup))
+		ehp += h
+		_num("foe", "+" + GameData._num(h), Color("#4ade80"))
+	if not on.haste.is_empty():
+		fhastes.append({"v": on.haste[0], "t": roundi(on.haste[1] * 10)})
+		_num("foe", "💨+%d%%" % roundi(on.haste[0] * 100), Color("#ffe14a"))
 
 ## Thorns-style hero statuses and the Guard resource hit back when you are struck.
 func _reflect() -> void:

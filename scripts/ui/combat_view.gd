@@ -26,6 +26,7 @@ var res_lbl: Label
 var ult_bar: ProgressBar
 var ult_lbl: Label
 var stage: Control
+var mpack: MiniPack
 var world: Control
 var pack: Control
 var fxl: Control
@@ -86,11 +87,16 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	foe_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	er.add_child(foe_status)
 	ev.add_child(er)
+	# the monster's pack: its items charge and fire just like yours
+	var mc := minf(46.0, minf(640.0 / maxf(1, s.e.get("gw", 4)), 150.0 / maxf(1, s.e.get("gh", 3))))
+	mpack = MiniPack.new().setup(s.e, mc, s.fi)
+	mpack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ev.add_child(mpack)
 	v.add_child(eh)
 
 	# stage
 	stage = Control.new()
-	stage.custom_minimum_size = Vector2(0, 250)
+	stage.custom_minimum_size = Vector2(0, 150)
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
 	stage.draw.connect(_draw_stage)
@@ -153,7 +159,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 		mx = Vector2i(maxi(mx.x, c.x), maxi(mx.y, c.y))
 	porg = mn
 	var span := Vector2(mx - mn + Vector2i.ONE)
-	pcell = minf(84.0, minf(680.0 / span.x, 380.0 / span.y))
+	pcell = minf(80.0, minf(680.0 / span.x, 330.0 / span.y))
 	pack.custom_minimum_size = span * pcell
 	pack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pack.draw.connect(_draw_pack)
@@ -351,6 +357,8 @@ func _handle(evs: Array) -> void:
 		match ev.t:
 			"trigger":
 				_flash[ev.uid] = 0.0
+			"foe_trigger":
+				mpack.flash[ev.uid] = 0.0
 			"num":
 				if fxl.get_child_count() < (25 if quiet else 70):
 					_float_at(_side_pos(ev.side, ev.uid), ev.text, ev.col, ev.big)
@@ -359,6 +367,8 @@ func _handle(evs: Array) -> void:
 			"foe_atk":
 				if not quiet:
 					_lunge(foe, -70)
+					if ev.has("uid"):
+						_projectile(ev.get("icon", "💥"), mpack.get_global_rect().position + mpack.item_center(ev.uid) - fxl.get_global_rect().position, _center_of(hero))
 				var r := snappedf(ev.dm - ev.ab, 0.1)
 				_flash_lbl(hero)
 				_float_at(_center_of(hero), ("🛡️ " + tr("BLOCK")) if r <= 0 else "-" + GameData._num(r), Color("#7dd3fc") if r <= 0 else Color("#ff4d5e"), r >= 8)

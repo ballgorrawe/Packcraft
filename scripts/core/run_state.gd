@@ -35,6 +35,8 @@ var cur_node := -1              # index of the node chosen this afternoon
 var end_state := ""             # "", "win", "over"
 var msg := ""
 var seen := {}                  # item ids the player has owned (unlocks recipe book entries)
+var event := {}                 # the event being played this afternoon (see start_event)
+var mhp_mod := 0.0              # permanent Max HP changes (Cursed Altar)
 
 
 func _init(c: String) -> void:
@@ -339,7 +341,7 @@ func calc() -> Array:
 
 
 func max_hp() -> float:
-	var m := GameData.base_hp
+	var m := GameData.base_hp + mhp_mod
 	for i in grid_items():
 		m += i.def().pass.hp
 	return m
@@ -508,12 +510,12 @@ func roll_tiered(rk: int, min_tier := 0, partner_bias := 0.0) -> String:
 
 ## Item reward for winning a fight node, or "" for none. Tier follows the day, not a flat pool,
 ## so an early Elite gives a Rare, not a Legendary.
-func loot_for(k: String) -> String:
+func loot_for(k: String, e := {}) -> String:
 	match k:
 		"elite", "ambush":
 			return roll_tiered(rank() + 1, 1, LOOT_PARTNER_BIAS)
 		"boss":
-			return roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)
+			return boss_drop(str(e.get("n", "")))
 		"combat":
 			if randf() < COMBAT_DROP:
 				return roll_tiered(rank(), 0, LOOT_PARTNER_BIAS)
@@ -622,14 +624,20 @@ func enemy_atk(d: int) -> float:
 	return (3.0 + 0.55 * d + 0.01 * d * d) * m * GameData.foe_atk_mult
 
 
+## Damage per second a normal foe should deal today (the pack is scaled to hit this).
+## Later days ramp a little faster than the base curve.
+func foe_dps(d: int) -> float:
+	var ramp := 1.0 + maxf(0.0, d - 8) * GameData.late_ramp
+	return enemy_atk(d) / 1.7 * ramp
+
+
 func foe_base(elite: bool) -> Dictionary:
-	var hp0 := enemy_hp(day)
-	var atk := enemy_atk(day)
-	var e := {"n": GameData.FOE_NAMES.pick_random(), "hp": float(hp0), "atk": snappedf(atk, 0.1), "cd": 1.7, "imm": "", "weak": "", "tier": "", "tr": ""}
+	var fam: String = GameData.FOE_NAMES.pick_random()
+	var e := {"n": fam, "fam": fam, "hp": float(enemy_hp(day)), "dps": foe_dps(day), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
 	if elite:
-		e.n = "Elite " + e.n
-		e.hp = float(roundi(hp0 * 1.5))
-		e.atk = snappedf(atk * 1.3, 0.1)
+		e.n = "Elite " + fam
+		e.hp = float(roundi(e.hp * 1.5))
+		e.dps *= 1.3
 		if randf() < 0.5:
 			e.imm = GameData.ELEMENTS.pick_random()
 	return e
@@ -648,23 +656,108 @@ func foe(elite: bool) -> Dictionary:
 		e.tier = "normal"
 	if e.tier == "easy":
 		e.hp = float(roundi(e.hp * 0.65))
-		e.atk = snappedf(e.atk * 0.7, 0.1)
+		e.dps *= 0.7
 	if e.tier == "tough":
 		e.hp = float(roundi(e.hp * 1.3))
-		e.atk = snappedf(e.atk * 1.25, 0.1)
+		e.dps *= 1.25
 	if e.tier == "elite" or e.tier == "tough" or (e.tier == "normal" and day >= 4 and randf() < 0.2):
 		e.tr = GameData.traits.keys().pick_random()
 		match e.tr:
 			"swift":
-				e.cd = 1.0
-				e.atk = snappedf(e.atk * 0.6, 0.1)
+				e.cd_mult = 0.7
+				e.dps *= 0.85
 			"brute":
 				e.hp = float(roundi(e.hp * 1.4))
-				e.atk = snappedf(e.atk * 1.8, 0.1)
-				e.cd = 2.4
+				e.dps *= 1.4
+				e.cd_mult = 1.3
 			"regen":
 				e.hp = float(roundi(e.hp * 1.1))
+	e.merge(build_pack(e.fam, elite), true)
+	_tune_pack(e)
 	return e
+
+
+## Expected damage per second of a monster item before scaling (hits + rough status value).
+static func m_dps(id: String) -> float:
+	var d: Dictionary = GameData.items[id]
+	var on: Dictionary = d.on
+	if d.cd <= 0:
+		return 0.0
+	var v: float = on.dmg * (1.0 + on.crit) + on.st.get("poison", 0.0) * 4.0 + on.st.get("burn", 0.0) * 3.0
+	return v / d.cd
+
+
+## A random pack for a monster family: bigger, with more and better items on later days.
+func build_pack(fam: String, elite: bool) -> Dictionary:
+	var gw := 4 if day <= 3 else 5 if day <= 10 else 6
+	var gh := 3 if day <= 6 else 4
+	if elite:
+		gw = mini(6, gw + 1)
+	var max_t := mini(3, rank() + (1 if elite else 0))
+	var pool: Array = GameData.families.get(fam, []).filter(func(id): return GameData.items[id].tier <= max_t)
+	var hitters := pool.filter(func(id): return m_dps(id) > 0)
+	var want := mini(8, 2 + int(day / 3) + (1 if elite else 0))
+	var picks := [hitters.pick_random()]
+	while picks.size() < want and not pool.is_empty():
+		# better items are likelier, but every tier keeps a chance
+		var tot := 0.0
+		for id in pool:
+			tot += 1.0 + GameData.items[id].tier
+		var roll := randf() * tot
+		for id in pool:
+			roll -= 1.0 + GameData.items[id].tier
+			if roll <= 0:
+				picks.append(id)
+				break
+	var placed := []
+	var occ_m := {}
+	for id in picks:
+		var done := false
+		for _try in 40:
+			var rot := randi() % 4
+			var cs: Array = GameData.shape(id, rot).c
+			var x := randi() % gw
+			var y := randi() % gh
+			var ok := true
+			for c in cs:
+				var k: Vector2i = Vector2i(x, y) + c
+				if k.x >= gw or k.y >= gh or occ_m.has(k):
+					ok = false
+					break
+			if ok:
+				for c in cs:
+					occ_m[Vector2i(x, y) + c] = true
+				placed.append([id, x, y, rot])
+				done = true
+				break
+		if not done and placed.is_empty():
+			placed.append([id, 0, 0, 0])
+	return {"gw": gw, "gh": gh, "items": placed}
+
+
+## Boss pack from data, tuned to the boss's attack numbers.
+func boss_foe(b: Dictionary) -> Dictionary:
+	var e: Dictionary = b.duplicate()
+	var bp: Dictionary = GameData.boss_packs.get(b.n, {})
+	e["fam"] = b.n
+	e["dps"] = b.atk / b.cd * (1.0 + maxf(0.0, b.d - 8) * GameData.late_ramp)
+	e["dmg_mult"] = 1.0
+	e["cd_mult"] = 1.0
+	e["gw"] = bp.get("w", 4)
+	e["gh"] = bp.get("h", 3)
+	e["items"] = bp.get("items", []).map(func(it): return [it[0], it[1], it[2], 0])
+	_tune_pack(e)
+	e.sup_mult = 1.0   # boss heals/shields are tuned by hand in the data
+	return e
+
+
+## Scales the pack so its hits add up to the foe's target dps, and its shields/heals to its HP.
+func _tune_pack(e: Dictionary) -> void:
+	var est := 0.0
+	for it in e.items:
+		est += m_dps(it[0])
+	e.dmg_mult = clampf(e.dps / maxf(0.1, est), 0.2, 6.0)
+	e.sup_mult = maxf(1.0, e.hp / 220.0)
 
 
 ## Applies today's hazard to an enemy (returns a copy).
@@ -673,8 +766,8 @@ func with_hazard(e: Dictionary) -> Dictionary:
 	if hz.is_empty():
 		return o
 	o.hp = float(roundi(e.hp * hz.hp))
-	o.atk = snappedf(e.atk * hz.atk, 0.1)
-	o.cd = snappedf(e.cd * hz.cd, 0.01)
+	o.dmg_mult = e.get("dmg_mult", 1.0) * hz.atk
+	o.cd_mult = e.get("cd_mult", 1.0) * hz.cd
 	return o
 
 
@@ -683,6 +776,22 @@ func boss_on(d: int):
 		if b.d == d:
 			return b
 	return null
+
+
+const EVENTS := ["smith", "merchant", "roulette", "cauldron", "altar", "chest"]
+
+
+func event_ok(k: String) -> bool:
+	match k:
+		"smith":
+			return day >= 2
+		"roulette":
+			return day >= 2
+		"altar":
+			return day >= 3 and (res > 0 or mhp > 40)
+		"cauldron":
+			return items.filter(func(i): return not i.starter).size() >= 2
+	return true
 
 
 # ---------------------------------------------------------------- day flow
@@ -694,6 +803,7 @@ func begin_day() -> void:
 	rr = 0
 	msg = ""
 	hz = {}
+	event = {}
 	if day >= 3 and boss_on(day) == null and randf() < 0.4:
 		hz = GameData.hazards.pick_random()
 	shop = shop.filter(func(e): return e.get("lock", false))
@@ -706,25 +816,24 @@ func begin_day() -> void:
 			e.sale = true
 	var b = boss_on(day)
 	if b != null:
-		nodes = [{"k": "boss", "e": b.duplicate()}]
-	else:
-		var am := foe(true)
-		am.n = "Ambusher " + am.n.replace("Elite ", "")
-		am.hp = float(roundi(am.hp * 1.15))
-		var pool := [{"k": "forge"}, {"k": "camp"}, {"k": "combat", "e": foe(false)}]
+		nodes = [{"k": "boss", "e": boss_foe(b)}]
+		return
+	nodes = [{"k": "combat", "e": foe(false)}]
+	var evs := EVENTS.filter(func(k): return event_ok(k))
+	evs.shuffle()
+	nodes.append({"k": evs[0]})
+	if randf() < 0.65:
+		var extra := [{"k": "camp"}, {"k": evs[1] if evs.size() > 1 else "camp"}]
 		if day >= ELITE_FROM_DAY:
-			pool.append({"k": "elite", "e": foe(true)})
+			extra.append({"k": "elite", "e": foe(true)})
 		if day >= 3:
-			pool.append({"k": "ambush", "e": am})
-		if hp > 25 and day >= 3:
-			pool.append({"k": "shrine"})
-		if day >= 2:
-			pool.append({"k": "tailor"})
-		pool.shuffle()
-		nodes = [{"k": "combat", "e": foe(false)}]
-		nodes.append_array(pool.slice(0, 1 + randi() % 2))
-		if hp < mhp * 0.4 and not nodes.any(func(n): return n.k == "camp"):
-			nodes[nodes.size() - 1] = {"k": "camp"}
+			var am := foe(true)
+			am.n = "Ambusher " + am.fam
+			am.hp = float(roundi(am.hp * 1.15))
+			extra.append({"k": "ambush", "e": am})
+		nodes.append(extra.pick_random())
+	if hp < mhp * 0.4 and not nodes.any(func(n): return n.k == "camp"):
+		nodes[nodes.size() - 1] = {"k": "camp"}
 
 
 func travel() -> bool:
@@ -747,8 +856,225 @@ func choose(i: int) -> CombatSim:
 		sync_hp()
 		phase = "evening"
 		return CombatSim.new(self, n)
+	if EVENTS.has(n.k):
+		start_event(n.k)
+		return null
 	go_night(n, true, null)
 	return null
+
+
+## Weighted pick from the boss's drop table (treasure keeps the strong items rare).
+func boss_drop(boss: String) -> String:
+	var table: Array = GameData.boss_drops.get(boss, [])
+	if table.is_empty():
+		return roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)
+	var tot := 0.0
+	for e in table:
+		tot += e[1]
+	var r := randf() * tot
+	for e in table:
+		r -= e[1]
+		if r <= 0:
+			return e[0]
+	return table[0][0]
+
+
+# ---------------------------------------------------------------- events
+# Each event is a small screen: start_event() sets it up, the ev_* calls are the player's
+# choices, and ev_leave() ends the afternoon (its lines/rewards show at night).
+
+func smith_cost() -> int:
+	return 6 + 2 * day
+
+
+func start_event(k: String) -> void:
+	phase = "event"
+	event = {"k": k, "lines": [], "rew": [], "done": false}
+	match k:
+		"merchant":
+			var stock := []
+			for _i in 3:
+				var id := roll_tiered(rank() + 1, 2)
+				stock.append({"id": id, "price": roundi(GameData.items[id].cost * 1.3)})
+			event.stock = stock
+		"roulette":
+			event.bullet = randi() % 6
+			event.pulls = 0
+			event.pot = 0
+		"altar":
+			var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == 3 and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
+			pool.shuffle()
+			event.offer = pool.slice(0, 3)
+		"chest":
+			var item_id := roll_tiered(rank() + 1, 1)
+			var box := [{"k": "item", "id": item_id}, {"k": "gold", "v": 8 + 2 * day}, {"k": "curse", "v": 5 + day} if randf() < 0.6 else {"k": "gold", "v": 3 + day}]
+			box.shuffle()
+			event.box = box
+
+
+## Blacksmith: evolve one item right away for gold, no duplicate needed.
+func ev_smith(it: PItem) -> bool:
+	if event.get("done", false) or it.def().evo == "" or gold < smith_cost():
+		return false
+	gold -= smith_cost()
+	var old := it.id
+	it.id = it.def().evo
+	seen[it.id] = true
+	if it.loc == "grid" and not fits(it, it.x, it.y, it.rot, it):
+		var s := nearest_spot(it, Vector2i(it.x, it.y))
+		if s.is_empty():
+			it.loc = "storage"
+		else:
+			it.x = s.x
+			it.y = s.y
+			it.rot = s.rot
+	event.rew.append({"k": "fusion", "a": old, "b": old, "r": it.id, "evo": true, "stored": it.loc == "storage"})
+	event.lines.append(I18n.t("🔨 The blacksmith reforges %s into %s.") % [I18n.t(GameData.items[old].n), I18n.t(it.def().n)])
+	event.done = true
+	return true
+
+
+## Wandering merchant: rare stock; sells your items at full price.
+func ev_buy(i: int) -> bool:
+	var s: Dictionary = event.stock[i]
+	if s.get("sold", false) or gold < s.price:
+		return false
+	gold -= s.price
+	s.sold = true
+	items.append(make_item(s.id, "storage"))
+	event.rew.append({"k": "loot", "id": s.id})
+	return true
+
+
+func ev_sell_full(it: PItem) -> bool:
+	if it.starter or it.def().relic or not items.has(it):
+		return false
+	gold += it.def().cost
+	items.erase(it)
+	return true
+
+
+func roulette_pot(pulls: int) -> int:
+	var p := 0
+	for k in range(1, pulls + 1):
+		p += (3 + day) * k
+	return p
+
+
+## Russian roulette: each empty chamber grows the pot; the bullet costs 35% of your Max HP and the pot.
+## Returns "click", "bang" or "max" (five empty pulls: the sixth must be the bullet, so you're done).
+func ev_pull() -> String:
+	if event.get("done", false):
+		return ""
+	if event.pulls == event.bullet:
+		var dmg := roundf(mhp * 0.35)
+		hp = maxf(1.0, hp - dmg)
+		event.done = true
+		event.lines.append(I18n.t("💥 BANG! You lose %d HP and the pot.") % roundi(dmg))
+		event.rew.append({"k": "hp", "v": -roundi(dmg)})
+		return "bang"
+	event.pulls += 1
+	event.pot = roulette_pot(event.pulls)
+	if event.pulls >= 5:
+		ev_cash_out()
+		return "max"
+	return "click"
+
+
+func ev_cash_out() -> void:
+	if event.get("done", false) or event.pulls == 0:
+		return
+	event.done = true
+	gold += event.pot
+	event.rew.append({"k": "gold", "v": event.pot})
+	event.lines.append(I18n.t("🔫 You walk away with %d gold after %d empty chambers.") % [event.pot, event.pulls])
+	if event.pulls >= 3:
+		var id := roll_tiered(rank() + 1, 1)
+		items.append(make_item(id, "storage"))
+		event.rew.append({"k": "loot", "id": id})
+
+
+## Alchemist's cauldron: two of your items in, one better item out.
+func ev_brew(a: PItem, b: PItem) -> String:
+	if event.get("done", false) or a == b or a.starter or b.starter or a.def().relic or b.def().relic or not items.has(a) or not items.has(b):
+		return ""
+	var top := maxi(a.def().tier, b.def().tier)
+	var id := roll_tiered(clampi(top + 1, 0, 4), mini(3, top + 1))
+	items.erase(a)
+	items.erase(b)
+	items.append(make_item(id, "storage"))
+	event.done = true
+	event.rew.append({"k": "fusion", "a": a.id, "b": b.id, "r": id, "evo": false, "stored": true})
+	event.lines.append(I18n.t("⚗️ The cauldron turns %s and %s into %s.") % [I18n.t(a.def().n), I18n.t(b.def().n), I18n.t(GameData.items[id].n)])
+	return id
+
+
+## Cursed altar: a Legendary item for 10 Max HP forever, or for a Heart.
+func ev_altar(i: int, pay: String) -> bool:
+	if event.get("done", false) or i < 0 or i >= event.offer.size():
+		return false
+	if pay == "heart":
+		if res <= 0:
+			return false
+		res -= 1
+		event.rew.append({"k": "heart", "v": -1})
+	else:
+		mhp_mod -= 10
+		sync_hp()
+		event.rew.append({"k": "maxhp", "v": -10})
+	var id: String = event.offer[i]
+	items.append(make_item(id, "storage"))
+	event.rew.append({"k": "loot", "id": id})
+	event.lines.append(I18n.t("🗿 The altar takes its price and leaves %s.") % I18n.t(GameData.items[id].n))
+	event.done = true
+	return true
+
+
+## Mystery chests: open one of three.
+func ev_chest(i: int) -> Dictionary:
+	if event.get("done", false):
+		return {}
+	var c: Dictionary = event.box[i]
+	event.done = true
+	event.picked = i
+	match c.k:
+		"item":
+			items.append(make_item(c.id, "storage"))
+			event.rew.append({"k": "loot", "id": c.id})
+		"gold":
+			gold += c.v
+			event.rew.append({"k": "gold", "v": c.v})
+		"curse":
+			hp = maxf(1.0, hp - c.v)
+			event.rew.append({"k": "hp", "v": -c.v})
+			event.lines.append(I18n.t("📦 A trap! The chest bites for %d HP.") % c.v)
+	return c
+
+
+## Ends the event; its lines and rewards are shown at night.
+func ev_leave() -> void:
+	if phase != "event":
+		return
+	if event.k == "roulette" and not event.done:
+		ev_cash_out()
+	go_night(nodes[cur_node], true, null)
+
+
+## Simple choices for the balance bot.
+func auto_event() -> void:
+	match event.k:
+		"smith":
+			for it in grid_items():
+				if it.def().evo != "" and gold >= smith_cost():
+					ev_smith(it)
+					break
+		"roulette":
+			for _i in 2:
+				if ev_pull() != "click":
+					break
+		"chest":
+			ev_chest(randi() % 3)
+	ev_leave()
 
 
 ## Rebuilds the fight for a run that was saved mid-combat (the fight restarts from the start).
@@ -784,8 +1110,17 @@ func to_dict() -> Dictionary:
 		"tiles": tiles.keys().map(_v2a), "start": start.keys().map(_v2a),
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
-		"msg": msg, "seen": seen.keys(),
+		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
 	}
+
+
+## JSON turns ints into floats; put back the ones the game compares or indexes with.
+static func _fix_foe(e: Dictionary) -> void:
+	for k in ["d", "gw", "gh"]:
+		if e.has(k):
+			e[k] = int(e[k])
+	if e.has("items"):
+		e.items = e.items.map(func(it): return [str(it[0]), int(it[1]), int(it[2]), int(it[3]) if it.size() > 3 else 0])
 
 
 static func from_dict(d: Dictionary) -> RunState:
@@ -794,6 +1129,19 @@ static func from_dict(d: Dictionary) -> RunState:
 		return null
 	var r := RunState.new(d.cls)
 	r.path = str(d.get("path", ""))
+	r.mhp_mod = float(d.get("mhp_mod", 0.0))
+	r.event = d.get("event", {})
+	for s in r.event.get("stock", []):
+		s.price = int(s.price)
+	for c in r.event.get("box", []):
+		if c.has("v"):
+			c.v = int(c.v)
+	if r.event.has("picked"):
+		r.event.picked = int(r.event.picked)
+	if r.event.has("bullet"):
+		r.event.bullet = int(r.event.bullet)
+		r.event.pulls = int(r.event.pulls)
+		r.event.pot = int(r.event.pot)
 	r.day = int(d.day)
 	r.gold = int(d.gold)
 	r.res = int(d.res)
@@ -847,8 +1195,8 @@ static func from_dict(d: Dictionary) -> RunState:
 		r.off[k] = true
 	r.nodes = d.nodes
 	for n in r.nodes:
-		if n.has("e") and n.e.has("d"):
-			n.e.d = int(n.e.d)   # JSON turns ints into floats
+		if n.has("e"):
+			_fix_foe(n.e)
 	r.cur_node = int(d.get("cur_node", -1))
 	r.result = {}
 	if not d.result.is_empty():
@@ -857,8 +1205,8 @@ static func from_dict(d: Dictionary) -> RunState:
 			if w.has("v"):
 				w.v = int(w.v)
 		r.result.fused = r.result.fused.map(func(u): return int(u))
-		if r.result.n.has("e") and r.result.n.e.has("d"):
-			r.result.n.e.d = int(r.result.n.e.d)
+		if r.result.n.has("e"):
+			_fix_foe(r.result.n.e)
 	elif r.phase == "night":
 		r.phase = "morning"
 	r.end_state = d.end_state
@@ -882,6 +1230,10 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 				items.erase(x.i)
 				r.lines.append(I18n.t("🧪 %s was used up.") % I18n.t(x.d.n))
 	var ws := grid_items().filter(func(i): return i.def().tags.has("Weapon"))
+	if EVENTS.has(n.k):
+		r.lines.append_array(event.get("lines", []))
+		r.rew.append_array(event.get("rew", []))
+		event = {}
 	match n.k:
 		"forge":
 			if ws.size() > 0:
@@ -912,6 +1264,8 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 				for w in ws:
 					w.pc = minf(0.5, w.pc + 0.05)
 				r.lines.append(I18n.t("🔥 You are at full HP, so every weapon polishes to 5% faster."))
+		"smith", "merchant", "roulette", "cauldron", "altar", "chest":
+			pass   # their outcome came from the event screen
 		_:
 			if win:
 				var g := (4 + ceili(day / 2.0)) * (2 if n.k == "elite" or n.k == "ambush" else 1) + (10 if n.k == "boss" else 0)
@@ -934,7 +1288,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					expand += 1
 					r.lines.append(I18n.t("🎒 Spoils: +1 pack tile."))
 					r.rew.append({"k": "tiles", "v": 1})
-				var id := loot_for(n.k)
+				var id := loot_for(n.k, n.get("e", {}))
 				if id != "":
 					items.append(make_item(id, "storage"))
 					r.lines.append(I18n.t("🎁 Loot added to storage: %s %s (%s)") % [GameData.items[id].ic, I18n.t(GameData.items[id].n), I18n.t(GameData.tier_names[GameData.items[id].tier])])
