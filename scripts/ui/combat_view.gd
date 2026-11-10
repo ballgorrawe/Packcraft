@@ -100,11 +100,11 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	world.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(world)
 	var boss: bool = s.node.k == "boss"
-	foe = _sprite(GameData.foe_icon(s.e.n), 110 if boss else 84, 0.5, 0.06)
+	foe = _sprite(GameData.foe_icon(s.e.n), 110 if boss else 84, 0.74, 0.22 if boss else 0.34)
 	if s.node.k in ["elite", "ambush", "boss"]:
 		foe.add_theme_color_override("font_shadow_color", Color("#ff3b3b"))
 		foe.add_theme_constant_override("shadow_outline_size", 12)
-	hero = _sprite(r.cls_def().hero, 70, 0.5, 0.62)
+	hero = _sprite(r.cls_def().hero, 70, 0.26, 0.42)
 	combo_lbl = UI.lbl("", 30, UI.GOLD, true)
 	combo_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	combo_lbl.add_theme_constant_override("outline_size", 8)
@@ -358,7 +358,7 @@ func _handle(evs: Array) -> void:
 				_hit_anim(ev, quiet)
 			"foe_atk":
 				if not quiet:
-					_lunge(foe, 60)
+					_lunge(foe, -70)
 				var r := snappedf(ev.dm - ev.ab, 0.1)
 				_flash_lbl(hero)
 				_float_at(_center_of(hero), ("🛡️ " + tr("BLOCK")) if r <= 0 else "-" + GameData._num(r), Color("#7dd3fc") if r <= 0 else Color("#ff4d5e"), r >= 8)
@@ -434,15 +434,15 @@ func _hit_anim(ev: Dictionary, quiet: bool) -> void:
 		land.call()
 		return
 	if ev.melee:
-		_lunge(hero, -60)
+		_lunge(hero, 70)
 	_projectile(ev.icon, _item_pos(ev.uid), _center_of(foe))
 	create_tween().tween_callback(land).set_delay(0.22)
 
 
-func _lunge(l: Label, dy: float) -> void:
+func _lunge(l: Label, dx: float) -> void:
 	var tw := l.create_tween()
-	tw.tween_property(l, "position:y", dy, 0.1)
-	tw.tween_property(l, "position:y", 0.0, 0.16)
+	tw.tween_property(l, "position:x", dx, 0.1)
+	tw.tween_property(l, "position:x", 0.0, 0.16)
 
 
 func _flash_lbl(l: Label) -> void:

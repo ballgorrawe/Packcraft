@@ -12,6 +12,7 @@ var run: RunState
 var sel_cls := ""
 var show_how := false
 var show_book := false
+var book_page := 0
 
 # drag / selection
 var drag_item: PItem = null
@@ -456,8 +457,8 @@ func _end_screen() -> Control:
 
 func _run_screen(fresh: bool) -> Control:
 	run.sync_hp()
-	# everything else on this screen is ~870px tall; the pack gets the rest (phones vary a lot)
-	cell_px = clampf(floorf((get_viewport_rect().size.y - 870.0) / GameData.H), 46.0, 74.0)
+	# everything else on this screen is ~940px tall; the pack gets the rest (phones vary a lot)
+	cell_px = clampf(floorf((get_viewport_rect().size.y - 940.0) / GameData.H), 46.0, 74.0)
 	var root := UI.vbox(10)
 	root.add_child(_hud())
 	root.add_child(_ribbon())
@@ -567,8 +568,11 @@ func _chip(t: String, col: Color) -> Control:
 
 func _hud() -> Control:
 	var p := UI.card(Color("#3a2d7a"), Color("#1d1546"), 24, 10)
+	var outer := UI.vbox(2)
+	p.add_child(outer)
 	var h := UI.hbox(10)
-	p.add_child(h)
+	outer.add_child(h)
+	outer.add_child(Timeline.new().setup(run))
 	var av := UI.panel(Color("#ffcf3f"), Color("#c47a0c"), 4, 99, 4)
 	av.custom_minimum_size = Vector2(66, 66)
 	var al := UI.lbl(run.cls_def().hero, 38)
@@ -605,7 +609,7 @@ func _hud() -> Control:
 	var hr := UI.hbox(6)
 	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(RunState.MAX_HEARTS - run.res), 18))
 	hr.add_child(UI.spacer())
-	var dl := UI.lbl(tr("Day %d/%d") % [run.day, GameData.days] + "  ·  " + tr(run.phase.capitalize()), 16, UI.MU, true)
+	var dl := UI.lbl(tr("Day %d/%d") % [run.day, GameData.days], 16, UI.GOLD, true)
 	hr.add_child(dl)
 	hv.add_child(hr)
 	h.add_child(hv)
@@ -1309,32 +1313,137 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 	return p
 
 
+const BOOK_PER_PAGE := 4
+
+
+## Every entry the book can show, in page order: evolution chains, then recipes, then Capstones.
+func _book_entries() -> Array:
+	var out := []
+	for id in GameData.items:
+		var d: Dictionary = GameData.items[id]
+		if d.lv == 1 and d.evo != "" and run.in_class_pool(id):
+			var chain := [id]
+			var cur: String = id
+			while GameData.items[cur].evo != "":
+				cur = GameData.items[cur].evo
+				chain.append(cur)
+			out.append({"sec": "evo", "chain": chain})
+	for r in GameData.recipes:
+		if not r.evo and r.path == "" and run.in_class_pool(r.r):
+			out.append({"sec": "recipe", "r": r})
+	for r in GameData.recipes:
+		if r.path != "" and run.in_class_pool(r.r):
+			out.append({"sec": "cap", "r": r})
+	return out
+
+
 func _book_overlay() -> Control:
-	var o := _overlay(tr("RECIPE BOOK"), func():
+	var o := _overlay("📖 " + tr("RECIPE BOOK"), func():
 		show_book = false
 		render())
 	var v: VBoxContainer = o[1]
-	v.add_child(UI.wrap_lbl(tr("Place the two parts so they touch. They fuse at night. Two copies of the same item evolve into something new."), 18, Color("#e9e4ff")))
-	var ep := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 14)
-	var ev := UI.vbox(8)
-	ep.add_child(ev)
-	ev.add_child(UI.title("✨ " + tr("Evolutions"), 22, UI.GOLD))
-	for r in GameData.recipes:
-		if r.evo and run.in_class_pool(r.a):
-			ev.add_child(_recipe_row(r))
-	v.add_child(ep)
-	var rp := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 14)
-	var rv := UI.vbox(8)
-	rp.add_child(rv)
-	rv.add_child(UI.title("🔗 " + tr("Recipes"), 22, UI.GOLD))
-	for r in GameData.recipes:
-		if not r.evo and run.in_class_pool(r.r) and (r.path == "" or run.path == "" or r.path == run.path):
-			rv.add_child(_recipe_row(r))
-	v.add_child(rp)
-	v.add_child(UI.big_btn(tr("Close"), func():
-		show_book = false
-		render(), "gray", 24))
+	var entries := _book_entries()
+	var pages := maxi(1, ceili(entries.size() / float(BOOK_PER_PAGE)))
+	book_page = clampi(book_page, 0, pages - 1)
+	var slice := entries.slice(book_page * BOOK_PER_PAGE, (book_page + 1) * BOOK_PER_PAGE)
+	var sec: String = slice[0].sec if not slice.is_empty() else "evo"
+	var titles := {"evo": "✨ " + tr("Evolutions"), "recipe": "🔗 " + tr("Recipes"), "cap": "👑 " + tr("Capstones")}
+	var hints := {
+		"evo": tr("Two copies of the same item, touching, evolve at night."),
+		"recipe": tr("Two different items, touching, fuse at night."),
+		"cap": tr("Path-only. Build the parts, choose the right path, and place them together."),
+	}
+	var page := UI.card(Color("#f3e6c4"), Color("#8a5a2b"), 22, 16)
+	var pv := UI.vbox(12)
+	page.add_child(pv)
+	var st := UI.title(titles[sec], 26, Color("#5a3300"), Color("#f3e6c4"))
+	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pv.add_child(st)
+	var hl := UI.wrap_lbl(hints[sec], 16, Color("#7a5a3a"))
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pv.add_child(hl)
+	for e in slice:
+		pv.add_child(_book_entry(e))
+	v.add_child(page)
+	UI.pop_in(page, 0.0, 10)
+	var nav := UI.hbox(10)
+	var prev := UI.btn("◀️", func():
+		book_page -= 1
+		render(), false, 26, "purple")
+	prev.custom_minimum_size = Vector2(96, 72)
+	prev.disabled = book_page == 0
+	nav.add_child(prev)
+	var pl := UI.title(tr("Page %d / %d") % [book_page + 1, pages], 22)
+	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nav.add_child(pl)
+	var nxt := UI.btn("▶️", func():
+		book_page += 1
+		render(), false, 26, "purple")
+	nxt.custom_minimum_size = Vector2(96, 72)
+	nxt.disabled = book_page >= pages - 1
+	nav.add_child(nxt)
+	v.add_child(nav)
 	return o[0]
+
+
+## One book line with big icons and names: A ×2 ➡️ B ×2 ➡️ C, or A + B ➡️ R.
+func _book_entry(e: Dictionary) -> Control:
+	var p := UI.panel(Color(1, 1, 1, 0.45), Color("#c9a876"), 2, 16, 10)
+	var h := UI.hbox(6)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	p.add_child(h)
+	if e.sec == "evo":
+		var chain: Array = e.chain
+		for i in chain.size():
+			var id: String = chain[i]
+			var known: bool = i == 0 or run.seen.has(id) or run.seen.has(chain[i - 1])
+			h.add_child(_book_chip(id, known, "×2" if i < chain.size() - 1 else ""))
+			if i < chain.size() - 1:
+				h.add_child(UI.lbl("➡️", 22))
+	else:
+		var r: Dictionary = e.r
+		h.add_child(_book_chip(r.a, true, ""))
+		h.add_child(UI.title("+", 28, Color("#5a3300"), Color("#f3e6c4")))
+		h.add_child(_book_chip(r.b, true, ""))
+		h.add_child(UI.lbl("➡️", 22))
+		var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
+		var path_tag := ""
+		if r.path != "":
+			path_tag = GameData.paths[r.path].ic + " " + tr(GameData.paths[r.path].n)
+		h.add_child(_book_chip(r.r, known, path_tag))
+	return p
+
+
+func _book_chip(id: String, known: bool, tag: String) -> Control:
+	var d: Dictionary = GameData.items[id]
+	var col: Color = GameData.tier_colors[d.tier]
+	var v := UI.vbox(2)
+	v.custom_minimum_size.x = 104
+	var c := UI.card(col.darkened(0.35) if known else Color("#8f8170"), _owned_col(run.owns(id), col), 16, 4)
+	c.custom_minimum_size = Vector2(80, 80)
+	c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var il := UI.lbl(d.ic if known else "❓", 44)
+	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	il.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	c.add_child(il)
+	if known:
+		c.tooltip_text = I18n.t(d.n)
+	v.add_child(c)
+	var nl := UI.lbl(tr(d.n) if known else "???", 14, Color("#3b2410"), true)
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nl.custom_minimum_size.x = 100
+	v.add_child(nl)
+	if tag != "":
+		var tl := UI.lbl(tag, 13, Color("#8a5a2b"), true)
+		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(tl)
+	return v
+
+
+func _owned_col(owned: bool, col: Color) -> Color:
+	return UI.GOOD if owned else col
 
 
 # =============================================================== input / drag
