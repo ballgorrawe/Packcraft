@@ -143,6 +143,106 @@ func fits(it: PItem, x: int, y: int, rot: int = -1, exclude: PItem = null) -> bo
 	return true
 
 
+## Cells of `id` at rotation `rot` with anchor `a` are all unlocked tiles (ignores other items).
+func on_tiles(id: String, rot: int, a: Vector2i) -> bool:
+	for c in GameData.shape(id, rot).c:
+		if not tiles.has(a + c):
+			return false
+	return true
+
+
+## Nearest anchor/rotation where `it` fits, avoiding `blocked` cells too. Returns {} if none.
+func nearest_spot(it: PItem, near: Vector2i, blocked := {}, rots := [0, 1, 2, 3]) -> Dictionary:
+	var best := {}
+	var bd := 1e9
+	for rot in rots:
+		for y in range(-3, GameData.H):
+			for x in range(-3, GameData.W):
+				if not fits(it, x, y, rot, it):
+					continue
+				var clash := false
+				for c in GameData.shape(it.id, rot).c:
+					if blocked.has(Vector2i(x, y) + c):
+						clash = true
+						break
+				if clash:
+					continue
+				var dist: float = absi(x - near.x) + absi(y - near.y) + (0.0 if rot == it.rot else 0.2)
+				if dist < bd:
+					bd = dist
+					best = {"x": x, "y": y, "rot": rot}
+	return best
+
+
+## Rotates a placed item and never just refuses: it tries the spot in place, then nearby spots
+## that still cover the tapped cell, and finally pushes the items in the way to free space
+## (or to storage). Returns a message ("" when nothing else moved), or "x" if it truly can't.
+func rotate_in_pack(it: PItem, d: int) -> String:
+	var nr := (it.rot + d + 4) % 4
+	var pivot := Vector2i(it.x, it.y) + GameData.mid_cell(it.id, it.rot)
+	var home := pivot - GameData.mid_cell(it.id, nr)
+	if fits(it, home.x, home.y, nr, it):
+		it.rot = nr
+		it.x = home.x
+		it.y = home.y
+		return ""
+	# kick: any placement of the rotated shape that still covers the pivot cell
+	var best := {}
+	var bd := 1e9
+	for c in GameData.shape(it.id, nr).c:
+		var a: Vector2i = pivot - c
+		if fits(it, a.x, a.y, nr, it):
+			var dist: float = absi(a.x - home.x) + absi(a.y - home.y)
+			if dist < bd:
+				bd = dist
+				best = {"x": a.x, "y": a.y}
+	if best.is_empty():
+		var s := nearest_spot(it, home, {}, [nr])
+		if not s.is_empty() and absi(s.x - home.x) + absi(s.y - home.y) <= 2:
+			best = s
+	if not best.is_empty():
+		it.rot = nr
+		it.x = best.x
+		it.y = best.y
+		return ""
+	# push: put the rotated item down and move whatever is in the way
+	var anchor := Vector2i(-99, -99)
+	if on_tiles(it.id, nr, home):
+		anchor = home
+	else:
+		for c in GameData.shape(it.id, nr).c:
+			if on_tiles(it.id, nr, pivot - c):
+				anchor = pivot - c
+				break
+	if anchor.x == -99:
+		return "x"
+	var mine := {}
+	for c in GameData.shape(it.id, nr).c:
+		mine[anchor + c] = true
+	var movers := []
+	for o in grid_items():
+		if o != it and o.cells().any(func(c): return mine.has(c)):
+			movers.append(o)
+	it.rot = nr
+	it.x = anchor.x
+	it.y = anchor.y
+	var stored := 0
+	for o in movers:
+		o.loc = "held"
+		var s := nearest_spot(o, Vector2i(o.x, o.y), mine)
+		if s.is_empty():
+			o.loc = "storage"
+			stored += 1
+		else:
+			o.loc = "grid"
+			o.x = s.x
+			o.y = s.y
+			o.rot = s.rot
+	if stored > 0:
+		return I18n.t("Rotated. %d item(s) in the way went to storage.") % stored
+	return I18n.t("Rotated. Items in the way were moved over.")
+
+
 func anchor_for(it: PItem, cell: Vector2i) -> Vector2i:
 	return cell - GameData.mid_cell(it.id, it.rot)
 

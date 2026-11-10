@@ -1,12 +1,12 @@
 extends Control
 ## Screen manager + drag-and-drop controller for PackCraft (portrait, phone-first).
-## Screens are rebuilt in code from RunState on every change (like a render() call).
+## Screens are rebuilt in code from RunState on every change (like a render() call);
+## entrance animations only play when the screen itself changes, so taps feel instant.
 ## Items have no Store / Sell / Rotate buttons: drag to the shop to sell, drag to storage
-## to store, tap a placed item again to rotate it.
+## to store, tap an item again to rotate it.
 
-const CELL := 72.0
+var cell_px := 66.0   # pack cell size, fitted to the screen height in _run_screen()
 const DRAG_THRESHOLD := 12.0
-const W := 720.0
 
 var run: RunState
 var sel_cls := ""
@@ -25,6 +25,13 @@ var selected: PItem = null
 var inspect_id := ""         # shop item being inspected (not owned)
 var inspect_idx := -1
 
+# animation state that survives re-renders
+var anim := {}               # uid -> Vector2 drawn cell position (eases toward the real one)
+var pops := {}               # uid -> seconds since it landed (squash/stretch)
+var _screen_key := ""
+var _shown_gold := -1
+var _shown_hp := -1
+
 # widgets of the current screen
 var screen: Control
 var grid: BackpackGrid
@@ -35,6 +42,7 @@ var held_lbl: Label
 var popup: Control
 var ghost: ShapeView
 var ghost_layer: CanvasLayer
+var toast_layer: CanvasLayer
 
 var _dev := false   # screenshot/dev mode never touches the real save
 var _pending_sim: CombatSim = null
@@ -45,12 +53,16 @@ func _ready() -> void:
 	I18n.setup(SaveGame.get_setting("lang", "th" if OS.get_locale_language() == "th" else "en"))
 	theme = UI.build_theme()
 	sel_cls = GameData.class_keys[0]
+	add_child(UI.background())
 	ghost_layer = CanvasLayer.new()
 	ghost_layer.layer = 50
 	add_child(ghost_layer)
 	ghost = ShapeView.new()
 	ghost.visible = false
 	ghost_layer.add_child(ghost)
+	toast_layer = CanvasLayer.new()
+	toast_layer.layer = 60
+	add_child(toast_layer)
 	get_tree().auto_accept_quit = false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--autoshot="):
@@ -59,6 +71,11 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--autoshot="):
 			_autoshot(a.trim_prefix("--autoshot="))
+
+
+func _process(delta: float) -> void:
+	for k in pops:
+		pops[k] += delta
 
 
 func _autosave() -> void:
@@ -87,6 +104,7 @@ func _continue_run() -> void:
 		return
 	run = r
 	_clear_sel()
+	anim.clear()
 	_pending_sim = run.resume_combat() if run.phase == "evening" else null
 	if run.phase == "evening" and _pending_sim == null:
 		run.phase = "afternoon"
@@ -101,20 +119,48 @@ func _clear_sel() -> void:
 
 ## Safe-area margins (notches / rounded corners) converted to canvas units.
 func _safe_margins() -> Vector4:
-	var m := Vector4(12, 12, 12, 12)
-	if not OS.has_feature("mobile"):
+	var m := Vector4(14, 14, 14, 14)
+	if not OS.has_feature("mobile") and not OS.has_feature("web"):
 		return m
 	var win := Vector2(DisplayServer.window_get_size())
 	var safe := Rect2(DisplayServer.get_display_safe_area())
 	var vis := get_viewport_rect().size
-	if win.x <= 0 or vis.x <= 0:
+	if win.x <= 0 or vis.x <= 0 or safe.size.x <= 0:
 		return m
 	var k := vis.x / win.x
-	m.x = maxf(12, safe.position.x * k)
-	m.y = maxf(12, safe.position.y * k)
-	m.z = maxf(12, (win.x - safe.end.x) * k)
-	m.w = maxf(12, (win.y - safe.end.y) * k)
+	m.x = maxf(14, safe.position.x * k)
+	m.y = maxf(14, safe.position.y * k)
+	m.z = maxf(14, (win.x - safe.end.x) * k)
+	m.w = maxf(14, (win.y - safe.end.y) * k)
 	return m
+
+
+## Slides a message down from the top, then fades it.
+func toast(text: String, col := UI.AC) -> void:
+	if text == "" or toast_layer == null:
+		return
+	for c in toast_layer.get_children():
+		c.queue_free()
+	var p := UI.panel(Color(UI.INK, 0.94), col, 3, 18, 14, 8)
+	p.anchor_left = 0.06
+	p.anchor_right = 0.94
+	p.offset_top = 24
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := UI.wrap_lbl(text, 19, Color.WHITE)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.custom_minimum_size.x = 560   # wrap at the panel width from the start, so the box stays short
+	p.add_child(l)
+	toast_layer.add_child(p)
+	p.reset_size.call_deferred()
+	p.modulate.a = 0
+	p.position.y = -40
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 1.0, 0.18)
+	tw.parallel().tween_property(p, "position:y", 24.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(2.2)
+	tw.tween_property(p, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(p.queue_free)
 
 
 # =============================================================== render
@@ -128,12 +174,12 @@ func render() -> void:
 	sell_lbl = null
 	held_lbl = null
 	popup = null
-	var bg := ColorRect.new()
-	bg.color = UI.BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	screen = bg
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen = root
 	add_child(screen)
-	move_child(screen, 0)
+	move_child(screen, 1)
 	var m := MarginContainer.new()
 	m.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var sm := _safe_margins()
@@ -144,61 +190,83 @@ func render() -> void:
 	screen.add_child(m)
 	if run != null:
 		_autosave()   # every state change is saved; finished runs clear the save
+		if run.msg != "":
+			toast(run.msg)
+			run.msg = ""
+	var key := _key()
+	var fresh := key != _screen_key
+	_screen_key = key
+	var body: Control
 	if run == null:
-		m.add_child(_title_screen())
-		return
-	if run.end_state != "":
-		m.add_child(_end_screen())
-		return
-	if run.phase == "evening" and _pending_sim != null:
+		body = _title_screen()
+	elif run.end_state != "":
+		body = _end_screen()
+	elif run.phase == "evening" and _pending_sim != null:
 		var cvw := CombatView.new().setup(run, _pending_sim)
 		cvw.finished.connect(_on_combat_done)
-		m.add_child(cvw)
+		body = cvw
+	else:
+		body = _run_screen(fresh)
+	m.add_child(body)
+	if run == null or run.end_state != "" or (run.phase == "evening" and _pending_sim != null):
+		if fresh:
+			UI.pop_in(body, 0.0, 30)
 		return
-	m.add_child(_run_screen())
+	var ov: Control = null
 	if run.needs_path():
-		screen.add_child(_path_choice_overlay())
+		ov = _path_choice_overlay()
 	elif run.phase == "afternoon":
-		screen.add_child(_road_overlay())
+		ov = _road_overlay()
 	elif run.phase == "night":
-		screen.add_child(_night_overlay())
+		ov = _night_overlay()
 	elif show_book:
-		screen.add_child(_book_overlay())
+		ov = _book_overlay()
+	if ov != null:
+		screen.add_child(ov)
+		if fresh:
+			ov.modulate.a = 0
+			ov.create_tween().tween_property(ov, "modulate:a", 1.0, 0.25)
 	elif drag_item == null and (selected != null or inspect_id != ""):
 		popup = _inspector_popup()
 		screen.add_child(popup)
 
 
+func _key() -> String:
+	if run == null:
+		return "title"
+	if run.end_state != "":
+		return "end"
+	var k := run.phase + str(run.day)
+	if run.needs_path():
+		k += "path"
+	if show_book:
+		k += "book"
+	return k
+
+
 func _overlay(title: String) -> Array:
 	var ov := ColorRect.new()
-	ov.color = Color(0.02, 0.05, 0.06, 0.9)
+	ov.color = Color(0.03, 0.02, 0.1, 0.86)
 	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ov.mouse_filter = Control.MOUSE_FILTER_STOP
 	var mc := MarginContainer.new()
 	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right"]:
-		mc.add_theme_constant_override("margin_" + s, 18)
-	mc.add_theme_constant_override("margin_top", 40)
+		mc.add_theme_constant_override("margin_" + s, 22)
+	mc.add_theme_constant_override("margin_top", 46)
 	mc.add_theme_constant_override("margin_bottom", 30)
 	ov.add_child(mc)
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	mc.add_child(sc)
-	var v := UI.vbox(14)
+	var v := UI.vbox(18)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(v)
 	if title != "":
-		v.add_child(_logo(title, 34))
+		var t := UI.title(title, 42, UI.GOLD)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(t)
 	return [ov, v]
-
-
-func _logo(text: String, size := 54) -> Label:
-	var l := UI.lbl(text, size, Color("#ffb43a"), true)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_color_override("font_outline_color", Color("#3a1600"))
-	l.add_theme_constant_override("outline_size", 12)
-	return l
 
 
 func _center(c: Control) -> Control:
@@ -211,82 +279,104 @@ func _center(c: Control) -> Control:
 func _title_screen() -> Control:
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var v := UI.vbox(14)
+	var v := UI.vbox(18)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(v)
-	v.add_child(UI.spacer(false))
-	var lang := UI.hbox(6)
+	var lang := UI.hbox(8)
 	lang.add_child(UI.spacer())
 	for code in ["en", "th"]:
 		var cc: String = code
 		lang.add_child(UI.btn("EN" if code == "en" else "ไทย", func():
 			I18n.set_lang(cc)
 			SaveGame.set_setting("lang", cc)
-			render(), I18n.lang() == code, 14))
+			render(), false, 16, "blue" if I18n.lang() == code else "gray"))
 	v.add_child(lang)
-	v.add_child(_logo("PACKCRAFT", 64))
-	var tag := UI.lbl(tr("Pack it. Craft it. Watch it fight."), 17, Color("#9fb7c4"))
+	var logo := UI.title("PACKCRAFT", 76, UI.GOLD, Color("#5a2300"))
+	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(logo)
+	UI.breathe(logo, 0.03)
+	var tag := UI.lbl(tr("Pack it. Craft it. Watch it fight."), 20, UI.MU, true)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tag)
 	var summary := "" if _dev else SaveGame.run_summary()
 	if summary != "":
-		v.add_child(_center(UI.btn("▶ " + tr("CONTINUE") + "  —  " + summary, _continue_run, true, 18)))
-	v.add_child(UI.lbl(tr("Choose your hero"), 20, UI.TX, true))
+		var cb := UI.btn("▶️ " + tr("CONTINUE") + "\n" + summary, _continue_run, false, 20, "gold")
+		cb.custom_minimum_size = Vector2(0, 90)
+		v.add_child(cb)
+	var hh := UI.title(tr("Choose your hero"), 26)
+	v.add_child(hh)
 	var g := GridContainer.new()
 	g.columns = 2
-	g.add_theme_constant_override("h_separation", 12)
-	g.add_theme_constant_override("v_separation", 12)
+	g.add_theme_constant_override("h_separation", 14)
+	g.add_theme_constant_override("v_separation", 14)
+	var i := 0
 	for k in GameData.class_keys:
 		var kk: String = k
 		var c: Dictionary = GameData.classes[k]
 		var on: bool = k == sel_cls
-		var p := UI.panel(Color(UI.GOLD, 0.16) if on else Color(1, 1, 1, 0.05), UI.GOLD if on else Color(1, 1, 1, 0.18), 3 if on else 2, 14, 12)
+		var p := UI.card(Color("#4a3a92") if on else UI.PN, UI.GOLD if on else UI.BD, 22, 14)
 		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		p.custom_minimum_size.y = 150
+		p.custom_minimum_size.y = 178
 		UI.on_tap(p, func():
 			sel_cls = kk
 			render())
+		UI.juice(p)
 		var cv := UI.vbox(4)
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(cv)
-		cv.add_child(UI.plbl(c.hero + " " + c.ic, 40, UI.TX, false, true))
-		cv.add_child(UI.plbl(tr(c.n), 18, Color.WHITE, true, true))
-		var dl := UI.plbl(tr(c.d), 13, Color("#b6c8d2"), false, true)
-		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var ic := UI.plbl(c.hero, 58, UI.TX, false, true)
+		cv.add_child(ic)
+		var nm := UI.title(tr(c.n), 22, Color.WHITE)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cv.add_child(nm)
+		var dl := UI.plbl(c.ic + " " + tr(c.res.n), 16, UI.GOLD if on else UI.MU, true, true)
 		cv.add_child(dl)
 		g.add_child(p)
+		if on:
+			UI.breathe(ic, 0.08)
+		i += 1
 	v.add_child(g)
 	v.add_child(_class_info(sel_cls))
-	v.add_child(_center(UI.btn(tr("START RUN") + " ▶", func():
+	var start := UI.big_btn("▶️ " + tr("START RUN"), func():
 		run = RunState.new(sel_cls)
 		_clear_sel()
-		render(), true, 22)))
+		anim.clear()
+		render(), "green", 32)
+	start.custom_minimum_size = Vector2(0, 96)
+	v.add_child(start)
+	UI.breathe(start, 0.025)
 	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
 		show_how = not show_how
-		render(), false, 15)))
+		render(), false, 17, "purple")))
 	if show_how:
-		v.add_child(UI.wrap_lbl(tr("HOW_TO_PLAY"), 15, Color("#cfe0e8")))
+		var hp := UI.panel(Color(UI.INK, 0.8), UI.BD, 2, 18, 16)
+		hp.add_child(UI.wrap_lbl(tr("HOW_TO_PLAY"), 18, Color("#e9e4ff")))
+		v.add_child(hp)
 	v.add_child(UI.spacer(false))
 	return sc
 
 
 func _class_info(k: String) -> Control:
 	var c: Dictionary = GameData.classes[k]
-	var p := UI.panel(Color(1, 1, 1, 0.05), Color(0, 0, 0, 0), 0, 14, 14)
-	var v := UI.vbox(8)
+	var p := UI.panel(Color(UI.INK, 0.75), UI.BD, 2, 20, 16)
+	var v := UI.vbox(10)
 	p.add_child(v)
-	v.add_child(UI.wrap_lbl("%s %s — %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 14, Color("#cfe0e8")))
-	v.add_child(UI.wrap_lbl("%s %s: %s %s" % [c.ult.ic, tr("Ultimate"), tr(c.ult.n), "— " + tr(c.ult.d)], 14, UI.GOLD))
+	var t := UI.title("%s %s" % [c.hero, tr(c.n)], 24, UI.GOLD)
+	v.add_child(t)
+	v.add_child(UI.wrap_lbl(tr(c.d), 18, Color("#e9e4ff")))
+	v.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 17, Color("#cfc8ff")))
+	v.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 17, UI.GOLD))
 	var pr := UI.hbox(8)
-	pr.add_child(UI.lbl(tr("Paths (day %d):") % GameData.path_day, 14, UI.MU))
+	pr.add_child(UI.lbl(tr("Paths (day %d):") % GameData.path_day, 17, UI.MU, true))
 	for pid in c.paths:
 		var pd: Dictionary = GameData.paths[pid]
-		var pp := UI.panel(Color(1, 1, 1, 0.08), Color(0, 0, 0, 0), 0, 99, 5)
-		pp.add_child(UI.lbl(pd.ic + " " + tr(pd.n), 14, UI.TX, true))
+		var pp := UI.panel(Color(1, 1, 1, 0.1), Color(0, 0, 0, 0), 0, 99, 8)
+		pp.add_child(UI.lbl(pd.ic + " " + tr(pd.n), 17, UI.TX, true))
 		pr.add_child(pp)
 	v.add_child(pr)
-	var chips := UI.flow(6)
-	chips.add_child(UI.lbl(tr("Starts with"), 14, UI.MU))
+	var chips := UI.hbox(8)
+	chips.add_child(UI.lbl(tr("Starts with"), 17, UI.MU, true))
 	for st in c.st:
 		chips.add_child(UI.item_chip(st[0]))
 	v.add_child(chips)
@@ -295,72 +385,89 @@ func _class_info(k: String) -> Control:
 
 func _end_screen() -> Control:
 	var cc := CenterContainer.new()
-	var v := UI.vbox(14)
+	var v := UI.vbox(18)
 	cc.add_child(v)
 	var w := run.end_state == "win"
-	v.add_child(_logo(tr("VICTORY") if w else tr("DEFEATED"), 48))
-	var i := UI.lbl("🏆" if w else "💀", 96)
-	i.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(i)
-	var t := UI.lbl(tr("The Stone Titan falls. Your build held.") if w else tr("You fell on day %d of %d.") % [run.day, GameData.days], 18)
+	var t := UI.title(tr("VICTORY") if w else tr("DEFEATED"), 64, UI.GOLD if w else UI.BAD)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
+	var i := UI.lbl("🏆" if w else "💀", 130)
+	i.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(i)
+	UI.breathe(i, 0.06)
+	var s := UI.wrap_lbl(tr("The Stone Titan falls. Your build held.") if w else tr("You fell on day %d of %d.") % [run.day, GameData.days], 22)
+	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(s)
 	var path_txt := ""
 	if run.path != "":
 		path_txt = " · " + run.path_def().ic + " " + tr(run.path_def().n)
-	var s := UI.lbl("%s %s%s · 🪙 %d" % [run.cls_def().ic, tr(run.cls_def().n), path_txt, run.gold], 15, Color("#9fb7c4"))
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(s)
-	v.add_child(_center(UI.btn(tr("PLAY AGAIN") + " ▶", func():
+	var s2 := UI.lbl("%s %s%s · 🪙 %d" % [run.cls_def().hero, tr(run.cls_def().n), path_txt, run.gold], 18, UI.MU, true)
+	s2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(s2)
+	var b := UI.big_btn("🔁 " + tr("PLAY AGAIN"), func():
 		run = null
-		render(), true, 20)))
+		render(), "green", 30)
+	v.add_child(b)
+	if w:
+		for k in 5:
+			create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
 	return cc
 
 
 # --------------------------------------------------------------- run screen
 
-func _run_screen() -> Control:
+func _run_screen(fresh: bool) -> Control:
 	run.sync_hp()
-	var root := UI.vbox(8)
-	root.add_child(_top_bar())
-	var info := _info_strip()
-	if info != null:
-		root.add_child(info)
+	# everything else on this screen is ~870px tall; the pack gets the rest (phones vary a lot)
+	cell_px = clampf(floorf((get_viewport_rect().size.y - 870.0) / GameData.H), 46.0, 74.0)
+	var root := UI.vbox(10)
+	root.add_child(_hud())
+	root.add_child(_ribbon())
 
 	# backpack
-	var gp := UI.panel(UI.PN, UI.BD, 1, 12, 8)
+	var gp := UI.card(Color(UI.PN, 0.92), UI.BD, 22, 10)
 	var gv := UI.vbox(6)
 	gp.add_child(gv)
 	var gh := UI.hbox(8)
-	gh.add_child(UI.lbl("🎒 " + tr("Pack"), 18, UI.TX, true))
-	var st := UI.rich(_stats_text(), 14)
-	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gh.add_child(st)
-	gh.add_child(UI.btn("📖", func():
+	gh.add_child(UI.title("🎒 " + tr("Pack"), 24))
+	var pr := run.pack_rates()
+	var used := 0
+	for it in run.grid_items():
+		used += it.cells().size()
+	var stats := UI.hbox(6)
+	stats.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats.alignment = BoxContainer.ALIGNMENT_END
+	stats.add_child(_chip("⚔️ %.1f" % pr.x, Color("#ff9b5e")))
+	stats.add_child(_chip("🛡️ %.1f" % pr.y, Color("#7dd3fc")))
+	stats.add_child(_chip("🔲 %d/%d" % [used, run.tiles.size()], UI.MU))
+	gh.add_child(stats)
+	var book := UI.btn("📖", func():
 		show_book = true
-		render(), false, 16))
+		render(), false, 22, "purple")
+	book.custom_minimum_size = Vector2(60, 56)
+	gh.add_child(book)
 	gv.add_child(gh)
-	grid = BackpackGrid.new().setup(self, CELL)
+	grid = BackpackGrid.new().setup(self, cell_px)
 	grid.cell_pressed.connect(_on_grid_press)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	gv.add_child(grid)
-	held_lbl = UI.wrap_lbl(_held_text(), 14, UI.AC if run.msg != "" else UI.MU)
-	held_lbl.custom_minimum_size.y = 40
+	held_lbl = UI.wrap_lbl(_held_text(), 16, UI.MU)
+	held_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	held_lbl.custom_minimum_size.y = 26
 	gv.add_child(held_lbl)
 	root.add_child(gp)
 
 	# storage
-	var sp := UI.panel(UI.PN, UI.BD, 1, 12, 8)
+	var sp := UI.card(Color(UI.PN, 0.92), UI.BD, 22, 10)
 	storage_panel = sp
 	var sv := UI.vbox(6)
 	sp.add_child(sv)
 	var items := run.storage_items()
 	var sh := UI.hbox(8)
-	sh.add_child(UI.lbl("📦 " + tr("Storage") + " (%d)" % items.size(), 16, UI.TX, true))
-	var hint := UI.lbl(tr("inactive in fights"), 13, UI.MU)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.clip_text = true
-	sh.add_child(hint)
+	sh.add_child(UI.title("📦 " + tr("Storage"), 22))
+	var cnt := _chip(str(items.size()), UI.MU)
+	sh.add_child(cnt)
+	sh.add_child(UI.spacer())
 	if run.phase == "morning" and not run.grid_items().is_empty():
 		sh.add_child(UI.btn("📥 " + tr("Empty pack"), func():
 			if drag_item != null:
@@ -368,83 +475,125 @@ func _run_screen() -> Control:
 			var n := run.clear_pack()
 			_clear_sel()
 			run.msg = tr("Moved %d items into storage.") % n
-			render(), false, 14))
+			render(), false, 16, "blue"))
 	sv.add_child(sh)
 	var scr := ScrollContainer.new()
 	scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scr.custom_minimum_size.y = 128
-	var row := UI.hbox(8)
+	scr.custom_minimum_size.y = 112
+	var row := UI.hbox(10)
 	scr.add_child(row)
 	sv.add_child(scr)
 	for it in items:
 		row.add_child(_storage_card(it))
 	if items.is_empty():
-		row.add_child(UI.lbl(tr("Empty. Drag items here to store them."), 14, UI.MU))
+		var el := UI.lbl(tr("Empty. Drag items here to store them."), 17, UI.MU)
+		el.custom_minimum_size.y = 100
+		el.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(el)
 	root.add_child(sp)
 
 	if run.phase == "morning":
-		root.add_child(_shop_panel())
+		var shop := _shop_panel(fresh)
+		root.add_child(shop)
+	if fresh:
+		var k := 0
+		for c in root.get_children():
+			UI.pop_in(c, 0.05 * k, 18)
+			k += 1
 	return root
 
 
-func _top_bar() -> Control:
-	var p := UI.panel(UI.PN, UI.BD, 1, 12, 8)
-	var h := UI.hbox(10)
-	p.add_child(h)
-	h.add_child(UI.lbl(run.cls_def().hero, 30))
-	var hv := UI.vbox(2)
-	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 18)
-	bar.max_value = 1
-	var r := run.hp / run.mhp
-	bar.value = r
-	var col := UI.GOOD if r > 0.5 else Color("#f59e0b") if r > 0.25 else UI.BAD
-	bar.add_theme_stylebox_override("fill", UI.box(col, col, 0, 4, 0))
-	hv.add_child(bar)
-	hv.add_child(UI.lbl("HP %d/%d   %s" % [roundi(run.hp), roundi(run.mhp), "❤️".repeat(run.res) + "🖤".repeat(RunState.MAX_HEARTS - run.res)], 14, UI.TX, true))
-	h.add_child(hv)
-	h.add_child(_pill("🪙 %d" % run.gold, 20))
-	var dv := UI.vbox(0)
-	dv.add_child(UI.lbl(tr("Day %d/%d") % [run.day, GameData.days], 16, UI.TX, true))
-	dv.add_child(UI.lbl(tr(run.phase.capitalize()), 13, UI.MU))
-	h.add_child(dv)
-	return p
-
-
-func _pill(t: String, size := 15) -> Control:
-	var p := UI.panel(Color(UI.AC, 0.18), UI.AC, 1, 99, 6)
-	p.add_child(UI.lbl(t, size, UI.TX, true))
+func _chip(t: String, col: Color) -> Control:
+	var p := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 99, 6)
+	p.add_child(UI.lbl(t, 16, col, true))
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return p
 
 
-func _info_strip() -> Control:
-	var parts := []
+func _hud() -> Control:
+	var p := UI.card(Color("#3a2d7a"), Color("#1d1546"), 24, 10)
+	var h := UI.hbox(10)
+	p.add_child(h)
+	var av := UI.panel(Color("#ffcf3f"), Color("#c47a0c"), 4, 99, 4)
+	av.custom_minimum_size = Vector2(66, 66)
+	var al := UI.lbl(run.cls_def().hero, 38)
+	al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	av.add_child(al)
+	h.add_child(av)
+	var hv := UI.vbox(4)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.alignment = BoxContainer.ALIGNMENT_CENTER
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 28)
+	bar.max_value = 1
+	var r := run.hp / run.mhp
+	var col := UI.GOOD if r > 0.5 else Color("#ffb020") if r > 0.25 else UI.BAD
+	bar.add_theme_stylebox_override("fill", UI.box(col, col.darkened(0.3), 2, 99, 0))
+	var hpl := UI.lbl("", 17, Color.WHITE, true)
+	hpl.add_theme_color_override("font_outline_color", Color.BLACK)
+	hpl.add_theme_constant_override("outline_size", 5)
+	hpl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hpl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hpl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	bar.add_child(hpl)
+	var hp_now := roundi(run.hp)
+	if _shown_hp >= 0 and _shown_hp != hp_now:
+		bar.value = float(_shown_hp) / run.mhp
+		bar.create_tween().tween_property(bar, "value", r, 0.5).set_trans(Tween.TRANS_CUBIC)
+	else:
+		bar.value = r
+	hpl.text = "❤️ %d / %d" % [hp_now, roundi(run.mhp)]
+	_shown_hp = hp_now
+	hv.add_child(bar)
+	var hr := UI.hbox(6)
+	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(RunState.MAX_HEARTS - run.res), 18))
+	hr.add_child(UI.spacer())
+	var dl := UI.lbl(tr("Day %d/%d") % [run.day, GameData.days] + "  ·  " + tr(run.phase.capitalize()), 16, UI.MU, true)
+	hr.add_child(dl)
+	hv.add_child(hr)
+	h.add_child(hv)
+	var gp := UI.panel(Color("#1d1546"), UI.GOLD, 3, 99, 10)
+	gp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gp.custom_minimum_size.x = 120
+	var gl := UI.title("", 26, UI.GOLD)
+	gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	gp.add_child(gl)
+	UI.count_to(gl, _shown_gold if _shown_gold >= 0 else run.gold, run.gold, "🪙 %d")
+	_shown_gold = run.gold
+	h.add_child(gp)
+	return p
+
+
+## One tidy row of pills: boss warning, today's hazard, modifier, path. Tap one for details.
+func _ribbon() -> Control:
+	var sc := ScrollContainer.new()
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size.y = 46
+	var h := UI.hbox(8)
+	sc.add_child(h)
+	var pills := []
 	for b in GameData.bosses:
 		if b.d >= run.day and b.d - run.day <= 3:
-			parts.append("⚠️ " + tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm), tr(b.weak)])
+			pills.append(["💀 " + tr("Boss in %d days") % (b.d - run.day) if b.d > run.day else "💀 " + tr("Boss today!"), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm), tr(b.weak)]])
 	if not run.hz.is_empty():
-		parts.append("%s %s: %s" % [run.hz.ic, tr(run.hz.n), tr(run.hz.d)])
-	parts.append("🌐 %s: %s" % [tr(run.mod.n), tr(run.mod.d)])
+		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
+	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
 	if run.path != "":
-		parts.append("%s %s: %s" % [run.path_def().ic, tr(run.path_def().n), tr(run.path_def().d)])
-	var l := UI.wrap_lbl("\n".join(parts), 13, UI.MU)
-	return l
-
-
-func _stats_text() -> String:
-	var pr := run.pack_rates()
-	var used := 0
-	for i in run.grid_items():
-		used += GameData.shape(i.id, i.rot).c.size()
-	return "[right]⚔ [b]%.1f[/b]/s   🛡 [b]%.1f[/b]/s   🔲 %d/%d[/right]" % [pr.x, pr.y, used, run.tiles.size()]
+		pills.append([run.path_def().ic + " " + tr(run.path_def().n), UI.GOLD, tr(run.path_def().d)])
+	for pl in pills:
+		var info: String = pl[2]
+		var p := UI.panel(Color(pl[1], 0.18), pl[1], 2, 99, 8)
+		p.add_child(UI.plbl(pl[0], 15, Color.WHITE, true))
+		UI.on_tap(p, func(): toast(info, UI.MU))
+		h.add_child(p)
+	return sc
 
 
 func _held_text() -> String:
 	if drag_item != null:
-		var t := tr("Holding %s — tap with a 2nd finger, right-click or R to rotate.") % tr(drag_item.def().n)
+		var t := "✌️ " + tr("Tap with a second finger to rotate")
 		if hover_cell.x >= 0:
 			var a := run.anchor_for(drag_item, hover_cell)
 			var pr := run.preview(drag_item, a.x, a.y)
@@ -453,96 +602,110 @@ func _held_text() -> String:
 				if pr.lk:
 					t += "  ✨ " + tr("forms a Golden Link!")
 			else:
-				t = tr("Does not fit here.")
+				t = "❌ " + tr("Does not fit here.")
 		return t
-	if run.msg != "":
-		return run.msg
 	if run.phase != "morning":
-		return tr("The market is closed.")
+		return ""
 	if run.expand > 0:
-		return tr("Tap %d glowing tile(s) to grow your pack.") % run.expand
-	return tr("Drag items into the pack. Touching items buff each other; matching pairs fuse at night.")
+		return "✨ " + tr("Tap %d glowing tile(s) to grow your pack.") % run.expand
+	return tr("Tap an item to see it · tap again to rotate")
 
 
 func _storage_card(it: PItem) -> Control:
 	var d := it.def()
 	var c: Color = GameData.tier_colors[d.tier]
-	var p := UI.panel(c.darkened(0.62), Color.WHITE if selected == it else c, 2, 10, 6)
-	p.custom_minimum_size = Vector2(100, 120)
+	var on := selected == it
+	var p := UI.card(c.darkened(0.55), Color.WHITE if on else c, 16, 6)
+	p.custom_minimum_size = Vector2(112, 104)
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(v)
-	var top := UI.hbox(4)
+	var top := UI.hbox(6)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
-	top.custom_minimum_size.y = 48
-	top.add_child(UI.plbl(d.ic, 28))
+	top.custom_minimum_size.y = 50
+	top.add_child(UI.plbl(d.ic, 36))
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cc.add_child(ShapeView.new().setup(it.id, 0, 11))
+	cc.add_child(ShapeView.new().setup(it.id, it.rot, 11))
 	top.add_child(cc)
 	v.add_child(top)
-	var nm := UI.plbl(tr(d.n), 12, UI.TX, true, true)
+	var nm := UI.plbl(tr(d.n), 14, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nm.custom_minimum_size.x = 88
+	nm.custom_minimum_size.x = 96
 	v.add_child(nm)
-	var tl := UI.plbl(tr(GameData.tier_names[d.tier]) + (" · 🔗" if run.recipe_partner_owned(it.id, true) else ""), 11, c.lightened(0.35), false, true)
-	v.add_child(tl)
+	if run.recipe_partner_owned(it.id, true):
+		v.add_child(UI.plbl("🔗 " + tr("match!"), 13, UI.GOLD, true, true))
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			_press({"item": it, "src": "storage"}))
+	UI.juice(p)
 	return p
 
 
 # --------------------------------------------------------------- shop
 
-func _shop_panel() -> Control:
-	var shop := UI.panel(Color("#1f3236"), UI.AC.darkened(0.3), 2, 12, 10)
+func _shop_panel(fresh: bool) -> Control:
+	var shop := UI.card(Color("#2f2468", 0.95), Color("#c47a0c"), 22, 10)
 	sell_zone = shop
-	var v := UI.vbox(8)
+	var v := UI.vbox(10)
 	shop.add_child(v)
 	var head := UI.hbox(8)
-	sell_lbl = UI.lbl("🛒 " + tr("Shop"), 18, UI.TX, true)
+	sell_lbl = UI.title("🛒 " + tr("Shop"), 24, UI.GOLD)
 	head.add_child(sell_lbl)
-	var sub := UI.lbl(tr("drag an item here to sell it"), 13, UI.MU)
+	var sub := UI.lbl(tr("drag here to sell"), 15, UI.MU, true)
 	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sub.clip_text = true
 	head.add_child(sub)
+	var rr := UI.btn("🎲 %d🪙" % run.reroll_cost(), func():
+		if run.reroll():
+			_clear_sel()
+			_screen_key = ""   # replay the card animation
+		render(), false, 18, "purple")
+	rr.disabled = run.gold < run.reroll_cost()
+	head.add_child(rr)
 	v.add_child(head)
 	var cards := UI.hbox(8)
 	var bag_entries := []
+	var k := 0
 	for i in run.shop.size():
 		var e: Dictionary = run.shop[i]
 		if e.has("bag"):
 			bag_entries.append(i)
 		else:
-			cards.add_child(_shop_card(e, i))
+			var sc := _shop_card(e, i)
+			cards.add_child(sc)
+			if fresh:
+				UI.pop_in(sc, 0.15 + 0.06 * k, 30)
+			k += 1
 	for _k in range(cards.get_child_count(), 5):
-		var empty := UI.panel(Color(0, 0, 0, 0.15), UI.BD, 1, 12, 6)
-		empty.custom_minimum_size = Vector2(0, 196)
+		var empty := UI.panel(Color(0, 0, 0, 0.2), UI.BD, 2, 16, 6)
+		empty.custom_minimum_size = Vector2(0, 184)
 		empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		empty.add_child(UI.plbl(tr("Sold"), 13, UI.MU, false, true))
+		var el := UI.plbl("✅\n" + tr("Sold"), 16, UI.MU, true, true)
+		el.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		empty.add_child(el)
 		cards.add_child(empty)
 	v.add_child(cards)
-	var act := UI.hbox(8)
+	var act := UI.hbox(10)
 	for i in bag_entries:
 		var e: Dictionary = run.shop[i]
 		var ii: int = i
-		var b := UI.btn("🎒+%d · %d🪙" % [e.n, e.price], func():
-			run.buy_bag(ii)
-			render(), false, 14)
+		var b := UI.btn("🎒 +%d\n%d🪙" % [e.n, e.price], func():
+			if run.buy_bag(ii):
+				toast("🎒 " + tr("Tap the glowing tiles to place your new space!"), UI.GOOD)
+			render(), false, 18, "blue")
+		b.custom_minimum_size = Vector2(112, 68)
 		b.disabled = run.gold < e.price
 		act.add_child(b)
-	act.add_child(UI.btn("🎲 %d🪙" % run.reroll_cost(), func():
-		run.reroll()
-		_clear_sel()
-		render(), false, 14))
-	act.add_child(UI.spacer())
-	act.add_child(UI.btn(tr("Depart") + " ▶", func():
+	var dep := UI.btn(tr("Depart") + " ▶️", func():
 		if run.travel():
 			_clear_sel()
-		render(), true, 18))
+		render(), false, 26, "green")
+	dep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dep.custom_minimum_size.y = 68
+	act.add_child(dep)
 	v.add_child(act)
 	return shop
 
@@ -551,47 +714,46 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var d: Dictionary = GameData.items[e.id]
 	var col: Color = GameData.tier_colors[d.tier]
 	var on := inspect_idx == i
-	var p := UI.panel(col.darkened(0.62), Color.WHITE if on else col, 2, 12, 6)
-	p.custom_minimum_size = Vector2(0, 196)
+	var p := UI.card(col.darkened(0.5), Color.WHITE if on else col, 16, 6)
+	p.custom_minimum_size = Vector2(0, 184)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	p.size_flags_stretch_ratio = 1.0
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_press({"src": "shop", "idx": i, "id": e.id}))
+	UI.juice(p)
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(v)
 	var top := UI.hbox(0)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.custom_minimum_size.y = 20
 	if e.get("sale", false):
-		top.add_child(UI.plbl("-50%", 12, Color("#ff7b7f"), true))
+		top.add_child(UI.plbl("-50%", 14, Color("#ff7b7f"), true))
 	elif run.recipe_partner_owned(e.id):
-		top.add_child(UI.plbl("🔗", 14))
+		top.add_child(UI.plbl("🔗", 16))
 	top.add_child(UI.spacer())
 	if e.get("lock", false):
-		top.add_child(UI.plbl("🔒", 14))
-	top.custom_minimum_size.y = 18
+		top.add_child(UI.plbl("🔒", 16))
 	v.add_child(top)
-	v.add_child(UI.plbl(d.ic, 34, UI.TX, false, true))
-	var nm := UI.plbl(tr(d.n), 13, UI.TX, true, true)
+	var ic := UI.plbl(d.ic, 38, UI.TX, false, true)
+	v.add_child(ic)
+	var nm := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nm.custom_minimum_size = Vector2(80, 36)
+	nm.custom_minimum_size = Vector2(80, 34)
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(nm)
-	var cc := CenterContainer.new()
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cc.custom_minimum_size.y = 32
-	cc.add_child(ShapeView.new().setup(e.id, 0, 10))
-	v.add_child(cc)
-	var sl := UI.plbl(GameData.short_stats(e.id), 12, UI.TX, false, true)
+	var sl := UI.plbl(GameData.short_stats(e.id), 14, Color("#e9e4ff"), true, true)
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sl.custom_minimum_size.x = 80
 	v.add_child(sl)
 	v.add_child(UI.spacer(false))
-	var pb := UI.panel(UI.GOLD if run.gold >= e.price else UI.BD, Color(0, 0, 0, 0), 0, 8, 3)
+	var can: bool = run.gold >= e.price
+	var pb := UI.panel(Color("#ffc93c") if can else Color("#4a4670"), Color("#c47a0c") if can else Color("#2c2950"), 0, 12, 4)
+	var sbx: StyleBoxFlat = pb.get_theme_stylebox("panel")
+	sbx.border_width_bottom = 5
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pb.add_child(UI.plbl("🪙 %d" % e.price, 15, Color("#3a2600") if run.gold >= e.price else UI.MU, true, true))
+	pb.add_child(UI.plbl("🪙 %d" % e.price, 19, Color("#4a2800") if can else Color("#8f8ab8"), true, true))
 	v.add_child(pb)
 	return p
 
@@ -603,7 +765,7 @@ func _buy_to_storage(i: int) -> void:
 	if it != null:
 		it.loc = "storage"
 		_clear_sel()
-		run.msg = tr("Bought %s — it's in storage.") % tr(it.def().n)
+		toast("✅ " + tr("Bought %s — it's in storage.") % tr(it.def().n), UI.GOOD)
 	render()
 
 
@@ -620,85 +782,101 @@ func _inspector_popup() -> Control:
 		return Control.new()
 	var d: Dictionary = GameData.items[id]
 	var col: Color = GameData.tier_colors[d.tier]
-	var p := UI.panel(Color("#132328"), col, 3, 16, 14)
+	var p := UI.card(Color("#221b4d"), col, 26, 18)
 	p.anchor_left = 0
 	p.anchor_right = 1
 	p.anchor_top = 1
 	p.anchor_bottom = 1
-	p.offset_left = 12
-	p.offset_right = -12
+	p.offset_left = 10
+	p.offset_right = -10
 	p.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	p.offset_bottom = -12
+	p.offset_bottom = -10
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
-	var v := UI.vbox(8)
+	var v := UI.vbox(10)
 	p.add_child(v)
-	var h := UI.hbox(12)
+	var h := UI.hbox(14)
 	v.add_child(h)
-	var sv := ShapeView.new().setup(id, rot, 26, true)
-	sv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	h.add_child(sv)
-	var tv := UI.vbox(2)
+	var sh := UI.panel(col.darkened(0.6), col, 2, 16, 8)
+	sh.add_child(ShapeView.new().setup(id, rot, 28, true))
+	sh.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	h.add_child(sh)
+	var tv := UI.vbox(4)
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(tv)
-	tv.add_child(UI.lbl("%s %s" % [d.ic, tr(d.n)], 20, Color.WHITE, true))
+	tv.add_child(UI.title("%s %s" % [d.ic, tr(d.n)], 26))
 	var tags := " · ".join(d.tags.map(func(t): return tr(t)))
-	tv.add_child(UI.lbl("%s · %s" % [tr(GameData.tier_names[d.tier]), tags], 13, col.lightened(0.35)))
-	h.add_child(UI.btn("✖️", func():
+	var tp := UI.panel(Color(col, 0.25), col, 2, 99, 6)
+	tp.add_child(UI.lbl(tr(GameData.tier_names[d.tier]) + " · " + tags, 15, Color.WHITE, true))
+	tp.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	tv.add_child(tp)
+	var close := UI.btn("✖️", func():
 		_clear_sel()
-		render(), false, 16))
+		render(), false, 20, "red")
+	close.custom_minimum_size = Vector2(56, 56)
+	close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	h.add_child(close)
 	for line in GameData.describe_lines(id):
-		v.add_child(UI.wrap_lbl(line, 15))
+		v.add_child(UI.wrap_lbl(line, 18, Color("#efeaff")))
 	for r in run.recipes_for(id):
 		v.add_child(_recipe_row(r))
-	# how to act on it
-	var hint := ""
 	if owned and run.phase == "morning":
-		if selected.starter:
-			hint = tr("Starter item: can't be sold.") + "  "
-		else:
-			hint = tr("Drag to 🛒 to sell (+%d🪙).") % run.sell_price(selected) + "  "
-		if selected.loc == "grid":
-			hint += tr("Drag to 📦 to store. Tap it again to rotate.")
-		else:
-			hint += tr("Drag into the pack to use it.")
+		var tips := UI.hbox(8)
+		tips.add_child(_tip("🔄", tr("tap again")))
+		tips.add_child(_tip("📦", tr("drag to storage")))
+		tips.add_child(_tip("🛒", (tr("sell +%d🪙") % run.sell_price(selected)) if not selected.starter else tr("starter")))
+		v.add_child(tips)
 	elif not owned and inspect_idx >= 0 and inspect_idx < run.shop.size():
 		var e: Dictionary = run.shop[inspect_idx]
 		var ii := inspect_idx
-		hint = tr("Drag into your pack to buy for %d🪙.") % e.price
-		var ah := UI.hbox(8)
-		ah.add_child(UI.btn(("🔓 " + tr("Unlock")) if e.get("lock", false) else ("🔒 " + tr("Keep for tomorrow")), func():
+		var ah := UI.hbox(10)
+		var lk := UI.btn(("🔓 " + tr("Unlock")) if e.get("lock", false) else ("🔒 " + tr("Keep")), func():
 			run.toggle_lock(ii)
-			render(), false, 14))
-		ah.add_child(UI.spacer())
-		var bb := UI.btn(tr("Buy to storage") + " · %d🪙" % e.price, func(): _buy_to_storage(ii), true, 15)
+			render(), false, 18, "purple")
+		ah.add_child(lk)
+		var bb := UI.btn(tr("Buy") + " · %d🪙" % e.price, func(): _buy_to_storage(ii), false, 22, "gold")
+		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bb.disabled = run.gold < e.price
 		ah.add_child(bb)
 		v.add_child(ah)
-	if hint != "":
-		var hl := UI.wrap_lbl(hint, 13, UI.AC)
-		v.add_child(hl)
+		v.add_child(UI.wrap_lbl("💡 " + tr("Or drag it straight into your pack."), 15, UI.MU))
+	# slide up
+	p.modulate.a = 0
+	p.offset_bottom = 80
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 1.0, 0.15)
+	tw.parallel().tween_property(p, "offset_bottom", -10.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return p
+
+
+func _tip(icon: String, t: String) -> Control:
+	var p := UI.panel(Color(1, 1, 1, 0.08), Color(0, 0, 0, 0), 0, 14, 8)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := UI.vbox(0)
+	p.add_child(v)
+	v.add_child(UI.plbl(icon, 24, UI.TX, false, true))
+	v.add_child(UI.plbl(t, 14, UI.MU, true, true))
 	return p
 
 
 func _recipe_row(r: Dictionary) -> Control:
-	var h := UI.hbox(4)
+	var h := UI.hbox(6)
 	h.add_child(UI.item_chip(r.a, run.owns(r.a)))
-	h.add_child(UI.lbl("+", 16, UI.MU, true))
+	h.add_child(UI.lbl("+", 20, UI.MU, true))
 	h.add_child(UI.item_chip(r.b, run.owns(r.b) and (r.a != r.b or run.count_owned(r.a) >= 2)))
-	h.add_child(UI.lbl("➡️", 16, UI.MU, true))
+	h.add_child(UI.lbl("➡️", 18))
 	var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 	if known:
 		h.add_child(UI.item_chip(r.r, run.owns(r.r)))
 		var t := tr(GameData.items[r.r].n)
 		if r.path != "":
-			t += "  (" + GameData.paths[r.path].ic + " " + tr(GameData.paths[r.path].n) + ")"
-		var l := UI.lbl(t, 14, UI.TX)
+			t += "  " + GameData.paths[r.path].ic
+		var l := UI.lbl(t, 17, UI.TX, true)
 		l.clip_text = true
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(l)
 	else:
 		h.add_child(UI.unknown_chip())
-		h.add_child(UI.lbl("???" + (("  (" + GameData.paths[r.path].ic + ")") if r.path != "" else ""), 14, UI.MU))
+		h.add_child(UI.lbl("???" + (("  " + GameData.paths[r.path].ic) if r.path != "" else ""), 17, UI.MU, true))
 	return h
 
 
@@ -707,51 +885,63 @@ func _recipe_row(r: Dictionary) -> Control:
 func _path_choice_overlay() -> Control:
 	var o := _overlay(tr("CHOOSE YOUR PATH"))
 	var v: VBoxContainer = o[1]
-	var s := UI.wrap_lbl(tr("This choice lasts the whole run. Your path relic goes to storage, and it unlocks that path's Capstone recipe."), 15, Color("#cfe0e8"))
+	var s := UI.wrap_lbl(tr("This choice lasts the whole run. Your path relic goes to storage, and it unlocks that path's Capstone recipe."), 18, Color("#e9e4ff"))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
+	var k := 0
 	for pid in run.cls_def().paths:
 		var pp: String = pid
 		var pd: Dictionary = GameData.paths[pid]
-		var p := UI.panel(Color(UI.GOLD, 0.08), UI.GOLD, 2, 16, 16)
-		var pv := UI.vbox(8)
+		var p := UI.card(Color("#3a2d7a"), UI.GOLD, 24, 18)
+		var pv := UI.vbox(10)
 		p.add_child(pv)
-		pv.add_child(UI.lbl(pd.ic + " " + tr(pd.n), 26, UI.GOLD, true))
-		pv.add_child(UI.wrap_lbl(tr(pd.d), 16))
+		var hh := UI.hbox(12)
+		hh.add_child(UI.lbl(pd.ic, 56))
+		var tv := UI.vbox(2)
+		tv.add_child(UI.title(tr(pd.n), 32, UI.GOLD))
+		tv.add_child(UI.wrap_lbl(tr(pd.d), 18))
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hh.add_child(tv)
+		pv.add_child(hh)
 		var rd: Dictionary = GameData.items[pd.relic]
-		var rh := UI.hbox(8)
+		var rh := UI.hbox(10)
 		rh.add_child(UI.item_chip(pd.relic))
-		rh.add_child(UI.wrap_lbl("%s: %s" % [tr(rd.n), tr(rd.d)], 14, Color("#cfe0e8")))
-		rh.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var rl := UI.wrap_lbl("%s: %s" % [tr(rd.n), tr(rd.d)], 16, Color("#e9e4ff"))
+		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rh.add_child(rl)
 		pv.add_child(rh)
 		for r in GameData.recipes:
 			if r.path == pid:
-				pv.add_child(UI.wrap_lbl("👑 " + tr("Capstone: %s = %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n)], 14, UI.AC))
-		pv.add_child(_center(UI.btn(tr("Choose %s") % tr(pd.n), func():
+				pv.add_child(UI.wrap_lbl("👑 " + tr("Capstone: %s = %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n)], 16, UI.AC))
+		pv.add_child(UI.big_btn(tr("Choose %s") % tr(pd.n), func():
 			run.choose_path(pp)
-			render(), true, 18)))
+			render(), "gold", 24))
 		v.add_child(p)
+		UI.pop_in(p, 0.15 + 0.12 * k, 40)
+		k += 1
 	return o[0]
 
 
 const NK := {
-	"combat": ["⚔️", "FIGHT", "#64748b"], "elite": ["👹", "ELITE", "#ef4444"], "boss": ["💀", "BOSS", "#a855f7"],
-	"forge": ["🔨", "FORGE", "#f59e0b"], "camp": ["🏕️", "CAMPFIRE", "#22c55e"], "ambush": ["⚠️", "AMBUSH", "#f97316"],
-	"shrine": ["🗿", "DARK SHRINE", "#7c3aed"], "tailor": ["🧵", "TAILOR", "#0ea5e9"],
+	"combat": ["⚔️", "FIGHT", "#6b7bd6", "red"], "elite": ["👹", "ELITE", "#ef4444", "red"], "boss": ["💀", "BOSS", "#a855f7", "red"],
+	"forge": ["🔨", "FORGE", "#f59e0b", "gold"], "camp": ["🏕️", "CAMPFIRE", "#22c55e", "green"], "ambush": ["⚠️", "AMBUSH", "#f97316", "red"],
+	"shrine": ["🗿", "DARK SHRINE", "#7c3aed", "purple"], "tailor": ["🧵", "TAILOR", "#0ea5e9", "blue"],
 }
 
 
 func _road_overlay() -> Control:
 	var o := _overlay(tr("CHOOSE YOUR ROAD"))
 	var v: VBoxContainer = o[1]
-	var s := UI.lbl(tr("Day %d · HP %d/%d · Hearts %d/%d") % [run.day, roundi(run.hp), roundi(run.mhp), run.res, RunState.MAX_HEARTS], 15, Color("#9fb7c4"))
+	var s := UI.lbl(tr("Day %d · HP %d/%d · Hearts %d/%d") % [run.day, roundi(run.hp), roundi(run.mhp), run.res, RunState.MAX_HEARTS], 18, UI.MU, true)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	for i in run.nodes.size():
-		v.add_child(_road_card(run.nodes[i], i))
-	v.add_child(_center(UI.btn("◀ " + tr("Back to the shop"), func():
+		var c := _road_card(run.nodes[i], i)
+		v.add_child(c)
+		UI.pop_in(c, 0.1 + 0.1 * i, 40)
+	v.add_child(_center(UI.btn("◀️ " + tr("Back to the shop"), func():
 		run.phase = "morning"
-		render(), false, 15)))
+		render(), false, 18, "gray")))
 	return o[0]
 
 
@@ -759,49 +949,60 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	var k: Array = NK[n.k]
 	var c := Color(k[2])
 	var boss: bool = n.k == "boss"
-	var p := UI.panel(c.darkened(0.72), c, 4 if boss else 3, 16, 12)
-	var h := UI.hbox(12)
-	p.add_child(h)
+	var p := UI.card(c.darkened(0.62), c, 24, 14)
+	var v := UI.vbox(8)
+	p.add_child(v)
+	var h := UI.hbox(14)
+	v.add_child(h)
 	var icon := ""
 	var nm := ""
 	var badges := []
 	var sub := ""
-	var sub_col := Color("#b6c8d2")
+	var sub_col := Color("#e9e4ff")
 	if n.has("e"):
 		var e: Dictionary = n.e
 		var f := run.forecast(e)
 		icon = GameData.foe_icon(e.n)
 		nm = tr(e.n)
-		sub = "%s · ~-%d HP" % [tr(f.tag), roundi(minf(run.hp, f.taken))]
+		sub = {"Safe": "😎 ", "Risky": "😬 ", "Deadly": "☠️ "}.get(f.tag, "") + "%s · ~-%d HP" % [tr(f.tag), roundi(minf(run.hp, f.taken))]
 		sub_col = f.color
-		badges.append("❤️ %d · ⚔ %s" % [roundi(e.hp), GameData._num(e.atk)])
-		if e.imm != "": badges.append("🛡 " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
+		badges.append("❤️ %d" % roundi(e.hp))
+		badges.append("⚔️ %s" % GameData._num(e.atk))
+		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
 		if e.weak != "": badges.append("💥 " + tr("weak to %s") % (GameData.elem_icon(e.weak) + tr(e.weak)))
 		if e.tr != "": badges.append(GameData.traits[e.tr].ic + " " + tr(GameData.traits[e.tr].n))
 		badges.append(("🎁 " + tr("loot")) if n.k != "combat" else ("🎲 " + tr("25% loot")))
 		if n.k in ["elite", "ambush"]:
-			badges.append("🎒+1 · " + tr("lose: no gold"))
+			badges.append("🎒+1")
 	else:
 		icon = k[0]
 		nm = tr({"forge": "Forge", "camp": "Campfire", "shrine": "Dark Shrine", "tailor": "Tailor"}[n.k])
 		sub = tr({"forge": "+3 damage on a random weapon", "camp": "Recover 50% HP", "shrine": "Free Epic+ item · -15 HP", "tailor": "+3 pack tiles"}[n.k])
-	h.add_child(UI.lbl(icon, 64 if boss else 52))
-	var v := UI.vbox(4)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(v)
-	var tg := UI.hbox(6)
-	var tgp := UI.panel(c, c, 0, 99, 3)
-	tgp.add_child(UI.lbl(k[0] + " " + tr(k[1]), 12, Color.WHITE, true))
-	tg.add_child(tgp)
-	tg.add_child(UI.lbl(nm, 18, Color.WHITE, true))
-	v.add_child(tg)
-	v.add_child(UI.lbl(sub, 15, sub_col, true))
+	var il := UI.lbl(icon, 84 if boss else 68)
+	h.add_child(il)
+	UI.breathe(il, 0.06)
+	var tv := UI.vbox(4)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(tv)
+	var tgp := UI.panel(c, c.darkened(0.3), 2, 99, 6)
+	tgp.add_child(UI.lbl(k[0] + " " + tr(k[1]), 15, Color.WHITE, true))
+	tgp.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	tv.add_child(tgp)
+	tv.add_child(UI.title(nm, 26))
+	tv.add_child(UI.lbl(sub, 18, sub_col, true))
 	if not badges.is_empty():
-		v.add_child(UI.wrap_lbl("  ·  ".join(badges), 13, Color("#cfe0e8")))
-	h.add_child(UI.btn(tr("GO") + " ▶", func(): _choose(i), true, 18))
+		var bf := UI.flow(6)
+		for b in badges:
+			var bp := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 99, 6)
+			bp.add_child(UI.lbl(b, 14, Color("#e9e4ff"), true))
+			bf.add_child(bp)
+		v.add_child(bf)
+	var go := UI.btn(("⚔️ " + tr("FIGHT!")) if n.has("e") else (tr("GO") + " ▶️"), func(): _choose(i), false, 26, k[3])
+	go.custom_minimum_size.y = 78
+	v.add_child(go)
 	if n.k in ["elite", "boss", "ambush"]:
 		var tw := p.create_tween().set_loops()
-		tw.tween_property(p, "self_modulate", Color(1.25, 1.25, 1.25), 0.8)
+		tw.tween_property(p, "self_modulate", Color(1.2, 1.1, 1.1), 0.8)
 		tw.tween_property(p, "self_modulate", Color.WHITE, 0.8)
 	return p
 
@@ -820,71 +1021,94 @@ func _on_combat_done(won: bool) -> void:
 
 
 func _night_overlay() -> Control:
-	var o := _overlay(tr("NIGHT"))
-	var v: VBoxContainer = o[1]
 	var r := run.result
+	var o := _overlay(("🏆 " + tr("VICTORY!")) if r.win and r.n.has("e") else ("🌙 " + tr("NIGHT")))
+	var v: VBoxContainer = o[1]
+	var k := 0
 	for l in r.lines:
 		var fusion: bool = l.begins_with("✨")
-		var line := UI.wrap_lbl(l, 17, UI.GOLD if fusion else UI.TX)
+		var fp := UI.card(Color("#4a3a12") if fusion else Color(UI.PN, 0.95), UI.GOLD if fusion else UI.BD, 18, 14)
+		var line := UI.wrap_lbl(l, 20 if fusion else 18, UI.GOLD if fusion else UI.TX)
+		fp.add_child(line)
+		v.add_child(fp)
+		UI.pop_in(fp, 0.15 + 0.15 * k, 30)
 		if fusion:
-			var fp := UI.panel(Color(UI.GOLD, 0.15), UI.GOLD, 2, 10, 10)
-			fp.add_child(line)
-			v.add_child(fp)
-			fp.modulate.a = 0
-			fp.create_tween().tween_property(fp, "modulate:a", 1.0, 0.6)
-		else:
-			v.add_child(line)
+			var ff := fp
+			create_tween().tween_callback(func(): UI.burst(ff, ff.size / 2, UI.GOLD, 36, 380, 9)).set_delay(0.4 + 0.15 * k)
+		k += 1
 	var cs: CombatSim = r.cs
 	if cs != null:
-		var tp := UI.panel(UI.PN, UI.BD, 1, 12, 12)
-		var g := GridContainer.new()
-		g.columns = 4
-		g.add_theme_constant_override("h_separation", 18)
-		tp.add_child(g)
-		for hd in ["Item", "Damage", "Heal/Shield", "Triggers"]:
-			g.add_child(UI.lbl(tr(hd), 14, UI.MU, true))
+		var tp := UI.card(Color(UI.INK, 0.85), UI.BD, 18, 14)
+		var tv := UI.vbox(6)
+		tp.add_child(tv)
+		tv.add_child(UI.title("📊 " + tr("Damage"), 20))
 		var rows := cs.items.duplicate()
-		rows.sort_custom(func(a, b): return a.st.dmg > b.st.dmg)
+		rows.sort_custom(func(a, b): return a.st.dmg + a.st.heal + a.st.shield > b.st.dmg + b.st.heal + b.st.shield)
+		var top := 1.0
 		for x in rows:
-			var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 14)
+			top = maxf(top, x.st.dmg + x.st.heal + x.st.shield)
+		for x in rows.slice(0, 8):
+			var rh := UI.hbox(8)
+			var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 16, UI.TX, true)
 			nl.clip_text = true
-			nl.custom_minimum_size.x = 220
-			g.add_child(nl)
-			g.add_child(UI.lbl(str(roundi(x.st.dmg)), 14))
-			g.add_child(UI.lbl(str(roundi(x.st.heal + x.st.shield)), 14))
-			g.add_child(UI.lbl(str(x.st.hits), 14))
-		v.add_child(tp)
+			nl.custom_minimum_size.x = 230
+			rh.add_child(nl)
+			var bar := ProgressBar.new()
+			bar.show_percentage = false
+			bar.max_value = 1
+			bar.custom_minimum_size = Vector2(0, 18)
+			bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			var heal_only: bool = x.st.dmg <= 0
+			bar.add_theme_stylebox_override("fill", UI.box(Color("#7dd3fc") if heal_only else Color("#ff9b5e"), Color(0, 0, 0, 0), 0, 99, 0))
+			bar.value = 0
+			bar.create_tween().tween_property(bar, "value", (x.st.dmg + x.st.heal + x.st.shield) / top, 0.6).set_delay(0.3)
+			rh.add_child(bar)
+			rh.add_child(UI.lbl(str(roundi(x.st.dmg + x.st.heal + x.st.shield)), 16, UI.TX, true))
+			tv.add_child(rh)
 		var extra := []
-		for k in cs.stat_dmg:
-			if cs.stat_dmg[k] > 0:
-				extra.append("%s %d" % [GameData.statuses[k].ic, roundi(cs.stat_dmg[k])])
-		extra.append(tr("Blocked %d") % roundi(cs.blocked))
-		extra.append(tr("Ultimates %d") % cs.ults)
-		extra.append("%.1fs" % (cs.tk / 10.0))
-		v.add_child(UI.wrap_lbl(" · ".join(extra), 14, UI.MU))
-	var label := tr("See result") if r.over else tr("Claim victory") if r.victory else tr("Next day") + " ▶"
-	v.add_child(_center(UI.btn(label, func():
+		for kk in cs.stat_dmg:
+			if cs.stat_dmg[kk] > 0:
+				extra.append("%s %d" % [GameData.statuses[kk].ic, roundi(cs.stat_dmg[kk])])
+		extra.append("🛡️ " + tr("Blocked %d") % roundi(cs.blocked))
+		extra.append("⭐ " + tr("Ultimates %d") % cs.ults)
+		extra.append("⏱️ %.1fs" % (cs.tk / 10.0))
+		tv.add_child(UI.wrap_lbl(" · ".join(extra), 16, UI.MU))
+		v.add_child(tp)
+		UI.pop_in(tp, 0.2 + 0.15 * k, 30)
+	var label := tr("See result") if r.over else tr("Claim victory") if r.victory else tr("Next day") + " ▶️"
+	var nb := UI.big_btn(label, func():
 		run.next_day()
 		_clear_sel()
-		render(), true, 20)))
+		render(), "green", 28)
+	v.add_child(nb)
+	UI.pop_in(nb, 0.3 + 0.15 * k, 30)
 	return o[0]
 
 
 func _book_overlay() -> Control:
 	var o := _overlay(tr("RECIPE BOOK"))
 	var v: VBoxContainer = o[1]
-	v.add_child(UI.wrap_lbl(tr("Place the two parts so they touch. They fuse at night. Two copies of the same item evolve into something new."), 15, Color("#cfe0e8")))
-	v.add_child(UI.lbl("✨ " + tr("Evolutions"), 18, UI.GOLD, true))
+	v.add_child(UI.wrap_lbl(tr("Place the two parts so they touch. They fuse at night. Two copies of the same item evolve into something new."), 18, Color("#e9e4ff")))
+	var ep := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 14)
+	var ev := UI.vbox(8)
+	ep.add_child(ev)
+	ev.add_child(UI.title("✨ " + tr("Evolutions"), 22, UI.GOLD))
 	for r in GameData.recipes:
 		if r.evo and run.in_class_pool(r.a):
-			v.add_child(_recipe_row(r))
-	v.add_child(UI.lbl("🔗 " + tr("Recipes"), 18, UI.GOLD, true))
+			ev.add_child(_recipe_row(r))
+	v.add_child(ep)
+	var rp := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 14)
+	var rv := UI.vbox(8)
+	rp.add_child(rv)
+	rv.add_child(UI.title("🔗 " + tr("Recipes"), 22, UI.GOLD))
 	for r in GameData.recipes:
 		if not r.evo and run.in_class_pool(r.r) and (r.path == "" or run.path == "" or r.path == run.path):
-			v.add_child(_recipe_row(r))
-	v.add_child(_center(UI.btn(tr("Close"), func():
+			rv.add_child(_recipe_row(r))
+	v.add_child(rp)
+	v.add_child(UI.big_btn(tr("Close"), func():
 		show_book = false
-		render(), true, 18)))
+		render(), "gray", 24))
 	return o[0]
 
 
@@ -904,6 +1128,8 @@ func _on_grid_press(cell: Vector2i) -> void:
 		return
 	if run.can_unlock(cell):
 		run.unlock(cell)
+		if grid:
+			UI.burst(grid, (Vector2(cell) + Vector2(0.5, 0.5)) * cell_px, UI.GOOD, 14, 200, 6)
 		render()
 		return
 	if selected != null or inspect_id != "":
@@ -962,7 +1188,7 @@ func _tap() -> void:
 			inspect_idx = p.idx
 		_:
 			var it: PItem = p.item
-			if selected == it and it.loc == "grid" and run.phase == "morning":
+			if selected == it and run.phase == "morning":
 				_rotate(1)
 				return
 			inspect_id = ""
@@ -996,18 +1222,20 @@ func _begin_drag() -> void:
 	inspect_idx = -1
 	if popup:
 		popup.visible = false
-	ghost.setup(drag_item.id, drag_item.rot, grid.cell if grid else CELL, true)
+	ghost.setup(drag_item.id, drag_item.rot, grid.cell if grid else cell_px, true)
 	ghost.visible = true
+	ghost.scale = Vector2(0.8, 0.8)
+	ghost.create_tween().tween_property(ghost, "scale", Vector2(1.08, 1.08), 0.15).set_trans(Tween.TRANS_BACK)
 	if sell_zone and sell_lbl:
 		if drag_src == "shop":
-			sell_lbl.text = "🛒 " + tr("Shop")
+			pass
 		elif drag_item.starter:
 			sell_lbl.text = "🛒 " + tr("Starter items can't be sold")
 		else:
-			sell_lbl.text = "🛒 " + tr("Drop here to sell: +%d🪙") % run.sell_price(drag_item)
-			sell_zone.self_modulate = Color(1.5, 1.25, 0.8)
+			sell_lbl.text = "🛒 " + tr("Sell: +%d🪙") % run.sell_price(drag_item)
+			sell_zone.self_modulate = Color(1.4, 1.25, 0.9)
 	if storage_panel and drag_src != "storage":
-		storage_panel.self_modulate = Color(1.2, 1.4, 1.5)
+		storage_panel.self_modulate = Color(1.15, 1.3, 1.5)
 	_update_drag(get_global_mouse_position())
 
 
@@ -1017,9 +1245,12 @@ func _update_drag(pos: Vector2) -> void:
 	else:
 		hover_cell = Vector2i(-1, -1)
 	var m := GameData.mid_cell(drag_item.id, drag_item.rot)
-	var k := get_viewport().get_canvas_transform()
-	ghost.position = k * pos - ghost.origin_offset - (Vector2(m) + Vector2(0.5, 0.5)) * ghost.cell
-	ghost.tint = Color(1, 1, 1, 0.55 if hover_cell.x >= 0 else 0.9)
+	var target := pos - (Vector2(m) + Vector2(0.5, 0.5)) * ghost.cell * ghost.scale.x
+	if ghost.position.distance_to(target) > 400:
+		ghost.position = target
+	else:
+		ghost.position = ghost.position.lerp(target, 0.65)
+	ghost.tint = Color(1, 1, 1, 0.6 if hover_cell.x >= 0 else 0.95)
 	ghost.queue_redraw()
 	if held_lbl:
 		held_lbl.text = _held_text()
@@ -1031,30 +1262,29 @@ func _rotate(d: int) -> void:
 	if drag_item != null:
 		drag_item.rot = (drag_item.rot + d + 4) % 4
 		ghost.set_rot(drag_item.rot)
+		ghost.rotation = -PI / 2 * d
+		ghost.create_tween().tween_property(ghost, "rotation", 0.0, 0.15).set_trans(Tween.TRANS_BACK)
 		_update_drag(get_global_mouse_position())
 		return
 	if selected == null or not run.items.has(selected):
 		return
 	var it := selected
-	var nr := (it.rot + d + 4) % 4
 	if it.loc == "grid":
-		var mid_world := Vector2i(it.x, it.y) + GameData.mid_cell(it.id, it.rot)
-		var a := mid_world - GameData.mid_cell(it.id, nr)
-		if run.fits(it, a.x, a.y, nr, it):
-			it.rot = nr
-			it.x = a.x
-			it.y = a.y
-			run.msg = ""
-		else:
+		var res := run.rotate_in_pack(it, d)
+		if res == "x":
 			run.msg = tr("No room to rotate it here — drag it somewhere with more space.")
+		elif res != "":
+			run.msg = res
+		pops[it.uid] = 0.0
 	else:
-		it.rot = nr
+		it.rot = (it.rot + d + 4) % 4
 	render()
 
 
 func _drop(pos: Vector2) -> void:
 	var it := drag_item
 	var done := false
+	var landed := false
 	if grid and grid.get_global_rect().has_point(pos):
 		var a := run.anchor_for(it, grid.cell_at(pos))
 		if run.fits(it, a.x, a.y):
@@ -1062,14 +1292,13 @@ func _drop(pos: Vector2) -> void:
 				it.loc = "grid"
 				it.x = a.x
 				it.y = a.y
-				run.msg = ""
 				done = true
+				landed = true
 		else:
 			run.msg = tr("Does not fit there.")
 	elif storage_panel and storage_panel.get_global_rect().has_point(pos):
 		if drag_src != "shop" or _pay_shop():
 			it.loc = "storage"
-			run.msg = ""
 			done = true
 	elif sell_zone and sell_zone.get_global_rect().has_point(pos) and drag_src != "shop":
 		if it.starter:
@@ -1078,14 +1307,26 @@ func _drop(pos: Vector2) -> void:
 			var g := run.sell_price(it)
 			it.loc = drag_orig.loc
 			run.sell(it)
-			run.msg = tr("Sold %s for %d🪙.") % [tr(it.def().n), g]
+			toast("🪙 " + tr("Sold %s for %d🪙.") % [tr(it.def().n), g], UI.GOLD)
 			_clear_sel()
 			done = true
 	if not done:
 		_cancel_drag()
+	elif landed and grid:
+		# start the slide from where the finger let go, then pop
+		var local: Vector2 = grid.get_global_transform().affine_inverse() * (ghost.position)
+		anim[it.uid] = local / cell_px
+		pops[it.uid] = 0.0
+		var c := (Vector2(it.x, it.y) + Vector2(GameData.mid_cell(it.id, it.rot)) + Vector2(0.5, 0.5)) * cell_px
+		var gref := grid
+		create_tween().tween_callback(func():
+			if is_instance_valid(gref):
+				UI.burst(gref, c, GameData.tier_color(it.id), 14, 220, 6)).set_delay(0.08)
 	_end_drag()
 	if done and drag_src != "shop" and selected == it and it.loc != "grid":
 		_clear_sel()
+	if landed:
+		selected = null
 	render()
 
 
@@ -1122,6 +1363,8 @@ func _end_drag() -> void:
 	drag_shop_idx = -1
 	hover_cell = Vector2i(-1, -1)
 	ghost.visible = false
+	ghost.rotation = 0
+	ghost.scale = Vector2.ONE
 	pending = {}
 
 
@@ -1133,43 +1376,47 @@ func _autoshot(dir: String) -> void:
 		if a.begins_with("--lang="):
 			I18n.set_lang(a.trim_prefix("--lang="))
 			render()
+	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/01_title.png")
 	run = RunState.new(sel_cls)
 	run.gold = 40
 	for id in ["flame_saber", "bellows", "ash_plate", "health_potion", "smith_hammer"]:
 		run.items.append(run.make_item(id, "storage"))
 	render()
+	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/02_morning.png")
-	# inspect a shop card
 	inspect_id = run.shop[0].id
 	inspect_idx = 0
 	render()
+	await get_tree().create_timer(0.5).timeout
 	await _shot(dir + "/03_inspect_shop.png")
-	# inspect an owned item
 	_clear_sel()
 	selected = run.grid_items()[0]
 	render()
+	await get_tree().create_timer(0.5).timeout
 	await _shot(dir + "/04_inspect_owned.png")
 	_clear_sel()
 	render()
-	# simulate dragging the first shop card into the pack
 	await get_tree().process_frame
 	var gr := grid.get_global_rect()
 	_press({"src": "shop", "idx": 0, "id": run.shop[0].id})
 	_begin_drag()
-	_update_drag(gr.position + Vector2(CELL * 3.5, CELL * 2.5))
+	for _i in 6:
+		_update_drag(gr.position + Vector2(cell_px * 3.5, cell_px * 2.5))
+	await get_tree().create_timer(0.3).timeout
 	await _shot(dir + "/05_dragging.png")
 	_cancel_drag()
 	_end_drag()
 	show_book = true
 	render()
+	await get_tree().create_timer(0.5).timeout
 	await _shot(dir + "/06_book.png")
 	show_book = false
 	run.day = GameData.path_day
 	render()
+	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/07_path_choice.png")
 	run.choose_path(run.cls_def().paths[0])
-	# fill the pack so the fight screen has something to show
 	run.expand = 12
 	for _k in 400:
 		run.unlock(Vector2i(randi() % GameData.W, randi() % GameData.H))
@@ -1184,6 +1431,7 @@ func _autoshot(dir: String) -> void:
 					placed = true
 	run.travel()
 	render()
+	await get_tree().create_timer(1.0).timeout
 	await _shot(dir + "/08_road.png")
 	_choose(0)
 	await get_tree().create_timer(3.5).timeout
@@ -1191,7 +1439,12 @@ func _autoshot(dir: String) -> void:
 	if _pending_sim != null:
 		_pending_sim.skip_to_end()
 		_on_combat_done(_pending_sim.won)
+	await get_tree().create_timer(1.2).timeout
 	await _shot(dir + "/10_night.png")
+	run.phase = "morning"
+	render()
+	await get_tree().create_timer(1.0).timeout
+	await _shot(dir + "/11_morning_full.png")
 	get_tree().quit()
 
 

@@ -46,7 +46,7 @@ func _run() -> void:
 	main._pending_sim = null
 	main.render()
 	await process_frame
-	var cb := _find_button(main, "▶ CONTINUE")
+	var cb := _find_button(main, "▶️ CONTINUE")
 	if cb == null:
 		print("FAIL: Continue button missing")
 		ok = false

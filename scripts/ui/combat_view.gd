@@ -45,7 +45,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	sim = s
 	for x in s.items:
 		_xi[x.i.uid] = x
-	add_theme_stylebox_override("panel", UI.box(Color("#0b1220"), Color.BLACK, 0, 0, 0))
+	add_theme_stylebox_override("panel", UI.box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
 	var root := Control.new()
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(root)
@@ -54,7 +54,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	root.add_child(v)
 
 	# enemy header
-	var eh := UI.panel(Color("#2a1416"), Color("#7f1d1d"), 2, 12, 10)
+	var eh := UI.card(Color("#4a1a33"), Color("#ff4d5e"), 22, 12)
 	var ev := UI.vbox(4)
 	eh.add_child(ev)
 	var en := UI.hbox(8)
@@ -76,7 +76,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	en.add_child(bl)
 	ev.add_child(en)
-	ehp_bar = _bar(Color("#ef4444"), 20)
+	ehp_bar = _bar(Color("#ff4d5e"), 26)
 	ev.add_child(ehp_bar)
 	var er := UI.hbox(8)
 	ehp_lbl = UI.lbl("", 14, Color("#fecaca"), true)
@@ -113,7 +113,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	stage.add_child(combo_lbl)
 
 	# hero bar
-	var hb := UI.panel(Color("#10241c"), Color("#14532d"), 2, 12, 10)
+	var hb := UI.card(Color("#173a2f"), Color("#3ee07a"), 22, 12)
 	var hv := UI.vbox(4)
 	hb.add_child(hv)
 	var hr := UI.hbox(8)
@@ -123,7 +123,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	hero_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hr.add_child(hero_status)
 	hv.add_child(hr)
-	php_bar = _bar(Color("#4ade80"), 18)
+	php_bar = _bar(Color("#3ee07a"), 24)
 	hv.add_child(php_bar)
 	var ur := UI.hbox(8)
 	php_lbl = UI.lbl("", 14, Color("#bbf7d0"), true)
@@ -137,7 +137,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	var ulr := UI.hbox(8)
 	ult_lbl = UI.lbl(r.cls_def().ult.ic + " " + tr(r.cls_def().ult.n), 14, Color("#fde68a"), true)
 	ulr.add_child(ult_lbl)
-	ult_bar = _bar(Color("#facc15"), 12)
+	ult_bar = _bar(Color("#ffd84a"), 16)
 	ult_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ult_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ulr.add_child(ult_bar)
@@ -167,9 +167,11 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	var sp := UI.hbox(8)
 	for k in [1, 2, 4]:
 		var kk: int = k
-		sp.add_child(UI.btn("%d×" % k, func(): speed = kk, false, 18))
+		var sb := UI.btn("%d×" % k, func(): speed = kk, false, 20, "gray")
+		sb.custom_minimum_size.x = 80
+		sp.add_child(sb)
 	sp.add_child(UI.spacer())
-	sp.add_child(UI.btn(tr("Skip") + " ⏭", _skip, false, 18))
+	sp.add_child(UI.btn(tr("Skip") + " ⏭️", _skip, false, 20, "purple"))
 	v.add_child(sp)
 
 	fxl = Control.new()
@@ -186,7 +188,7 @@ func _bar(col: Color, h := 14) -> ProgressBar:
 	b.custom_minimum_size = Vector2(0, h)
 	b.max_value = 1.0
 	b.value = 1.0
-	b.add_theme_stylebox_override("fill", UI.box(col, col, 0, 4, 0))
+	b.add_theme_stylebox_override("fill", UI.box(col, col.darkened(0.35), 2, 99, 0))
 	return b
 
 
@@ -217,9 +219,24 @@ func _sprite(icon: String, fs: int, ax: float, ay: float) -> Label:
 
 func _draw_stage() -> void:
 	var s := stage.size
-	stage.draw_rect(Rect2(Vector2.ZERO, s), Color("#1c2a4d"))
-	stage.draw_rect(Rect2(0, s.y * 0.35, s.x, s.y * 0.65), Color("#26365c"))
-	stage.draw_rect(Rect2(0, s.y * 0.78, s.x, s.y * 0.22), Color("#3d3029"))
+	var sky := StyleBoxFlat.new()
+	sky.bg_color = Color("#3b2a7a")
+	sky.set_corner_radius_all(22)
+	stage.draw_style_box(sky, Rect2(Vector2.ZERO, s))
+	for i in 6:
+		var y := s.y * (0.1 + i * 0.1)
+		stage.draw_rect(Rect2(0, y, s.x, s.y * 0.1), Color(1, 0.6, 0.9, 0.025 * i))
+	var gr := StyleBoxFlat.new()
+	gr.bg_color = Color("#2a5c45")
+	gr.corner_radius_bottom_left = 22
+	gr.corner_radius_bottom_right = 22
+	stage.draw_style_box(gr, Rect2(0, s.y * 0.8, s.x, s.y * 0.2))
+	stage.draw_rect(Rect2(0, s.y * 0.8, s.x, 6), Color("#3fa36f"))
+	for l in [foe, hero]:
+		var c: Vector2 = l.get_global_rect().get_center() - stage.get_global_rect().position
+		stage.draw_set_transform(Vector2(c.x, c.y + l.size.y * 0.45), 0, Vector2(1, 0.28))
+		stage.draw_circle(Vector2.ZERO, l.size.x * 0.32, Color(0, 0, 0, 0.3))
+	stage.draw_set_transform(Vector2.ZERO)
 	if sim and sim.tk > CombatSim.FATIGUE_TICK and not sim.done:
 		stage.draw_rect(Rect2(Vector2.ZERO, s), Color(0.9, 0.2, 0.25, 0.18))
 
@@ -227,7 +244,7 @@ func _draw_stage() -> void:
 func _draw_pack() -> void:
 	var f: Font = UI.font if UI.font else get_theme_default_font()
 	for c in run.tiles:
-		pack.draw_rect(Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-2), Color("#1d2b33"))
+		pack.draw_rect(Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-2), Color("#1c1745"))
 	for it in run.grid_items():
 		var col: Color = GameData.tier_color(it.id)
 		var cells: Array = it.cells()
@@ -388,6 +405,7 @@ func _hit_anim(ev: Dictionary, quiet: bool) -> void:
 		combo_lbl.create_tween().tween_property(combo_lbl, "scale", Vector2.ONE, 0.15)
 	var land := func():
 		_flash_lbl(foe)
+		UI.burst(fxl, _center_of(foe), col, 10 if not big else 24, 260, 6 if not big else 9)
 		_float_at(_center_of(foe) + Vector2(randf_range(-60, 60), randf_range(-20, 30)), txt, col, big)
 		if big:
 			_shake()
@@ -477,6 +495,9 @@ func _on_end(won: bool) -> void:
 	if _end_wait > 0:
 		return
 	_end_wait = 1.8
+	if won:
+		for k in 4:
+			create_tween().tween_callback(func(): UI.burst(fxl, Vector2(randf_range(80, fxl.size.x - 80), randf_range(150, 450)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 36, 380, 8)).set_delay(0.15 * k)
 	var dead := foe if won else hero
 	var tw := dead.create_tween().set_parallel()
 	tw.tween_property(dead, "rotation", deg_to_rad(80), 0.9)

@@ -1,6 +1,7 @@
 class_name BackpackGrid
 extends Control
 ## The 9x7 master grid: unlocked tiles, placed items, Golden Links (recipes and evolutions) and drag previews.
+## Items ease toward their cell (main.anim) and squash when they land (main.pops), so moves feel physical.
 
 signal cell_pressed(cell: Vector2i)
 
@@ -19,6 +20,17 @@ func setup(m: Node, cell_px: float) -> BackpackGrid:
 
 func _process(delta: float) -> void:
 	_t += delta
+	var run: RunState = main.run
+	if run != null:
+		var k := 1.0 - exp(-delta * 16.0)
+		for it in run.grid_items():
+			var target := Vector2(it.x, it.y)
+			var cur: Vector2 = main.anim.get(it.uid, target)
+			cur = cur.lerp(target, k)
+			if cur.distance_to(target) < 0.01:
+				main.anim.erase(it.uid)
+			else:
+				main.anim[it.uid] = cur
 	queue_redraw()
 
 
@@ -48,18 +60,27 @@ func _draw() -> void:
 	var pulse := 0.5 + 0.5 * sin(_t * 4.0)
 
 	# tiles
+	var tile := StyleBoxFlat.new()
+	tile.bg_color = Color("#1c1745")
+	tile.border_color = Color("#3d3383")
+	tile.set_border_width_all(2)
+	tile.set_corner_radius_all(10)
 	for y in GameData.H:
 		for x in GameData.W:
 			var c := Vector2i(x, y)
-			var r := cell_rect(c).grow(-2)
+			var r := cell_rect(c).grow(-3)
 			if run.tiles.has(c):
-				draw_rect(r, UI.PN2.lerp(UI.BD, 0.45))
+				draw_style_box(tile, r)
 			elif morning and run.can_unlock(c):
-				draw_rect(r, Color(UI.GOOD, 0.12 + 0.18 * pulse))
-				draw_rect(r, Color(UI.GOOD, 0.7), false, 2.0)
-				_text("+", r, cell * 0.5, Color(UI.GOOD, 0.9))
+				var s := StyleBoxFlat.new()
+				s.bg_color = Color(UI.GOOD, 0.14 + 0.2 * pulse)
+				s.border_color = Color(UI.GOOD, 0.85)
+				s.set_border_width_all(3)
+				s.set_corner_radius_all(10)
+				draw_style_box(s, r.grow(-1 + 2 * pulse))
+				_text("+", r, cell * 0.55, Color(1, 1, 1, 0.95))
 			else:
-				draw_rect(r, Color(UI.BD, 0.3), false, 1.0)
+				draw_rect(r.grow(-6), Color(1, 1, 1, 0.025))
 
 	# drag preview data
 	var h: PItem = main.drag_item
@@ -88,6 +109,17 @@ func _draw() -> void:
 			for sc in GameData.shape(h.id, h.rot).c:
 				pv[a + sc] = true
 
+	# preview of the held item (under the items so neighbours stay readable)
+	if h != null and not pv.is_empty():
+		for k in pv:
+			var r := cell_rect(k).grow(-3)
+			var s := StyleBoxFlat.new()
+			s.bg_color = Color(UI.GOOD if ok else UI.BAD, 0.3)
+			s.border_color = UI.GOOD if ok else UI.BAD
+			s.set_border_width_all(3)
+			s.set_corner_radius_all(10)
+			draw_style_box(s, r)
+
 	# links
 	var linked := {}
 	for l in run.links():
@@ -98,45 +130,52 @@ func _draw() -> void:
 	# items
 	for it in run.grid_items():
 		var col: Color = GameData.tier_color(it.id)
-		var cells: Array = it.cells()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = col.darkened(0.25)
-		sb.border_color = col.lightened(0.15)
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(int(cell * 0.18))
-		for c in cells:
-			var r := cell_rect(c).grow(-3)
-			# merge into neighbouring cells of the same item so shapes read as one piece
-			var g := Rect2(r)
-			if cells.has(c + Vector2i(1, 0)): g = g.grow_side(SIDE_RIGHT, 3.5)
-			if cells.has(c + Vector2i(-1, 0)): g = g.grow_side(SIDE_LEFT, 3.5)
-			if cells.has(c + Vector2i(0, 1)): g = g.grow_side(SIDE_BOTTOM, 3.5)
-			if cells.has(c + Vector2i(0, -1)): g = g.grow_side(SIDE_TOP, 3.5)
-			draw_style_box(sb, g)
-		var tier: int = it.def().tier
-		for c in cells:
-			var r := cell_rect(c).grow(-3)
-			if linked.has(it.uid):
-				draw_rect(r, Color(UI.GOLD, 0.35 + 0.5 * pulse), false, 3.0)
-			if tier >= 3:
-				draw_rect(r, Color(col, 0.18 * pulse))
-			if pre.has("bf") and pre.bf.has(it.uid):
-				draw_rect(r.grow(-3), UI.STAR, false, 3.0)
-			if partners.has(it.uid):
-				draw_rect(r.grow(-1), Color(UI.GOLD, 0.6 + 0.4 * pulse), false, 2.0)
-			if main.selected == it:
-				draw_rect(r.grow(1), Color.WHITE, false, 2.5)
+		var base: Vector2 = main.anim.get(it.uid, Vector2(it.x, it.y))
+		var shp: Array = GameData.shape(it.id, it.rot).c
 		var m := GameData.mid_cell(it.id, it.rot)
-		_text(it.def().ic, cell_rect(Vector2i(it.x, it.y) + m), cell * 0.55, Color.WHITE)
+		var center := (base + Vector2(m) + Vector2(0.5, 0.5)) * cell
+		var t: float = main.pops.get(it.uid, 9.0)
+		var sq := 1.0
+		if t < 0.35:
+			sq = 1.0 + 0.16 * sin(t / 0.35 * PI) * (1.0 - t / 0.35)
+		draw_set_transform(center, 0.0, Vector2(sq, 2.0 - sq))
+		var body := StyleBoxFlat.new()
+		body.bg_color = col.darkened(0.2)
+		body.border_color = col.darkened(0.55)
+		body.set_border_width_all(2)
+		body.border_width_bottom = 5
+		body.set_corner_radius_all(int(cell * 0.2))
+		var shine := StyleBoxFlat.new()
+		shine.bg_color = Color(1, 1, 1, 0.14)
+		shine.set_corner_radius_all(int(cell * 0.16))
+		for c in shp:
+			var r := Rect2((base + Vector2(c)) * cell - center, Vector2(cell, cell)).grow(-4)
+			var g := Rect2(r)
+			if shp.has(c + Vector2i(1, 0)): g = g.grow_side(SIDE_RIGHT, 4.5)
+			if shp.has(c + Vector2i(-1, 0)): g = g.grow_side(SIDE_LEFT, 4.5)
+			if shp.has(c + Vector2i(0, 1)): g = g.grow_side(SIDE_BOTTOM, 4.5)
+			if shp.has(c + Vector2i(0, -1)): g = g.grow_side(SIDE_TOP, 4.5)
+			draw_style_box(body, g)
+			draw_style_box(shine, Rect2(r.position + Vector2(4, 3), Vector2(r.size.x - 8, r.size.y * 0.32)))
+		var tier: int = it.def().tier
+		for c in shp:
+			var r := Rect2((base + Vector2(c)) * cell - center, Vector2(cell, cell)).grow(-4)
+			if linked.has(it.uid):
+				draw_rect(r.grow(1), Color(UI.GOLD, 0.45 + 0.5 * pulse), false, 3.5)
+			if tier >= 3:
+				draw_rect(r, Color(col.lightened(0.4), 0.14 * pulse))
+			if pre.has("bf") and pre.bf.has(it.uid):
+				draw_rect(r.grow(-3), UI.STAR, false, 3.5)
+			if partners.has(it.uid):
+				draw_rect(r.grow(2), Color(UI.GOLD, 0.6 + 0.4 * pulse), false, 3.0)
+			if main.selected == it:
+				draw_rect(r.grow(2), Color.WHITE, false, 3.0)
+		_text(it.def().ic, Rect2(-cell / 2, -cell / 2, cell, cell), cell * 0.6, Color.WHITE)
 		if it.def().relic:
-			_text("✨", Rect2(cell_rect(Vector2i(it.x, it.y) + m).position, Vector2(cell * 0.4, cell * 0.4)), cell * 0.25, UI.GOLD)
-
-	# preview of the held item
-	if h != null and not pv.is_empty():
-		for k in pv:
-			var r := cell_rect(k).grow(-2)
-			draw_rect(r, Color(UI.GOOD if ok else UI.BAD, 0.25))
-			draw_rect(r, UI.GOOD if ok else UI.BAD, false, 2.5)
+			_text("✨", Rect2(-cell / 2, -cell / 2, cell * 0.45, cell * 0.45), cell * 0.28, UI.GOLD)
+		if linked.has(it.uid):
+			_text("✨", Rect2(cell * 0.05, -cell / 2, cell * 0.45, cell * 0.45), cell * 0.28 * (0.8 + 0.3 * pulse), UI.GOLD)
+		draw_set_transform(Vector2.ZERO)
 
 
 func _text(t: String, r: Rect2, fs: float, col: Color) -> void:

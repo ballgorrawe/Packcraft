@@ -191,6 +191,24 @@
   "Turrets grow stronger the more you build.": "ป้อมปืนยิ่งสร้างมากยิ่งแรง",
   "Every hit you take hurts them more.": "ทุกครั้งที่โดนตี ศัตรูยิ่งเจ็บ",
   "Huge Max HP that turns into damage.": "Max HP มหาศาลที่แปลงเป็นดาเมจ",
-  "Path chosen: %s. %s is in your storage — put it in your pack.": "เลือกสาย %s แล้ว %s อยู่ในกล่องเก็บของ ใส่ลงกระเป๋าได้เลย"
+  "Path chosen: %s. %s is in your storage — put it in your pack.": "เลือกสาย %s แล้ว %s อยู่ในกล่องเก็บของ ใส่ลงกระเป๋าได้เลย",
+  "Boss in %d days": "บอสอีก %d วัน",
+  "Boss today!": "บอสวันนี้!",
+  "Tap with a second finger to rotate": "แตะอีกนิ้วเพื่อหมุน",
+  "Tap an item to see it · tap again to rotate": "แตะไอเทมเพื่อดูข้อมูล · แตะซ้ำเพื่อหมุน",
+  "match!": "เข้าคู่!",
+  "drag here to sell": "ลากมาที่นี่เพื่อขาย",
+  "Tap the glowing tiles to place your new space!": "แตะช่องที่เรืองแสงเพื่อขยายกระเป๋า!",
+  "tap again": "แตะซ้ำ = หมุน",
+  "drag to storage": "ลากลงกล่อง",
+  "sell +%d🪙": "ขาย +%d🪙",
+  "starter": "ขายไม่ได้",
+  "Keep": "เก็บไว้",
+  "Buy": "ซื้อ",
+  "Or drag it straight into your pack.": "หรือลากเข้ากระเป๋าได้เลย",
+  "FIGHT!": "สู้!",
+  "Sell: +%d🪙": "ขาย: +%d🪙",
+  "Rotated. %d item(s) in the way went to storage.": "หมุนแล้ว ของที่ขวางอยู่ %d ชิ้นย้ายลงกล่อง",
+  "Rotated. Items in the way were moved over.": "หมุนแล้ว ของที่ขวางถูกเลื่อนไปข้างๆ"
  }
 }
