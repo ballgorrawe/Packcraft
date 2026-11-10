@@ -171,11 +171,20 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	log_lbl.clip_text = true
 	v.add_child(log_lbl)
 
+	# the chosen speed is remembered in settings, so every fight starts at it
+	var saved: int = int(SaveGame.get_setting("combat_speed", 1))
+	speed = saved if saved in [1, 2, 4] else 1
 	var sp := UI.hbox(8)
+	var sbs: Array[Button] = []
 	for k in [1, 2, 4]:
 		var kk: int = k
-		var sb := UI.btn("%d×" % k, func(): speed = kk, false, 20, "gray")
+		var sb := UI.btn("%d×" % k, func():
+			speed = kk
+			SaveGame.set_setting("combat_speed", kk)
+			for i in sbs.size():
+				sbs[i].theme_type_variation = "Btn_blue" if [1, 2, 4][i] == kk else "Btn_gray", false, 20, "blue" if k == speed else "gray")
 		sb.custom_minimum_size.x = 80
+		sbs.append(sb)
 		sp.add_child(sb)
 	sp.add_child(UI.spacer())
 	sp.add_child(UI.btn(tr("Skip") + " ⏭️", _skip, false, 20, "purple"))
