@@ -40,6 +40,10 @@ var msg := ""
 var seen := {}                  # item ids the player has owned (unlocks recipe book entries)
 var event := {}                 # the event being played this afternoon (see start_event)
 var mhp_mod := 0.0              # permanent Max HP changes (Cursed Altar)
+var lv := 1                      # hero level (fights give EXP)
+var xp := 0                      # EXP toward the next level
+var lvl_bonus := {}              # buffs chosen at level-up picks: key -> total (same keys as pets)
+var picks: Array = []            # level-up offers waiting for a choice: each is 3 pick ids
 
 
 func _init(c: String, p := "", df := "normal") -> void:
@@ -66,9 +70,59 @@ func pet_def() -> Dictionary:
 	return GameData.pets.get(pet, {})
 
 
-## A pet stat (0 when there is no pet or it does not have that buff).
+## A hero buff: the pet, the level-up picks, and the stats every level gives (hp, dmg).
 func pv(key: String) -> float:
-	return GameData.pets.get(pet, {}).get(key, 0.0)
+	var v: float = GameData.pets.get(pet, {}).get(key, 0.0) + lvl_bonus.get(key, 0.0)
+	if key == "hp" or key == "dmg":
+		v += (lv - 1) * float(GameData.leveling.get(key, 0.0))
+	return v
+
+
+## EXP needed to go from level l to l + 1.
+func xp_need(l := -1) -> int:
+	if l < 0:
+		l = lv
+	var L: Dictionary = GameData.leveling
+	return int(L.get("need_base", 2)) + int((l - 1) / maxi(1, int(L.get("need_step", 3))))
+
+
+## Adds EXP, levels up as often as it fills, and queues a pick every pick_every levels.
+func gain_xp(n: int, rew: Array, lines: Array) -> void:
+	if n <= 0:
+		return
+	xp += n
+	rew.append({"k": "xp", "v": n})
+	while xp >= xp_need():
+		xp -= xp_need()
+		lv += 1
+		rew.append({"k": "level", "v": lv})
+		lines.append(I18n.t("⭐ Level up! You are now level %d.") % lv)
+		var every := int(GameData.leveling.get("pick_every", 5))
+		if every > 0 and lv % every == 0:
+			var ids: Array = GameData.leveling.get("picks", []).map(func(p): return p.id)
+			ids.shuffle()
+			picks.append(ids.slice(0, 3))
+	sync_hp()
+
+
+func pick_def(id: String) -> Dictionary:
+	for p in GameData.leveling.get("picks", []):
+		if p.id == id:
+			return p
+	return {}
+
+
+## Takes choice i of the oldest waiting level-up offer.
+func pick_level(i: int) -> bool:
+	if picks.is_empty() or i < 0 or i >= picks[0].size():
+		return false
+	var p := pick_def(picks[0][i])
+	picks.pop_front()
+	if p.is_empty():
+		return false
+	lvl_bonus[p.k] = lvl_bonus.get(p.k, 0.0) + float(p.v)
+	sync_hp()
+	return true
 
 
 func diff_def() -> Dictionary:
@@ -360,9 +414,11 @@ func calc() -> Array:
 
 func max_hp() -> float:
 	var m := GameData.base_hp + mhp_mod + pv("hp")
+	var pct := pv("hp_pct")
 	for i in grid_items():
 		m += i.def().pass.hp
-	return maxf(10.0, m)
+		pct += i.def().pass.hp_pct
+	return maxf(10.0, m * (1.0 + pct / 100.0))
 
 
 func regen() -> float:
@@ -1171,6 +1227,7 @@ func to_dict() -> Dictionary:
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
+		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks,
 	}
 
 
@@ -1190,6 +1247,10 @@ static func from_dict(d: Dictionary) -> RunState:
 	var r := RunState.new(d.cls, str(d.get("pet", "")), str(d.get("diff", "normal")))
 	r.path = str(d.get("path", ""))
 	r.mhp_mod = float(d.get("mhp_mod", 0.0))
+	r.lv = int(d.get("lv", 1))
+	r.xp = int(d.get("xp", 0))
+	r.lvl_bonus = d.get("lvl_bonus", {})
+	r.picks = d.get("picks", [])
 	r.event = d.get("event", {})
 	for s in r.event.get("stock", []):
 		s.price = int(s.price)
@@ -1349,6 +1410,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					expand += 1
 					r.lines.append(I18n.t("🎒 Spoils: +1 pack tile."))
 					r.rew.append({"k": "tiles", "v": 1})
+				gain_xp(int(GameData.leveling.get("xp", {}).get(n.k, 0)), r.rew, r.lines)
 				var id := loot_for(n.k, n.get("e", {}))
 				if id != "":
 					items.append(make_item(id, "storage"))
@@ -1396,6 +1458,9 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 
 
 func next_day() -> void:
+	# a level-up nobody chose (bots, old saves) takes the first offer so the run never stalls
+	while not picks.is_empty():
+		pick_level(0)
 	if result.over:
 		end_state = "over"
 		return

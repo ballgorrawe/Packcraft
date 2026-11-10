@@ -312,6 +312,27 @@
   "💔 Defeated! %ssalvaging %d gold.": "💔 แพ้! %sเก็บกู้ได้ %d ทอง",
   "You spend a Heart and revive at 50% HP, ": "เสียหัวใจ 1 ดวงและฟื้นที่ 50% HP ",
   "No Hearts left, ": "หัวใจหมดแล้ว ",
-  "🧪 %s was used up.": "🧪 %s ถูกใช้หมดแล้ว"
+  "🧪 %s was used up.": "🧪 %s ถูกใช้หมดแล้ว",
+  "+%s%% Max HP": "Max HP +%s%%",
+  "EXP": "EXP",
+  "Level up!": "เลเวลอัป!",
+  "Lv %d": "Lv %d",
+  "LEVEL %d — choose a bonus": "เลเวล %d — เลือกโบนัส 1 อย่าง",
+  "⭐ Level up! You are now level %d.": "⭐ เลเวลอัป! ตอนนี้เลเวล %d แล้ว",
+  "Vigor": "พลังชีวิต",
+  "+15% Max HP.": "Max HP +15%",
+  "Might": "พละกำลัง",
+  "+10% damage.": "ดาเมจ +10%",
+  "Focus": "สมาธิ",
+  "Items charge 8% faster.": "ไอเทมชาร์จเร็วขึ้น 8%",
+  "Precision": "แม่นยำ",
+  "+6% crit chance.": "โอกาสคริ +6%",
+  "Mending": "ฟื้นฟู",
+  "Regenerate 1 HP per second.": "ฟื้น HP 1 ต่อวินาที",
+  "Bulwark": "ปราการ",
+  "Start every fight with 12 Shield.": "เริ่มทุกการต่อสู้พร้อมโล่ 12",
+  "+1 Toxin per 5 Poison applied. Poison and Burn deal +1.5% damage per Toxin.": "ได้ท็อกซิน 1 ทุกครั้งที่ใส่พิษ 5 พิษและไฟแรงขึ้น +1.5% ต่อท็อกซิน",
+  "+1 Gear per 2 Mech triggers. All items charge 1.5% faster per Gear (max 40%).": "ได้เฟือง 1 ทุกครั้งที่ไอเทมจักรกลทำงาน 2 ครั้ง ไอเทมทุกชิ้นชาร์จเร็วขึ้น 1.5% ต่อเฟือง (สูงสุด 40%)",
+  "Adds half the enemy's Poison again (+50%) and heals you for 12.": "เพิ่มพิษบนศัตรูอีกครึ่งหนึ่ง (+50%) และฟื้น HP 12"
  }
 }

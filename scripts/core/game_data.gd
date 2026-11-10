@@ -41,6 +41,7 @@ static var elem_colors := {}
 static var elem_icons := {}
 static var days := 15
 static var base_hp := 60.0
+static var leveling := {}            # EXP per node, EXP curve, stats per level, level-up picks
 static var W := 9
 static var H := 7
 static var _shape_cache := {}
@@ -130,6 +131,7 @@ static func ensure_loaded() -> void:
 	elem_icons = d.elem_icons
 	days = int(d.days)
 	base_hp = float(d.base_hp)
+	leveling = d.get("leveling", {})
 	W = int(d.grid_w)
 	H = int(d.grid_h)
 	loaded = true
@@ -173,7 +175,7 @@ static func _norm_item(src: Dictionary) -> Dictionary:
 		"c": _cells(src.c), "tags": src.tags, "cd": float(src.get("cd", 0.0)), "once": int(src.get("once", 0)) == 1,
 		"on": _norm_on(src.get("on", {})), "adj": _buffs(src.get("adj", [])), "all": _buffs(src.get("all", [])),
 		"pass": {
-			"hp": float(ps.get("hp", 0.0)), "regen": float(ps.get("regen", 0.0)), "thorns": float(ps.get("thorns", 0.0)),
+			"hp": float(ps.get("hp", 0.0)), "hp_pct": float(ps.get("hp_pct", 0.0)), "regen": float(ps.get("regen", 0.0)), "thorns": float(ps.get("thorns", 0.0)),
 			"shield": float(ps.get("shield", 0.0)), "income": int(ps.get("income", 0)),
 		},
 		"sp": str(src.get("sp", "")), "evo": str(src.get("evo", "")), "d": str(src.get("d", "")),
@@ -239,6 +241,8 @@ static func short_stats(id: String) -> String:
 	if p.is_empty() or d.cd == 0 and not d.once:
 		if not d.adj.is_empty():
 			p.append("✨ " + I18n.t("aura"))
+		elif d.pass.hp_pct > 0:
+			p.append("❤️+%s%%" % _num(d.pass.hp_pct))
 		elif d.pass.hp > 0:
 			p.append("❤️+%s" % _num(d.pass.hp))
 		elif d.pass.income > 0:
@@ -296,6 +300,8 @@ static func describe_lines(id: String) -> Array:
 	for b in d.all:
 		out.append("🌐 " + I18n.t("Whole pack: ") + buff_text(b))
 	var ps: Dictionary = d.pass
+	if ps.hp_pct > 0:
+		out.append("❤️ " + I18n.t("+%s%% Max HP") % _num(ps.hp_pct))
 	if ps.hp > 0:
 		out.append("❤️ " + I18n.t("+%s Max HP") % _num(ps.hp))
 	if ps.regen > 0:

@@ -851,6 +851,7 @@ func _hud() -> Control:
 	hv.add_child(bar)
 	var hr := UI.hbox(6)
 	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(RunState.MAX_HEARTS - run.res), 18))
+	hr.add_child(_level_badge())
 	hr.add_child(UI.spacer())
 	var dl := UI.lbl(tr("Day %d/%d") % [run.day, GameData.days], 16, UI.GOLD, true)
 	hr.add_child(dl)
@@ -859,6 +860,58 @@ func _hud() -> Control:
 	if run.phase != "morning":
 		h.add_child(_gold_pill())   # in the morning the gold sits on the shop, next to the prices
 	return p
+
+
+## Hero level and EXP toward the next one, next to the Hearts.
+func _level_badge() -> Control:
+	var p := UI.panel(Color("#0c2a3f"), Color("#38bdf8"), 2, 99, 5)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var hb := UI.hbox(6)
+	hb.add_child(UI.plbl("⭐ " + tr("Lv %d") % run.lv, 15, Color.WHITE, true))
+	var xb := ProgressBar.new()
+	xb.show_percentage = false
+	xb.custom_minimum_size = Vector2(70, 10)
+	xb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	xb.max_value = 1.0
+	xb.value = float(run.xp) / float(run.xp_need())
+	xb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	xb.add_theme_stylebox_override("background", UI.box(Color("#082032"), Color(0, 0, 0, 0), 0, 99, 0))
+	xb.add_theme_stylebox_override("fill", UI.box(Color("#38bdf8"), Color(0, 0, 0, 0), 0, 99, 0))
+	hb.add_child(xb)
+	hb.add_child(UI.plbl("%d/%d" % [run.xp, run.xp_need()], 13, Color("#bae6fd"), true))
+	p.add_child(hb)
+	return p
+
+
+## Level-up choice on the night screen: three bonuses, pick one. "Next day" waits for it.
+func _level_pick_card(delay: float) -> Control:
+	var lv_at: int = run.lv - (run.picks.size() - 1) * int(GameData.leveling.get("pick_every", 5))
+	var card := UI.card(Color("#2a1f05"), UI.STAR, 20, 14)
+	var cv := UI.vbox(10)
+	card.add_child(cv)
+	var t := UI.title("⭐ " + tr("LEVEL %d — choose a bonus") % lv_at, 24, UI.STAR)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cv.add_child(t)
+	var row := UI.hbox(10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var offer: Array = run.picks[0]
+	for i in offer.size():
+		var pd := run.pick_def(offer[i])
+		if pd.is_empty():
+			continue
+		var ii := i
+		var b := UI.btn("%s
+%s
+%s" % [pd.ic, tr(pd.n), tr(pd.d)], func():
+			run.pick_level(ii)
+			SaveGame.save_run(run)
+			render(), false, 16, "gold")
+		b.custom_minimum_size = Vector2(190, 130)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(b)
+	cv.add_child(row)
+	UI.pop_in(card, delay, 30)
+	return card
 
 
 func _gold_pill() -> Control:
@@ -1385,7 +1438,7 @@ func _night_overlay() -> Control:
 			k += 1
 		v.add_child(row)
 	# other happenings that have no tile (used potions, defeat note...)
-	var covered := ["🏆", "🎁", "🎒", "❤️", "✨", "🧵", "🗿"]
+	var covered := ["🏆", "🎁", "🎒", "❤️", "✨", "🧵", "🗿", "⭐"]
 	if rew.any(func(w): return w.k == "forge"):
 		covered.append("🔨")
 	if rew.any(func(w): return w.k == "heal"):
@@ -1419,6 +1472,10 @@ func _night_overlay() -> Control:
 		tv.add_child(UI.wrap_lbl(" · ".join(extra), 16, UI.MU))
 		v.add_child(tp)
 		UI.pop_in(tp, 0.2 + 0.15 * k, 30)
+	var choosing: bool = not r.over and not run.picks.is_empty()
+	if choosing:
+		v.add_child(_level_pick_card(0.25 + 0.15 * k))
+		k += 1
 	var label := tr("See result") if r.over else tr("Claim victory") if r.victory else tr("Next day") + " ▶️"
 	var fused: Array = r.get("fused", [])
 	var nb := UI.big_btn(label, func():
@@ -1426,6 +1483,7 @@ func _night_overlay() -> Control:
 		run.next_day()
 		_clear_sel()
 		render(), "green", 28)
+	nb.disabled = choosing
 	v.add_child(nb)
 	UI.pop_in(nb, 0.3 + 0.15 * k, 30)
 	return o[0]
@@ -1552,6 +1610,17 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
 			fmt = "%d"
 			cap = tr("HP")
 			col = UI.BAD
+		"xp":
+			icon = "🔷"
+			num = w.v
+			cap = tr("EXP")
+			col = Color("#38bdf8")
+		"level":
+			icon = "⭐"
+			num = w.v
+			fmt = "Lv %d"
+			cap = tr("Level up!")
+			col = UI.STAR
 		"loot", "forge":
 			var d: Dictionary = GameData.items[w.id]
 			icon = d.ic

@@ -39,6 +39,7 @@ var ults := 0
 var sp := {}                # specials present in the pack
 var turrets := 0
 var gold_mult := 1.0
+var hero_dmg := 1.0         # level-ups: +damage on everything you deal (hits, DoTs, reflect)
 var stat_dmg := {}          # status id -> damage dealt
 var dot_src := {}           # status id -> {item uid: stacks it applied}, to credit DoT damage to items
 var _by_uid := {}           # item uid -> combat item dict
@@ -89,6 +90,7 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 			turrets += 1
 		hs["thorns"] = hs.get("thorns", 0.0) + d.pass.thorns
 		shield += d.pass.shield
+	hero_dmg = 1.0 + r.pv("dmg")
 	if sp.has("gold_power"):
 		gold_mult += minf(0.4, r.gold * 0.005)
 	if sp.has("gold_engine"):
@@ -137,7 +139,7 @@ func dot_tick(side: String, k: String) -> float:
 	var rd := res_def()
 	if rd.eff == "dot_pct":
 		dot_mult += rd.v * resv
-	return fs.get(k, 0.0) * s.dmg * dot_mult * RunState.elem_mult(e, s.el) * gold_mult
+	return fs.get(k, 0.0) * s.dmg * dot_mult * RunState.elem_mult(e, s.el) * gold_mult * hero_dmg
 
 
 ## How much damage the DoTs on one side will deal over the next `secs` seconds if nothing changes.
@@ -204,7 +206,7 @@ func _crit(chance: float, mult: float) -> float:
 func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "") -> float:
 	var m := RunState.elem_mult(e, el)
 	var cm := _crit(crit, critx)
-	var v := base * m * cm * gold_mult
+	var v := base * m * cm * gold_mult * hero_dmg
 	if x != null:
 		var rd := res_def()
 		if rd.eff == "dmg_pct_tag" and x.d.tags.has(rd.etag):
@@ -231,12 +233,17 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "") ->
 	return v
 
 
+## Adds stacks under the status cap. max -1 = no cap (Burn and Poison: same rule for you and the monster).
+func _stack(s: Dictionary, cur: float, n: float) -> float:
+	return cur + n if s.max < 0 else minf(s.max, cur + n)
+
+
 func add_status(k: String, n: float, uid := -1) -> void:
 	if n <= 0 or not GameData.statuses.has(k):
 		return
 	var s: Dictionary = GameData.statuses[k]
 	if s.side == "foe":
-		fs[k] = minf(s.max, fs.get(k, 0.0) + n)
+		fs[k] = _stack(s, fs.get(k, 0.0), n)
 		if uid >= 0:
 			if not dot_src.has(k):
 				dot_src[k] = {}
@@ -251,7 +258,7 @@ func add_status(k: String, n: float, uid := -1) -> void:
 			_ev({"t": "burst", "v": v})
 			_log(I18n.t("💥 Burn explodes for %d!") % roundi(v))
 	else:
-		hs[k] = minf(s.max, hs.get(k, 0.0) + n)
+		hs[k] = _stack(s, hs.get(k, 0.0), n)
 		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid, "status", k)
 
 
@@ -345,7 +352,7 @@ func fire_ult() -> void:
 			dmg += shield * 2.0
 		"double_poison":
 			if fs.get("poison", 0.0) > 0:
-				add_status("poison", fs.poison)
+				add_status("poison", fs.poison * 0.5)
 		"full_charge":
 			for y in items:
 				if not y.d.once:
@@ -480,7 +487,7 @@ func foe_fire(fx: Dictionary) -> void:
 	for k in on.st:
 		var s: Dictionary = GameData.statuses[k]
 		var n: float = snappedf(on.st[k] * dm_mult, 0.1)   # scaled like the hits, no rounding up
-		hd[k] = minf(s.max, hd.get(k, 0.0) + n)
+		hd[k] = _stack(s, hd.get(k, 0.0), n)
 		_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, -1, "status", "hd:" + k)
 	if on.shield > 0:
 		fshield += roundf(on.shield * sup)

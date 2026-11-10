@@ -90,13 +90,14 @@ func checked_fight(r: RunState, cs: CombatSim, seed_v: int) -> CombatSim:
 		guard += 1
 		cs.events.clear()
 		for k in cs.fs:
-			if cs.fs[k] > GameData.statuses[k].max + 0.01:
-				_fail("STATUS_CAP", seed_v, "foe %s=%.1f > %d" % [k, cs.fs[k], GameData.statuses[k].max])
+			var fm: int = GameData.statuses[k].max
+			if fm >= 0 and cs.fs[k] > fm + 0.01:
+				_fail("STATUS_CAP", seed_v, "foe %s=%.1f > %d" % [k, cs.fs[k], fm])
 		for k in cs.hd:
-			if cs.hd[k] > GameData.statuses[k].max + 0.01:
+			if GameData.statuses[k].max >= 0 and cs.hd[k] > GameData.statuses[k].max + 0.01:
 				_fail("STATUS_CAP", seed_v, "hero %s=%.1f" % [k, cs.hd[k]])
 		for k in cs.hs:
-			if cs.hs[k] > GameData.statuses[k].max + 0.01:
+			if GameData.statuses[k].max >= 0 and cs.hs[k] > GameData.statuses[k].max + 0.01:
 				_fail("STATUS_CAP", seed_v, "hero %s=%.1f" % [k, cs.hs[k]])
 		if cs.shield > cs._shield_cap() + 0.01 and cs.tk > 1:
 			_fail("SHIELD_CAP", seed_v, "shield %.1f > cap %.1f" % [cs.shield, cs._shield_cap()])
@@ -548,7 +549,11 @@ func _edge_cases() -> void:
 		cs6.add_status("poison", 5)
 		cs6.add_status("burn", 5)
 	cs6.hd["poison"] = 0
-	_edge("E6 status caps hold (poison cap %d, burn cap %d; spec says 40 / 30)" % [GameData.statuses.poison.max, GameData.statuses.burn.max], cs6.fs.poison <= GameData.statuses.poison.max and cs6.fs.burn <= GameData.statuses.burn.max, "poison=%.0f burn=%.0f" % [cs6.fs.poison, cs6.fs.burn])
+	var ok6 := true
+	for k6 in ["poison", "burn"]:
+		var fm6: int = GameData.statuses[k6].max
+		ok6 = ok6 and (cs6.fs[k6] >= 999 if fm6 < 0 else cs6.fs[k6] <= fm6)
+	_edge("E6 status caps follow max (-1 = no cap)", ok6, "poison=%.0f burn=%.0f (max %d / %d)" % [cs6.fs.poison, cs6.fs.burn, GameData.statuses.poison.max, GameData.statuses.burn.max])
 	cs6.hastes = []
 	for _i in 20:
 		cs6.hastes.append({"v": 0.5, "t": 30})
