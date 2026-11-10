@@ -41,7 +41,9 @@ var _shake_tw: Tween
 var _intro := 0.0        # seconds of boss entrance left (the fight waits)
 
 
-func setup(r: RunState, s: CombatSim) -> CombatView:
+## wide: PC layout (your HP + pack on the left, the fight in the middle, the monster on the right).
+func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
+	var ks := 1.35 if wide else 1.0   # text / sprite scale on PC
 	run = r
 	sim = s
 	for x in s.items:
@@ -64,7 +66,7 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 		var tp := UI.panel(Color("#7f1d1d"), Color(0, 0, 0, 0), 0, 99, 3)
 		tp.add_child(UI.lbl(tr(tier_txt), 12, Color.WHITE, true))
 		en.add_child(tp)
-	en.add_child(UI.lbl(tr(s.e.n), 20, Color.WHITE, true))
+	en.add_child(UI.lbl(tr(s.e.n), roundi(20 * ks), Color.WHITE, true))
 	var badges := []
 	if s.e.imm != "":
 		badges.append("🛡 %s%s -80%%" % [GameData.elem_icon(s.e.imm), tr(s.e.imm)])
@@ -72,12 +74,12 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 		badges.append("💥 %s%s +50%%" % [GameData.elem_icon(s.e.weak), tr(s.e.weak)])
 	if s.e.tr != "":
 		badges.append(GameData.traits[s.e.tr].ic + " " + tr(GameData.traits[s.e.tr].n))
-	var bl := UI.lbl("  ".join(badges), 13, Color("#fca5a5"))
+	var bl := UI.lbl("  ".join(badges), roundi(13 * ks), Color("#fca5a5"))
 	bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	en.add_child(bl)
 	ev.add_child(en)
-	ehp_bar = StatBar.new().setup(Color("#ff4d5e"), 26)
+	ehp_bar = StatBar.new().setup(Color("#ff4d5e"), 26 * ks)
 	ev.add_child(ehp_bar)
 	foe_chips = UI.hbox(6)
 	foe_chips.alignment = BoxContainer.ALIGNMENT_END
@@ -85,6 +87,8 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	ev.add_child(foe_chips)
 	# the monster's pack: its items charge and fire just like yours
 	var mc := minf(46.0, minf(640.0 / maxf(1, s.e.get("gw", 4)), 150.0 / maxf(1, s.e.get("gh", 3))))
+	if wide:
+		mc = minf(78.0, minf(430.0 / maxf(1, s.e.get("gw", 4)), 400.0 / maxf(1, s.e.get("gh", 3))))
 	mpack = MiniPack.new().setup(s.e, mc, s.fi)
 	mpack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ev.add_child(mpack)
@@ -102,13 +106,13 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	world.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(world)
 	var boss: bool = s.node.k == "boss"
-	foe = _sprite(GameData.foe_icon(s.e.n), 110 if boss else 84, 0.74, 0.22 if boss else 0.34)
+	foe = _sprite(GameData.foe_icon(s.e.n), roundi((110 if boss else 84) * ks * 1.4 if wide else (110 if boss else 84)), 0.74, 0.22 if boss else 0.34)
 	if s.node.k in ["elite", "ambush", "boss"]:
 		foe.add_theme_color_override("font_shadow_color", Color("#ff3b3b"))
 		foe.add_theme_constant_override("shadow_outline_size", 12)
-	hero = _sprite(r.cls_def().hero, 70, 0.26, 0.42)
+	hero = _sprite(r.cls_def().hero, 130 if wide else 70, 0.26, 0.42)
 	if r.pet != "":
-		_sprite(r.pet_def().ic, 40, 0.1, 0.62)
+		_sprite(r.pet_def().ic, 64 if wide else 40, 0.1, 0.62)
 	combo_lbl = UI.lbl("", 30, UI.GOLD, true)
 	combo_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	combo_lbl.add_theme_constant_override("outline_size", 8)
@@ -121,24 +125,24 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	var hv := UI.vbox(4)
 	hb.add_child(hv)
 	var hr := UI.hbox(8)
-	hr.add_child(UI.lbl(r.cls_def().hero + " " + tr(r.cls_def().n), 16, Color.WHITE, true))
+	hr.add_child(UI.lbl(r.cls_def().hero + " " + tr(r.cls_def().n), roundi(16 * ks * 1.2), Color.WHITE, true))
 	hv.add_child(hr)
-	php_bar = StatBar.new().setup(Color("#3ee07a"), 24)
+	php_bar = StatBar.new().setup(Color("#3ee07a"), 24 * ks)
 	hv.add_child(php_bar)
 	var ur := UI.hbox(8)
 	hero_chips = UI.hbox(6)
 	hero_chips.custom_minimum_size.y = 30
 	ur.add_child(hero_chips)
-	res_lbl = UI.lbl("", 15, UI.GOLD, true)
+	res_lbl = UI.lbl("", roundi(15 * ks), UI.GOLD, true)
 	res_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	res_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	res_lbl.pivot_offset = Vector2(60, 10)
 	ur.add_child(res_lbl)
 	hv.add_child(ur)
 	var ulr := UI.hbox(8)
-	ult_lbl = UI.lbl(r.cls_def().ult.ic + " " + tr(r.cls_def().ult.n), 14, Color("#fde68a"), true)
+	ult_lbl = UI.lbl(r.cls_def().ult.ic + " " + tr(r.cls_def().ult.n), roundi(14 * ks), Color("#fde68a"), true)
 	ulr.add_child(ult_lbl)
-	ult_bar = _bar(Color("#ffd84a"), 16)
+	ult_bar = _bar(Color("#ffd84a"), roundi(16 * ks))
 	ult_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ult_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ulr.add_child(ult_bar)
@@ -155,12 +159,14 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	porg = mn
 	var span := Vector2(mx - mn + Vector2i.ONE)
 	pcell = minf(80.0, minf(680.0 / span.x, 330.0 / span.y))
+	if wide:
+		pcell = minf(92.0, minf(450.0 / span.x, 440.0 / span.y))
 	pack.custom_minimum_size = span * pcell
 	pack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pack.draw.connect(_draw_pack)
 	v.add_child(pack)
 
-	log_lbl = UI.lbl("", 13, Color("#cbd5e1"))
+	log_lbl = UI.lbl("", roundi(13 * ks), Color("#cbd5e1"))
 	log_lbl.custom_minimum_size = Vector2(0, 36)
 	log_lbl.clip_text = true
 	v.add_child(log_lbl)
@@ -174,6 +180,28 @@ func setup(r: RunState, s: CombatSim) -> CombatView:
 	sp.add_child(UI.spacer())
 	sp.add_child(UI.btn(tr("Skip") + " ⏭️", _skip, false, 20, "purple"))
 	v.add_child(sp)
+
+	if wide:
+		# PC: [ your HP + pack | the fight | the monster + its pack ] above the log and speed buttons
+		for c in [eh, stage, hb, pack]:
+			v.remove_child(c)
+		var top := UI.hbox(16)
+		top.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var left := UI.vbox(12)
+		left.custom_minimum_size.x = 500
+		left.add_child(hb)
+		pack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		left.add_child(pack)
+		var right := UI.vbox(12)
+		right.custom_minimum_size.x = 500
+		eh.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		right.add_child(eh)
+		stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(left)
+		top.add_child(stage)
+		top.add_child(right)
+		v.add_child(top)
+		v.move_child(top, 0)
 
 	fxl = Control.new()
 	fxl.set_anchors_preset(Control.PRESET_FULL_RECT)

@@ -75,6 +75,9 @@ func _ready() -> void:
 	toast_layer = CanvasLayer.new()
 	toast_layer.layer = 60
 	add_child(toast_layer)
+	tip_layer = CanvasLayer.new()
+	tip_layer.layer = 55
+	add_child(tip_layer)
 	get_tree().auto_accept_quit = false
 	get_tree().root.size_changed.connect(func():
 		if _fit_screen() and not _render_queued:
@@ -84,6 +87,8 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--autoshot="):
 			_dev = true
+	if _dev:
+		_splash = false
 	render()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--autoshot="):
@@ -140,7 +145,7 @@ func _clear_sel() -> void:
 ## PC / landscape (_wide): the logical height drops to WIDE_H so everything is drawn bigger,
 ## and the morning screen splits into two columns (pack + storage | shop), WIDE_W across.
 const COLUMN_W := 760.0
-const WIDE_W := 1400.0
+const WIDE_W := 1720.0
 const WIDE_H := 1000
 var _landscape := false   # anything wider than a phone (mouse hints, centred column)
 var _wide := false        # landscape wide enough for the two-column morning screen
@@ -221,6 +226,7 @@ func toast(text: String, col := UI.AC) -> void:
 
 func render() -> void:
 	_render_queued = false
+	_refresh_tip.call_deferred()   # the card under the mouse may have changed or gone
 	if screen:
 		screen.queue_free()
 	grid = null
@@ -238,12 +244,11 @@ func render() -> void:
 	move_child(screen, 1)
 	var m := MarginContainer.new()
 	m.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var wide_run := _wide and run != null and run.end_state == "" and not (run.phase == "evening" and _pending_sim != null)
-	# only the two-column run screen is drawn bigger; the other screens need the full 1280 height
-	var want := Vector2i(720, WIDE_H if wide_run else 1280)
+	# PC / landscape: every screen uses the bigger scale and its own wide layout
+	var want := Vector2i(720, WIDE_H if _wide else 1280)
 	if get_window().content_scale_size != want:
 		get_window().content_scale_size = want
-	var sm := _safe_margins(WIDE_W if wide_run else COLUMN_W)
+	var sm := _safe_margins(WIDE_W if _wide else COLUMN_W)
 	m.add_theme_constant_override("margin_left", int(sm.x))
 	m.add_theme_constant_override("margin_top", int(sm.y))
 	m.add_theme_constant_override("margin_right", int(sm.z))
@@ -263,7 +268,7 @@ func render() -> void:
 	elif run.end_state != "":
 		body = _end_screen()
 	elif run.phase == "evening" and _pending_sim != null:
-		var cvw := CombatView.new().setup(run, _pending_sim)
+		var cvw := CombatView.new().setup(run, _pending_sim, _wide)
 		cvw.finished.connect(_on_combat_done)
 		body = cvw
 	else:
@@ -289,14 +294,14 @@ func render() -> void:
 		if fresh:
 			ov.modulate.a = 0
 			ov.create_tween().tween_property(ov, "modulate:a", 1.0, 0.25)
-	elif drag_item == null and (selected != null or inspect_id != ""):
+	elif drag_item == null and not _landscape and (selected != null or inspect_id != ""):
 		popup = _inspector_popup()
 		screen.add_child(popup)
 
 
 func _key() -> String:
 	if run == null:
-		return "title" + str(title_step)
+		return "title" + str(title_step) + ("s" if _splash else "")
 	if run.end_state != "":
 		return "end"
 	var k := run.phase + str(run.day)
@@ -373,6 +378,7 @@ func _center(c: Control) -> Control:
 # 0 start screen → 1 hero → 2 pet → 3 difficulty → run
 
 var title_step := 0
+var _splash := true     # first screen of a launch: "tap anywhere", then the menu
 var _hero_dir := 0      # -1 / +1 when the hero card was just swiped, for its slide-in
 var _swipe_x := 0.0
 
@@ -429,6 +435,25 @@ func _start_screen() -> Control:
 	door.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(door)
 	v.add_child(UI.spacer(false))
+	if _splash:
+		# splash: tap / click anywhere to open the menu (the language buttons still work)
+		var hint := UI.title(tr("Click anywhere to start") if _landscape else tr("Tap anywhere to start"), 34, Color.WHITE, Color("#3b1d7a"))
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(hint)
+		var blink := hint.create_tween().set_loops()
+		blink.tween_property(hint, "modulate:a", 0.2, 0.7).set_trans(Tween.TRANS_SINE)
+		blink.tween_property(hint, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
+		v.add_child(UI.spacer(false))
+		var sv := UI.lbl("v" + str(ProjectSettings.get_setting("application/config/version", "")), 14, Color(UI.MU, 0.7))
+		sv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(sv)
+		v.mouse_filter = Control.MOUSE_FILTER_STOP
+		v.gui_input.connect(func(e):
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				_splash = false
+				render())
+		return v
 	var summary := "" if _dev else SaveGame.run_summary()
 	if summary != "":
 		var cb := UI.btn("▶️ " + tr("CONTINUE") + "\n" + summary, _continue_run, false, 20, "gold")
@@ -509,18 +534,49 @@ func _hero_screen() -> Control:
 	nxt.custom_minimum_size = Vector2(58, 120)
 	nxt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(nxt)
-	var cv := UI.vbox(8)
+	var cv := UI.vbox(8)          # info column (the whole card on phones)
 	cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(cv)
-	var hero := UI.plbl(c.hero, 120, UI.TX, false, true)
-	cv.add_child(hero)
+	var pic := cv                 # portrait column (PC: hero on top, starting bag below)
+	if _wide:
+		var hb := UI.hbox(28)
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(hb)
+		pic = UI.vbox(14)
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.custom_minimum_size.x = 430
+		hb.add_child(pic)
+		cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cv.alignment = BoxContainer.ALIGNMENT_CENTER
+		hb.add_child(cv)
+	else:
+		card.add_child(cv)
+	var hp_panel: Control = pic
+	if _wide:
+		hp_panel = UI.panel(Color(0, 0, 0, 0.28), col.darkened(0.2), 3, 22, 12)
+		hp_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hp_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		pic.add_child(hp_panel)
+	var hero := UI.plbl(c.hero, 190 if _wide else 120, UI.TX, false, true)
+	hero.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hp_panel.add_child(hero)
 	UI.breathe(hero, 0.06)
-	var nm := UI.title(c.ic + " " + tr(c.n), 34, Color.WHITE, col.darkened(0.7))
-	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if _wide:
+		var bagp := UI.panel(Color(0, 0, 0, 0.28), col.darkened(0.2), 3, 22, 14)
+		bagp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var bv := UI.vbox(8)
+		bv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bagp.add_child(bv)
+		bv.add_child(UI.plbl("🎒 " + tr("Starting bag"), 18, col.lightened(0.35), true, true))
+		var sbv := StartBagView.new().setup(sel_cls, 62)
+		sbv.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		bv.add_child(sbv)
+		pic.add_child(bagp)
+	var nm := UI.title(c.ic + " " + tr(c.n), 42 if _wide else 34, Color.WHITE, col.darkened(0.7))
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if _wide else HORIZONTAL_ALIGNMENT_CENTER
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cv.add_child(nm)
-	var dl := UI.wrap_lbl(tr(c.d), 18, Color("#f1edff"))
-	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var dl := UI.wrap_lbl(tr(c.d), 22 if _wide else 18, Color("#f1edff"))
+	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if _wide else HORIZONTAL_ALIGNMENT_CENTER
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cv.add_child(dl)
 	# stat bars
@@ -530,13 +586,13 @@ func _hero_screen() -> Control:
 	sg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icons := {"Damage": "⚔️", "Defense": "🛡️", "Sustain": "💚", "Difficulty": "🧠"}
 	for s in ["Damage", "Defense", "Sustain", "Difficulty"]:
-		sg.add_child(UI.plbl(icons[s] + " " + tr(s), 16, Color("#e9e4ff"), true))
+		sg.add_child(UI.plbl(icons[s] + " " + tr(s), 21 if _wide else 16, Color("#e9e4ff"), true))
 		var pips := UI.hbox(4)
 		pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var val := int(c.stats.get(s, 0))
 		for p in 5:
 			var pip := UI.panel(col if p < val else Color(0, 0, 0, 0.35), Color(0, 0, 0, 0), 0, 6, 0)
-			pip.custom_minimum_size = Vector2(36, 16)
+			pip.custom_minimum_size = Vector2(52, 22) if _wide else Vector2(36, 16)
 			pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			pips.add_child(pip)
 		sg.add_child(pips)
@@ -547,15 +603,15 @@ func _hero_screen() -> Control:
 	var skv := UI.vbox(6)
 	skv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sk.add_child(skv)
-	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 16, Color("#e9e4ff")))
-	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 16, UI.GOLD))
+	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 20 if _wide else 16, Color("#e9e4ff")))
+	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 20 if _wide else 16, UI.GOLD))
 	cv.add_child(sk)
 	# how it is usually built
-	var bt := UI.title("🧩 " + tr("How to build it"), 20, col.lightened(0.3))
+	var bt := UI.title("🧩 " + tr("How to build it"), 24 if _wide else 20, col.lightened(0.3))
 	bt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cv.add_child(bt)
 	for line in c.comp:
-		var ll := UI.wrap_lbl("• " + tr(line), 15, Color("#f1edff"))
+		var ll := UI.wrap_lbl("• " + tr(line), 19 if _wide else 15, Color("#f1edff"))
 		ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cv.add_child(ll)
 	var chips := UI.hbox(8)
@@ -563,7 +619,8 @@ func _hero_screen() -> Control:
 	chips.add_child(UI.plbl(tr("Starts with"), 15, UI.MU, true))
 	for st in c.st:
 		chips.add_child(UI.item_chip(st[0]))
-	cv.add_child(chips)
+	if not _wide:   # PC shows the starting bag picture instead
+		cv.add_child(chips)
 	v.add_child(row)
 	# page dots
 	var pd := UI.hbox(8)
@@ -620,9 +677,24 @@ func _pet_screen() -> Control:
 	var bd := UI.wrap_lbl(tr(pd.d), 22, Color.WHITE)
 	bd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	bv.add_child(bd)
-	v.add_child(big)
 	var g := GridContainer.new()
 	g.columns = 4
+	if _wide:
+		# PC: the chosen pet large on the left, all pets on the right
+		var row := UI.hbox(24)
+		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		big.custom_minimum_size.x = 560
+		big.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		bv.alignment = BoxContainer.ALIGNMENT_CENTER
+		bi.add_theme_font_size_override("font_size", 170)
+		bd.add_theme_font_size_override("font_size", 28)
+		row.add_child(big)
+		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(g)
+		v.add_child(row)
+	else:
+		v.add_child(big)
 	g.add_theme_constant_override("h_separation", 10)
 	g.add_theme_constant_override("v_separation", 10)
 	for k in GameData.pet_keys:
@@ -634,8 +706,8 @@ func _pet_screen() -> Control:
 		var cv := UI.vbox(0)
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.add_child(cv)
-		cv.add_child(UI.plbl(p.ic, 46, UI.TX, false, true))
-		var nl := UI.plbl(tr(p.n), 13, UI.GOLD if on else UI.MU, true, true)
+		cv.add_child(UI.plbl(p.ic, 72 if _wide else 46, UI.TX, false, true))
+		var nl := UI.plbl(tr(p.n), 18 if _wide else 13, UI.GOLD if on else UI.MU, true, true)
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.custom_minimum_size.x = 120
 		cv.add_child(nl)
@@ -644,7 +716,8 @@ func _pet_screen() -> Control:
 			render())
 		UI.juice(c)
 		g.add_child(c)
-	v.add_child(g)
+	if not _wide:
+		v.add_child(g)
 	v.add_child(UI.spacer(false))
 	v.add_child(_step_nav(func():
 		title_step = 1
@@ -657,6 +730,16 @@ func _pet_screen() -> Control:
 func _diff_screen() -> Control:
 	var v := UI.vbox(12)
 	v.add_child(_step_head(3, tr("Difficulty")))
+	var list: Container = v
+	if _wide:
+		# PC: the four modes as a 2 x 2 grid of big cards
+		var dg := GridContainer.new()
+		dg.columns = 2
+		dg.add_theme_constant_override("h_separation", 18)
+		dg.add_theme_constant_override("v_separation", 18)
+		dg.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		v.add_child(dg)
+		list = dg
 	var kinds := {"normal": Color("#3fd17a"), "hard": Color("#ffc93c"), "vhard": Color("#ff5d6c"), "abyss": Color("#a77bff")}
 	for df in GameData.difficulties:
 		var id: String = df.id
@@ -666,16 +749,19 @@ func _diff_screen() -> Control:
 		var h := UI.hbox(14)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.add_child(h)
-		var il := UI.plbl(df.ic, 60)
+		var il := UI.plbl(df.ic, 90 if _wide else 60)
+		if _wide:
+			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			c.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		h.add_child(il)
 		var tv := UI.vbox(2)
 		tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(tv)
-		var tl := UI.title(tr(df.n), 26, col.lightened(0.2) if on else Color.WHITE)
+		var tl := UI.title(tr(df.n), 34 if _wide else 26, col.lightened(0.2) if on else Color.WHITE)
 		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.add_child(tl)
-		var dl := UI.wrap_lbl(tr(df.d), 16, Color("#e9e4ff"))
+		var dl := UI.wrap_lbl(tr(df.d), 21 if _wide else 16, Color("#e9e4ff"))
 		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.add_child(dl)
 		var ml := UI.plbl(tr("Enemies: HP ×%.2f · damage ×%.2f") % [df.hp, df.dps] + ("" if df.elite <= 0 else "  ·  " + tr("more Elites")), 14, UI.MU, true)
@@ -687,7 +773,7 @@ func _diff_screen() -> Control:
 			sel_diff = id
 			render())
 		UI.juice(c)
-		v.add_child(c)
+		list.add_child(c)
 	v.add_child(UI.spacer(false))
 	var cls: Dictionary = GameData.classes[sel_cls]
 	var pet: Dictionary = GameData.pets.get(sel_pet, {})
@@ -745,8 +831,10 @@ func _run_screen(fresh: bool) -> Control:
 	# everything else on this screen is ~940px tall; the pack gets the rest (phones vary a lot)
 	cell_px = clampf(floorf((get_viewport_rect().size.y - 940.0) / GameData.H), 46.0, 74.0)
 	if _wide:
-		# two columns: the pack only shares its column with storage (~560px of other stuff)
-		cell_px = clampf(floorf((get_viewport_rect().size.y - 610.0) / GameData.H), 40.0, 74.0)
+		# PC: the pack has the whole left half to itself
+		var vp := get_viewport_rect().size
+		var left_w := (minf(vp.x, WIDE_W) - 40.0) * 0.5
+		cell_px = clampf(floorf(minf((vp.y - 330.0) / GameData.H, (left_w - 60.0) / GameData.W)), 40.0, 110.0)
 	var root := UI.vbox(10)
 	root.add_child(_hud())
 	root.add_child(_ribbon())
@@ -818,13 +906,25 @@ func _run_screen(fresh: bool) -> Control:
 			render(), false, 16, "blue"))
 	sv.add_child(sh)
 	var scr := ScrollContainer.new()
-	scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	if _wide:
+		# PC: a grid of cards that scrolls down (the panel fills the rest of the right column)
+		scr.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scr.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	else:
+		scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scr.custom_minimum_size.y = 112
 	storage_scroll = scr
 	var keep_x := _storage_x
 	scr.ready.connect(func(): scr.set_deferred("scroll_horizontal", keep_x))
 	scr.get_h_scroll_bar().value_changed.connect(func(v): _storage_x = int(v))
-	var row := UI.hbox(10)
+	var row: Container = UI.hbox(10)
+	if _wide:
+		var fl := HFlowContainer.new()
+		fl.add_theme_constant_override("h_separation", 10)
+		fl.add_theme_constant_override("v_separation", 10)
+		fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row = fl
 	scr.add_child(row)
 	sv.add_child(scr)
 	for it in items:
@@ -836,11 +936,12 @@ func _run_screen(fresh: bool) -> Control:
 		row.add_child(el)
 	root.add_child(sp)
 
+	var shop: Control = null
 	if run.phase == "morning":
-		var shop := _shop_panel(fresh)
+		shop = _shop_panel(fresh)
 		root.add_child(shop)
 	if _wide:
-		# PC: pack + storage on the left, shop (with Depart) on the right
+		# PC: the pack big on the left; shop (with Depart) and the storage grid on the right
 		var cols := UI.hbox(14)
 		cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var left := UI.vbox(10)
@@ -849,11 +950,14 @@ func _run_screen(fresh: bool) -> Control:
 		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cols.add_child(left)
 		cols.add_child(right)
-		for c in root.get_children().slice(2):
-			root.remove_child(c)
-			(left if c == gp or c == sp else right).add_child(c)
-		if right.get_child_count() == 0:
-			right.queue_free()
+		gp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		for c in [gp, sp, shop]:
+			if c != null:
+				root.remove_child(c)
+		left.add_child(gp)
+		if shop != null:
+			right.add_child(shop)
+		right.add_child(sp)
 		root.add_child(cols)
 	if fresh:
 		var k := 0
@@ -1025,7 +1129,7 @@ func _ribbon() -> Control:
 
 func _held_text() -> String:
 	if drag_item != null:
-		var t := ("🖱️ " + tr("Right-click, scroll or R to rotate")) if _landscape else ("✌️ " + tr("Tap with a second finger to rotate"))
+		var t := ("" + tr("Right-click, scroll or R to rotate")) if _landscape else ("✌️ " + tr("Tap with a second finger to rotate"))
 		if hover_cell.x >= 0:
 			var a := run.anchor_for(drag_item, hover_cell)
 			var pr := run.preview(drag_item, a.x, a.y)
@@ -1042,7 +1146,7 @@ func _held_text() -> String:
 		return ""
 	if run.expand > 0:
 		return "✨ " + tr("Tap %d glowing tile(s) to grow your pack.") % run.expand
-	return tr("Tap an item to see it · tap again to rotate")
+	return tr("Point at an item to see it · right-click to rotate") if _landscape else tr("Tap an item to see it · tap again to rotate")
 
 
 func _storage_card(it: PItem) -> Control:
@@ -1074,6 +1178,7 @@ func _storage_card(it: PItem) -> Control:
 	p.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			_press({"item": it, "src": "storage"}))
+	_hoverable(p, {"kind": "storage", "uid": it.uid})
 	UI.juice(p)
 	return p
 
@@ -1154,6 +1259,7 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	p.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_press({"src": "shop", "idx": i, "id": e.id}))
+	_hoverable(p, {"kind": "shop", "idx": i})
 	UI.juice(p)
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1302,6 +1408,167 @@ func _inspector_popup() -> Control:
 		p.offset_bottom = 80
 		tw.parallel().tween_property(p, "offset_bottom", -10.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	return p
+
+
+# --------------------------------------------------------------- PC hover cards
+# On PC (_landscape) pointing at an item shows its card next to the mouse; left click only
+# drags, right-click rotates a pack item or keeps a shop card for tomorrow.
+
+var tip_layer: CanvasLayer
+var _hover := {}          # {"kind": "grid" | "storage", "uid"} or {"kind": "shop", "idx"}
+var _tip_panel: Control
+
+
+func _hoverable(c: Control, h: Dictionary) -> void:
+	if not _landscape:
+		return
+	c.mouse_entered.connect(func(): _set_hover(h))
+	c.mouse_exited.connect(func():
+		if _hover == h:
+			_set_hover({}))
+
+
+func _set_hover(h: Dictionary) -> void:
+	if h == _hover:
+		return
+	_hover = h
+	_refresh_tip()
+
+
+## What the hover points at: {id, rot, item (PItem or null), shop (Dictionary or {})}, or {}.
+func _hover_target() -> Dictionary:
+	if run == null or _hover.is_empty():
+		return {}
+	if _hover.kind == "shop":
+		var i: int = _hover.idx
+		if run.phase != "morning" or i < 0 or i >= run.shop.size() or run.shop[i].has("bag"):
+			return {}
+		return {"id": run.shop[i].id, "rot": 0, "item": null, "shop": run.shop[i]}
+	for it in run.items:
+		if it.uid == _hover.uid and it.loc != "held":
+			return {"id": it.id, "rot": it.rot, "item": it, "shop": {}}
+	return {}
+
+
+func _refresh_tip() -> void:
+	if _tip_panel and is_instance_valid(_tip_panel):
+		_tip_panel.queue_free()
+	_tip_panel = null
+	if not _landscape or drag_item != null or tip_layer == null:
+		return
+	var t := _hover_target()
+	if t.is_empty():
+		return
+	_tip_panel = _item_info_card(t)
+	tip_layer.add_child(_tip_panel)
+	_tip_panel.reset_size()
+	_move_tip()
+	# wrapped text settles after one layout pass: shrink to it, then re-place
+	var tp := _tip_panel
+	get_tree().process_frame.connect(func():
+		if is_instance_valid(tp):
+			tp.reset_size()
+			_move_tip(), CONNECT_ONE_SHOT)
+	_tip_panel.modulate.a = 0
+	_tip_panel.create_tween().tween_property(_tip_panel, "modulate:a", 1.0, 0.12)
+
+
+## Keeps the hover card next to the mouse and inside the screen.
+func _move_tip() -> void:
+	if _tip_panel == null or not is_instance_valid(_tip_panel):
+		return
+	var m := get_global_mouse_position()
+	var vp := get_viewport_rect().size
+	var sz := _tip_panel.get_combined_minimum_size()
+	var p := m + Vector2(28, 24)
+	if p.x + sz.x > vp.x - 10:
+		p.x = m.x - sz.x - 28
+	p.y = clampf(p.y, 10, maxf(10, vp.y - sz.y - 10))
+	_tip_panel.position = p
+
+
+## The hover card: shape, name, rarity and tags, what it does, its recipes, and the mouse controls.
+func _item_info_card(t: Dictionary) -> Control:
+	var id: String = t.id
+	var d: Dictionary = GameData.items[id]
+	var col: Color = GameData.tier_colors[d.tier]
+	var p := UI.card(Color("#221b4d", 0.97), col, 22, 16)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.custom_minimum_size.x = 520
+	var v := UI.vbox(8)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(v)
+	var h := UI.hbox(14)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(h)
+	var sh := UI.panel(col.darkened(0.6), col, 2, 14, 6)
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sh.add_child(ShapeView.new().setup(id, t.rot, 24, true))
+	sh.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	h.add_child(sh)
+	var tv := UI.vbox(4)
+	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(tv)
+	tv.add_child(UI.plbl("%s %s" % [d.ic, tr(d.n)], 26, Color.WHITE, true))
+	var tags := " · ".join(d.tags.map(func(x): return tr(x)))
+	tv.add_child(UI.plbl(tr(GameData.tier_names[d.tier]) + " · " + tags, 15, col.lightened(0.3), true))
+	for line in GameData.describe_lines(id):
+		var l := UI.wrap_lbl(line, 18, Color("#efeaff"))
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.custom_minimum_size.x = 488
+		v.add_child(l)
+	for r in run.recipes_for(id):
+		var rr := _recipe_row(r)
+		rr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(rr)
+	var hint := ""
+	var it: PItem = t.item
+	if not t.shop.is_empty():
+		hint = tr("Drag into your pack to buy (%d🪙) · Right-click: keep for tomorrow") % t.shop.price
+		if t.shop.get("lock", false):
+			hint = "🔒 " + tr("Kept for tomorrow.") + "  " + hint
+	elif it != null and run.phase == "morning":
+		var sell := "" if (it.starter or it.def().relic) else "  ·  " + tr("Drag to the shop to sell (+%d🪙)") % run.sell_price(it)
+		if it.loc == "grid":
+			hint = tr("Drag to move · Right-click: rotate") + sell
+		else:
+			hint = tr("Drag into your pack") + sell
+	if hint != "":
+		var hl := UI.wrap_lbl(hint, 15, UI.MU)
+		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hl.custom_minimum_size.x = 488
+		v.add_child(hl)
+	return p
+
+
+## PC right-click (not dragging): rotate the pack item under the mouse, or keep / release a shop card.
+func _right_click() -> void:
+	if run == null or run.phase != "morning":
+		return
+	var t := _hover_target()
+	if t.is_empty():
+		return
+	if not t.shop.is_empty():
+		var i: int = _hover.idx
+		run.toggle_lock(i)
+		var locked: bool = run.shop[i].get("lock", false)
+		toast(("🔒 " + tr("Locked: it stays in the shop tomorrow.")) if locked else ("🔓 " + tr("Unlocked.")), UI.STAR)
+		render()
+		return
+	var it: PItem = t.item
+	if it == null:
+		return
+	if it.loc == "grid":
+		var res := run.rotate_in_pack(it, 1)
+		if res == "x":
+			run.msg = tr("No room to rotate it here — drag it somewhere with more space.")
+		elif res != "":
+			run.msg = res
+		pops[it.uid] = 0.0
+	else:
+		it.rot = (it.rot + 1) % 4
+	render()
 
 
 func _tip(icon: String, t: String) -> Control:
@@ -2233,6 +2500,17 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		var pos := get_global_mouse_position()
+		if _landscape and drag_item == null and pending.is_empty():
+			# PC: pointing at a pack item shows its card (storage and shop cards use mouse_entered)
+			if grid and is_instance_valid(grid) and grid.get_global_rect().has_point(pos):
+				var gi: PItem = run.occ().get(grid.cell_at(pos))
+				if gi != null:
+					_set_hover({"kind": "grid", "uid": gi.uid})
+				elif _hover.get("kind", "") == "grid":
+					_set_hover({})
+			elif _hover.get("kind", "") == "grid":
+				_set_hover({})
+			_move_tip()
 		# storage on a touch screen: a sideways swipe scrolls the strip; up/down picks the item up.
 		# With a real mouse any drag picks it up (the wheel scrolls the strip instead).
 		var touch: bool = event.device == InputEvent.DEVICE_ID_EMULATION or not _landscape
@@ -2262,11 +2540,17 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN) and event.pressed and storage_scroll and is_instance_valid(storage_scroll) and storage_scroll.get_global_rect().has_point(get_global_mouse_position()):
 			# the wheel scrolls the storage strip sideways (its cards would swallow it otherwise)
-			storage_scroll.scroll_horizontal = maxi(0, storage_scroll.scroll_horizontal + (90 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -90))
+			var step := 90 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -90
+			if _wide:
+				storage_scroll.scroll_vertical = maxi(0, storage_scroll.scroll_vertical + step)
+			else:
+				storage_scroll.scroll_horizontal = maxi(0, storage_scroll.scroll_horizontal + step)
 			get_viewport().set_input_as_handled()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and drag_item != null:
 			_rotate(1)
 			get_viewport().set_input_as_handled()
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _landscape and pending.is_empty():
+			_right_click()
 	elif event is InputEventScreenTouch and event.pressed and event.index >= 1 and drag_item != null:
 		_rotate(1)
 	elif event is InputEventKey and event.pressed and not event.echo:
@@ -2284,6 +2568,8 @@ func _input(event: InputEvent) -> void:
 
 func _tap() -> void:
 	var p := pending
+	if _landscape:
+		return   # PC: left click only drags; pointing shows the card, right-click rotates / keeps
 	match p.src:
 		"shop":
 			# a second tap on the same card within 0.4 s locks / unlocks it for tomorrow
@@ -2314,6 +2600,7 @@ func _begin_drag() -> void:
 	if run.phase != "morning" or run.needs_path():
 		pending = {}
 		return
+	_set_hover({})
 	var p := pending
 	drag_src = p.src
 	if drag_src == "shop":
@@ -2501,6 +2788,12 @@ func _end_drag() -> void:
 
 func _autoshot(dir: String) -> void:
 	DirAccess.make_dir_recursive_absolute(dir)
+	_splash = true
+	render()
+	await get_tree().create_timer(1.0).timeout
+	await _shot(dir + "/00_splash.png")
+	_splash = false
+	render()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--lang="):
 			I18n.set_lang(a.trim_prefix("--lang="))

@@ -343,6 +343,15 @@
   "crit": "คริ",
   "regen/s": "ฟื้น/วิ",
   "gold/day": "ทอง/วัน",
-  "every %ss": "ทุก %ss"
+  "every %ss": "ทุก %ss",
+  "Click anywhere to start": "คลิกตรงไหนก็ได้เพื่อเริ่ม",
+  "Tap anywhere to start": "แตะตรงไหนก็ได้เพื่อเริ่ม",
+  "Starting bag": "กระเป๋าเริ่มต้น",
+  "Point at an item to see it · right-click to rotate": "ชี้ที่ไอเทมเพื่อดูข้อมูล · คลิกขวาเพื่อหมุน",
+  "Drag into your pack to buy (%d🪙) · Right-click: keep for tomorrow": "ลากเข้ากระเป๋าเพื่อซื้อ (%d🪙) · คลิกขวา: เก็บไว้พรุ่งนี้",
+  "Kept for tomorrow.": "เก็บไว้ถึงพรุ่งนี้",
+  "Drag to the shop to sell (+%d🪙)": "ลากไปที่ร้านเพื่อขาย (+%d🪙)",
+  "Drag to move · Right-click: rotate": "ลากเพื่อย้าย · คลิกขวา: หมุน",
+  "Drag into your pack": "ลากเข้ากระเป๋า"
  }
 }
