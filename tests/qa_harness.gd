@@ -898,8 +898,21 @@ func _pro_morning(r: RunState) -> void:
 	# with a real fight simulation before buying.
 	var rerolls := 0
 	var build := _pro_build_tags(r)
+	var planning := float(pro_cfg.get("plan", 1.0)) > 0.0
+	# gold expected tomorrow morning (to judge what can be saved for)
+	var income_next: int = 5 + int((r.day + 1) / 2) + r.income()
 	for _step in 12:
 		var cands := []
+		# saving target: a fusion / evolution / Masterwork piece in the shop that is not affordable yet
+		var target := {}
+		if planning:
+			for i in r.shop.size():
+				var e0: Dictionary = r.shop[i]
+				if e0.has("bag") or e0.price <= r.gold or e0.price > r.gold + income_next:
+					continue
+				var fv0 := _pro_fusion_value(r, e0.id)
+				if fv0 > 0.5 and (target.is_empty() or fv0 / e0.price > target.score):
+					target = {"i": i, "id": e0.id, "price": e0.price, "score": fv0 / e0.price, "fv": fv0}
 		for i in r.shop.size():
 			var e: Dictionary = r.shop[i]
 			if e.has("bag") or e.price > r.gold:
@@ -931,9 +944,13 @@ func _pro_morning(r: RunState) -> void:
 			r.items.erase(tmp)
 			r.calc()
 			gain += _pro_build_bonus(r, e.id, build)
+			# what it becomes after tonight's fusion / evolution / Masterwork
+			var fv := _pro_fusion_value(r, e.id) if planning else 0.0
+			if fv > 0.0:
+				gain = maxf(gain, 0.85 * fv + _pro_build_bonus(r, e.id, build))
 			if s.is_empty() and gain < 2.0:
 				continue
-			cands.append({"i": i, "s": s, "out": out, "gain": gain, "h": snappedf(gain, 0.01), "price": float(e.price), "id": e.id})
+			cands.append({"i": i, "s": s, "out": out, "gain": gain, "h": snappedf(gain, 0.01), "fv": snappedf(fv, 0.01), "price": float(e.price), "id": e.id})
 		cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
 		cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
 		# fight-check the best few: value gained in a no-dice fight, per gold
@@ -955,10 +972,21 @@ func _pro_morning(r: RunState) -> void:
 				c["dv"] = snappedf(dv, 0.001)
 			r.calc()
 			cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
+		# save for the target: lock it and only buy what still leaves enough gold for it tomorrow
+		var reserve := 0
+		if not target.is_empty():
+			var best_aff: float = cands[0].gain / maxf(1.0, cands[0].price) if not cands.is_empty() else 0.0
+			if target.score >= best_aff * 1.2:
+				if not r.shop[target.i].get("lock", false):
+					r.toggle_lock(target.i)
+					if tr_on:
+						tr_day["steps"].append({"a": "lock", "id": target.id, "price": target.price, "fv": snappedf(target.fv, 0.01)})
+				reserve = maxi(0, int(target.price) - income_next)
+				cands = cands.filter(func(c): return r.gold - c.price >= reserve or c.gain / maxf(1.0, c.price) >= target.score * 1.5)
 		var pick: Dictionary = cands[0] if not cands.is_empty() and cands[0].gain > 0.3 else {}
 		if tr_on:
 			var step := {"a": "look", "gold": r.gold, "shop": r.shop.filter(func(e): return not e.has("bag")).map(func(e): return {"id": e.id, "price": e.price}),
-				"cands": cands.slice(0, 5).map(func(c): return {"id": c.id, "price": c.price, "h": c.h, "dv": c.get("dv", null), "score": snappedf(c.gain / maxf(1.0, c.price), 0.001), "out": c.out.id if c.out != null else ""})}
+				"cands": cands.slice(0, 5).map(func(c): return {"id": c.id, "price": c.price, "h": c.h, "fv": c.get("fv", 0.0), "dv": c.get("dv", null), "score": snappedf(c.gain / maxf(1.0, c.price), 0.001), "out": c.out.id if c.out != null else ""})}
 			if not pick.is_empty():
 				step["buy"] = pick.id
 				step["swap"] = pick.out.id if pick.out != null else ""
@@ -974,7 +1002,7 @@ func _pro_morning(r: RunState) -> void:
 			else:
 				it.loc = "storage"
 			continue
-		if rerolls < int(pro_cfg.get("rr", 3)) and r.gold >= r.reroll_cost() + 4:
+		if rerolls < int(pro_cfg.get("rr", 3)) + (2 if planning and _pro_hunting(r) else 0) and r.gold - r.reroll_cost() >= 4 + reserve:
 			if tr_on:
 				tr_day["steps"].append({"a": "reroll", "cost": r.reroll_cost()})
 			r.reroll()
@@ -1162,3 +1190,63 @@ func _trace_runs() -> void:
 	f.store_string(JSON.stringify(out))
 	f.close()
 	print("TRACE DONE: %d runs -> %s" % [out.size(), tr_out])
+
+
+## How much the pack gains once buying `id` completes a fusion, an evolution or the Masterwork tonight:
+## the pack with the result in place of the owned pieces, minus the pack now. 0 if nothing completes.
+func _pro_fusion_value(r: RunState, id: String) -> float:
+	var best := 0.0
+	for rc in GameData.recipes:
+		if not r.recipe_ok(rc):
+			continue
+		var parts: Array = [rc.a, rc.b] + ([rc.c] if str(rc.get("c", "")) != "" else [])
+		if not parts.has(id):
+			continue
+		var need := parts.duplicate()
+		need.erase(id)
+		var owned: Array = []
+		var ok := true
+		for q in need:
+			var found = null
+			for it in r.items:
+				if it.id == q and it.loc != "held" and not owned.has(it):
+					found = it
+					break
+			if found == null:
+				ok = false
+				break
+			owned.append(found)
+		if not ok:
+			continue
+		var before := _pro_rate(r.pack_rates())
+		var keep := owned.map(func(o): return [o.loc, o.x, o.y, o.rot])
+		for o in owned:
+			o.loc = "storage"
+		var res := r.make_item(rc.r, "held")
+		r.items.append(res)
+		var s := _pro_spot(r, res)
+		var after := before
+		if not s.is_empty():
+			_pro_put(res, s)
+			after = _pro_rate(r.pack_rates())
+		r.items.erase(res)
+		for k in owned.size():
+			owned[k].loc = keep[k][0]
+			owned[k].x = keep[k][1]
+			owned[k].y = keep[k][2]
+			owned[k].rot = keep[k][3]
+		r.calc()
+		# a Masterwork also carries the path relic: count it a bit higher than its raw numbers
+		best = maxf(best, (after - before) * (1.3 if rc.get("mw", false) else 1.0))
+	return best
+
+
+## True while the bot owns half of a valuable recipe (worth a few extra rerolls to find the other half).
+func _pro_hunting(r: RunState) -> bool:
+	for it in r.items:
+		if it.loc == "held" or it.def().relic:
+			continue
+		for rc in GameData.recipes:
+			if r.recipe_ok(rc) and (rc.a == it.id or rc.b == it.id) and GameData.items[rc.r].tier >= 3:
+				return true
+	return false

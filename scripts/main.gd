@@ -1502,6 +1502,8 @@ func _inspector_popup() -> Control:
 	h.add_child(close)
 	for line in GameData.describe_lines(id):
 		v.add_child(UI.wrap_lbl(line, 18, Color("#efeaff")))
+	if owned:
+		v.add_child(_buff_panel(selected, minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 60.0))
 	for r in run.recipes_for(id):
 		v.add_child(_recipe_row(r))
 	if owned and run.phase == "morning":
@@ -1618,6 +1620,55 @@ func _move_tip() -> void:
 
 
 ## The hover card: shape, name, rarity and tags, what it does, its recipes, and the mouse controls.
+## "In your pack now": the item's numbers with every buff applied, and what each buff comes from
+## (greyed out with the reason when a buff does nothing on this item).
+func _buff_panel(it: PItem, width: float) -> Control:
+	var p := UI.panel(Color(0, 0, 0, 0.3), Color("#7c6bd6"), 2, 12, 8)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rt := RichTextLabel.new()
+	rt.bbcode_enabled = true
+	rt.fit_content = true
+	rt.scroll_active = false
+	rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rt.custom_minimum_size.x = width - 20.0
+	rt.add_theme_font_size_override("normal_font_size", 16)
+	rt.add_theme_font_size_override("bold_font_size", 17)
+	p.add_child(rt)
+	if it.loc != "grid":
+		rt.text = "[color=#a59fd6]📦 " + tr("In storage: buffs only work in the pack.") + "[/color]"
+		return p
+	var rep := run.buff_report(it)
+	var s := "[b][color=#c4b5fd]📊 " + tr("In your pack now") + "[/color][/b]"
+	for r in rep.rows:
+		var base: float = r[2]
+		var now: float = r[3]
+		var fmt := func(x: float) -> String: return ("%d%%" % roundi(x * 100)) if r[5] else ((GameData._num(snappedf(x, 0.1)) + "s") if r[4] else GameData._num(snappedf(x, 0.1)))
+		var changed := absf(now - base) > 0.001
+		var better: bool = (now < base) if r[4] else (now > base)
+		var line := "%s %s  %s" % [r[0], tr(r[1]), fmt.call(base)]
+		if changed:
+			var diff := now - base
+			var dtxt: String = ("%+d%%" % roundi(diff * 100)) if r[5] else ("%+.1fs" % diff if r[4] else "%+.1f" % diff)
+			line += " → [b][color=%s]%s (%s)[/color][/b]" % ["#4ade80" if better else "#ff6b81", fmt.call(now), dtxt]
+		s += "
+" + line
+	if rep.src.is_empty():
+		s += "
+[color=#a59fd6]" + tr("No buffs yet. Items with ✨ buff what they touch.") + "[/color]"
+	else:
+		s += "
+[color=#a59fd6]" + tr("From:") + "[/color]"
+		for x in rep.src:
+			if x[3]:
+				s += "
+%s %s: [color=#4ade80]%s[/color]" % [x[0], x[1], x[2]]
+			else:
+				s += "
+[color=#7c779e]%s %s: [s]%s[/s] — %s[/color]" % [x[0], x[1], x[2], tr("no effect") + ": " + x[4]]
+	rt.text = s
+	return p
+
+
 func _item_info_card(t: Dictionary) -> Control:
 	var id: String = t.id
 	var d: Dictionary = GameData.items[id]
@@ -1648,12 +1699,14 @@ func _item_info_card(t: Dictionary) -> Control:
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.custom_minimum_size.x = 488
 		v.add_child(l)
+	var it: PItem = t.item
+	if it != null and run.items.has(it):
+		v.add_child(_buff_panel(it, 488))
 	for r in run.recipes_for(id):
 		var rr := _recipe_row(r)
 		rr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(rr)
 	var hint := ""
-	var it: PItem = t.item
 	if not t.shop.is_empty():
 		hint = tr("Drag into your pack to buy (%d🪙) · Right-click: keep for tomorrow") % t.shop.price
 		if t.shop.get("lock", false):

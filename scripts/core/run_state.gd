@@ -449,6 +449,87 @@ func sync_hp() -> void:
 	hp = minf(hp, m)
 
 
+## What a pack item's numbers are right now and where every change comes from (for its card / tooltip).
+## rows: [icon, label, base, now, lower_is_better, pct]; src: [icon, text, applies, why_not].
+func buff_report(it: PItem) -> Dictionary:
+	calc()
+	var d := it.def()
+	var on: Dictionary = d.on
+	var f := eff(it)
+	var rows := []
+	if on.dmg > 0:
+		rows.append(["⚔️", "Damage", on.dmg, f.dmg, false, false])
+	if on.dmg > 0:
+		rows.append(["🎯", "Crit", on.crit, f.crit, false, true])
+	if on.shield > 0:
+		rows.append(["🛡️", "Shield", on.shield, f.shield, false, false])
+	if on.heal > 0:
+		rows.append(["💚", "Heal", on.heal, f.heal, false, false])
+	for k in f.st:
+		rows.append([GameData.statuses[k].ic, GameData.statuses[k].n, on.st.get(k, 0.0), f.st[k], false, false])
+	if d.cd > 0:
+		rows.append(["⏱️", "Every", d.cd, f.cd, true, false])
+	var src := []
+	for n in grid_items():
+		if n == it:
+			continue
+		var nd: Dictionary = n.def()
+		if adj(n, it):
+			for bf in nd.adj:
+				if d.tags.has(bf.tag):
+					var why := _buff_why_not(it, bf)
+					src.append([nd.ic, I18n.t(nd.n) + " (" + I18n.t("touching") + ")", GameData._buff_short(bf), why == "", why])
+		for bf in nd.all:
+			if d.tags.has(bf.tag):
+				var why2 := _buff_why_not(it, bf)
+				src.append([nd.ic, I18n.t(nd.n) + " (" + I18n.t("whole pack") + ")", GameData._buff_short(bf), why2 == "", why2])
+	if it.pd > 0 and on.dmg > 0:
+		src.append(["⭐", I18n.t("Permanent upgrades (growth / forge)"), "+%s %s" % [GameData._num(snappedf(it.pd, 0.1)), I18n.t("dmg")], true, ""])
+	if it.gs > 0:
+		src.append(["⭐", I18n.t("Permanent upgrades (growth / forge)"), "+%s %s" % [GameData._num(snappedf(it.gs, 0.1)), I18n.t("shield")], true, ""])
+	if it.gh > 0:
+		src.append(["⭐", I18n.t("Permanent upgrades (growth / forge)"), "+%s %s" % [GameData._num(snappedf(it.gh, 0.1)), I18n.t("heal")], true, ""])
+	for k in it.gst:
+		src.append(["⭐", I18n.t("Permanent upgrades (growth / forge)"), "+%s %s" % [GameData._num(snappedf(it.gst[k], 0.1)), I18n.t(GameData.statuses[k].n).to_lower()], true, ""])
+	if it.pc > 0 and d.cd > 0:
+		src.append(["🔥", I18n.t("Campfire polish"), "+%d%% %s" % [roundi(it.pc * 100), I18n.t("speed")], true, ""])
+	if pv("crit") > 0 and on.dmg > 0:
+		src.append(["⭐", I18n.t("Level-up bonus / pet"), "+%d%% %s" % [roundi(pv("crit") * 100), I18n.t("crit")], true, ""])
+	if pv("haste") > 0 and d.cd > 0:
+		src.append(["⭐", I18n.t("Level-up bonus / pet"), "+%d%% %s" % [roundi(pv("haste") * 100), I18n.t("speed")], true, ""])
+	if pv("dmg") > 0 and on.dmg > 0:
+		src.append(["⭐", I18n.t("Level-up bonus / pet (in fights)"), "+%d%% %s" % [roundi(pv("dmg") * 100), I18n.t("dmg")], true, ""])
+	if mod.id == "blood" and on.dmg > 0:
+		src.append(["🌐", I18n.t(mod.n), "+15%% %s" % I18n.t("dmg"), true, ""])
+	if mod.id == "storm":
+		if on.dmg > 0 and on.el == "Shock":
+			src.append(["🌐", I18n.t(mod.n), "+30%% %s" % I18n.t("dmg"), true, ""])
+		if d.cd > 0:
+			src.append(["🌐", I18n.t(mod.n), "-10%% %s" % I18n.t("speed"), true, ""])
+	return {"rows": rows, "src": src}
+
+
+## Why an aura buff does nothing on this item ("" when it works).
+func _buff_why_not(it: PItem, bf: Dictionary) -> String:
+	var d := it.def()
+	var on: Dictionary = d.on
+	match bf.k:
+		"dmg", "crit", "pierce":
+			return "" if on.dmg > 0 else I18n.t("this item deals no damage")
+		"shield":
+			return "" if on.shield > 0 else I18n.t("this item gives no Shield")
+		"heal":
+			return "" if on.heal > 0 else I18n.t("this item does not heal")
+		"cdr":
+			return "" if d.cd > 0 else I18n.t("this item never triggers")
+		"to_fire":
+			return "" if on.dmg > 0 and has_sp("fire_convert") else I18n.t("needs the Inferno path")
+		_:
+			if GameData.statuses.has(bf.k):
+				return "" if d.cd > 0 and (on.dmg > 0 or not on.st.is_empty()) else I18n.t("only items that hit or apply statuses")
+	return ""
+
+
 ## Effective numbers for an item after buffs, modifier and permanent upgrades.
 func eff(i: PItem) -> Dictionary:
 	var d := i.def()

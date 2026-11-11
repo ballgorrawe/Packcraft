@@ -705,6 +705,27 @@
   "Endless: you reached day %d.": "Endless: ไปได้ถึงวันที่ %d",
   "New best!": "สถิติใหม่!",
   "Best on this difficulty: day %d": "สถิติสูงสุดของความยากนี้: วันที่ %d",
-  "ENDLESS": "ENDLESS"
+  "ENDLESS": "ENDLESS",
+  "In your pack now": "ในกระเป๋าตอนนี้",
+  "Crit": "คริ",
+  "Every": "ทุก",
+  "From:": "มาจาก:",
+  "touching": "ติดกัน",
+  "whole pack": "ทั้งกระเป๋า",
+  "no effect": "ไม่มีผล",
+  "this item deals no damage": "ไอเทมนี้ไม่ทำดาเมจ",
+  "this item gives no Shield": "ไอเทมนี้ไม่ให้โล่",
+  "this item does not heal": "ไอเทมนี้ไม่ฮีล",
+  "this item never triggers": "ไอเทมนี้ไม่ทำงานเอง",
+  "needs the Inferno path": "ต้องเป็นสาย Inferno",
+  "only items that hit or apply statuses": "ใช้ได้กับไอเทมที่ตีหรือติดสถานะเท่านั้น",
+  "Permanent upgrades (growth / forge)": "อัปเกรดถาวร (โต / ตีเหล็ก)",
+  "Campfire polish": "ขัดเงาที่กองไฟ",
+  "Level-up bonus / pet": "โบนัสเลเวล / สัตว์เลี้ยง",
+  "Level-up bonus / pet (in fights)": "โบนัสเลเวล / สัตว์เลี้ยง (ตอนสู้)",
+  "In storage: buffs only work in the pack.": "อยู่ในกล่องเก็บของ: บัฟใช้ได้เฉพาะในกระเป๋า",
+  "No buffs yet. Items with ✨ buff what they touch.": "ยังไม่มีบัฟ ไอเทมที่มี ✨ จะบัฟไอเทมที่ติดกับมัน",
+  "armor pierce": "เจาะเกราะ",
+  "Fire damage": "ดาเมจไฟ"
  }
 }
