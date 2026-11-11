@@ -356,7 +356,7 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 		if sp.has("void_mana") and x.d.tags.has("Spell"):
 			v *= 1.6
 		if sp.has("fire_convert") and el == "Fire":
-			v *= 1.7   # Inferno: every Fire hit 70% harder
+			v *= 1.5   # Inferno: every Fire hit 50% harder
 		if sp.has("empty_evasion") and x.d.tags.has("Ranged"):
 			v *= 1.0 + 0.05 * empty_tiles
 		if _isp(x.d, "execute") and ehp < e.hp * 0.3:
@@ -401,9 +401,9 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 	# Voltmaster: every 8th Shock hit releases chain lightning
 	if sp.has("volt_chain") and el == "Shock" and not _chaining:
 		_shock_n += 1
-		if _shock_n % 8 == 0:
+		if _shock_n % 5 == 0:
 			_chaining = true
-			damage(null, 25.0, "Shock", 0, 2, "⚡")
+			damage(null, 30.0, "Shock", 0, 2, "⚡")
 			_chaining = false
 	var is_crit := cm > 1.0 and not preview
 	_ev({"t": "hit", "uid": uid, "v": v, "el": el, "m": m, "crit": is_crit, "melee": x != null and x.d.tags.has("Melee"), "icon": x.d.ic if x != null else src})
@@ -473,9 +473,9 @@ func fire(idx: int) -> void:
 	_bleed_trigger("hero")
 	var dmg: float = f.dmg + x.ramp
 	if sp.has("apex") and d.tags.has("Beast"):
-		dmg += 4.0
+		dmg += 2.0
 	if sp.has("tempest") and d.tags.has("Rune") and f.el == "Shock":
-		dmg += 1.0
+		dmg += 2.0
 	if sp.has("chill") and d.tags.has("Spell") and f.el == "Water":
 		dmg += 1.0
 	if sp.has("turret_count") and d.tags.has("Turret"):
@@ -497,15 +497,15 @@ func fire(idx: int) -> void:
 		dmg *= 1.0 + 0.06 * maxi(0, beasts_n - 1)
 	var broadside := false
 	if sp.has("powder_keg") and d.tags.has("Ranged") and d.tags.has("Weapon"):
-		dmg += 2.0
+		dmg += 3.0
 		_ranged_n += 1
-		broadside = _ranged_n % 4 == 0
+		broadside = _ranged_n % 3 == 0
 	if dmg > 0:
 		damage(x, dmg, f.el if f.el != "" else "Physical", f.crit, f.critx)
 	if broadside:
-		damage(null, 15.0, "Physical", 0, 2, "💥")   # Cannoneer: every 4th Ranged hit
+		damage(null, 20.0, "Physical", 0, 2, "💥")   # Cannoneer: every 3rd Ranged hit
 	if sp.has("bomb_fuse") and d.tags.has("Bomb"):
-		add_status("burn", 3, x.i.uid)
+		add_status("burn", 4, x.i.uid)
 	if x.get("bonus", 0.0) > 0:
 		# Equilibrium: a Magic item next to this weapon charged it with bonus Magic damage
 		damage(x, x["bonus"], "Arcane", 0, 2, "", 1)
@@ -537,9 +537,9 @@ func fire(idx: int) -> void:
 					if b != idx:
 						_charge(b, items[b].cd * 0.2)
 	var rd := res_def()
-	if rd.gain == "trigger_tag" and d.tags.has(rd.tag):
+	if rd.gain == "trigger_tag" and d.tags.has(rd.tag) and not _echoing:
 		_gain_res("trigger_tag", 1.0)
-	if ult_lock <= 0:
+	if ult_lock <= 0 and not _echoing:   # Starcaller echoes do not charge the Ultimate
 		ult += 1.0
 	if ult >= ult_need:
 		ult = 0.0
@@ -548,7 +548,7 @@ func fire(idx: int) -> void:
 	# Starcaller: every 3rd Spell is cast again
 	if sp.has("star_echo") and d.tags.has("Spell") and not _echoing:
 		_spell_n += 1
-		if _spell_n % 3 == 0:
+		if _spell_n % 5 == 0:
 			_echoing = true
 			_num("hero", "🌠 " + I18n.t("ECHO"), Color("#c4b5fd"), true, x.i.uid)
 			fire(idx)
@@ -564,7 +564,7 @@ func _isp(d: Dictionary, k: String) -> bool:
 func _class_trigger(idx: int, x: Dictionary) -> void:
 	var d: Dictionary = x.d
 	if sp.has("phoenix") and d.tags.has("Fire"):
-		heal(1.0, x.i.uid)
+		heal(0.5, x.i.uid)
 	var mag: bool = GameData.is_magic(x.f.el)
 	if sp.has("void_mana") and d.tags.has("Spell"):
 		_void_toggle = not _void_toggle
@@ -793,7 +793,7 @@ func step() -> void:
 	if php <= 0 and ehp > 0 and sp.has("phoenix") and not _revived:
 		# Phoenix: once per fight, rise again
 		_revived = true
-		php = roundf(mhp * 0.35)
+		php = roundf(mhp * 0.2)
 		_ev({"t": "ult", "n": "Rebirth", "ic": "🪶"})
 		_log(I18n.t("🪶 Rebirth! You rise again."))
 	if ehp <= 0:

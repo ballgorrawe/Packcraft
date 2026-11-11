@@ -126,7 +126,7 @@ static func ensure_loaded() -> void:
 	foe_atk_mult = float(d.get("foe_atk_mult", 1.0))
 	late_ramp = float(d.get("late_ramp", 0.0))
 	for b in d.bosses:
-		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": str(b.get("tr", "")), "mech": b.get("mech", {})})
+		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0)) * float(d.get("boss_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)) * float(d.get("boss_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": str(b.get("tr", "")), "mech": b.get("mech", {})})
 	mods = d.mods
 	traits = d.traits
 	for h in d.hazards:

@@ -4,6 +4,14 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.9.2
+- ⚖️ ปรับสมดุลใหม่ทั้งเกมด้วยบอตที่เล่นเก่งขึ้น (เลือกของตามบิลด์ จัดกระเป๋า เลือกเส้นทางเอง): Normal ชนะประมาณ 46%
+- 🔥 Ember: Heat มีเพดาน +60%, Inferno ไฟแรงขึ้น 50% (เดิม 70%), ไอเทมใหม่ของ Ember เบาลง, ฟีนิกซ์คืนชีพ 20% และฮีล 0.5
+- ⭐ ของโตถาวรเบาลง: อาวุธ +0.6 ดาเมจ/ชนะ, ออร่า +0.3/ชนะ
+- 💀 บอสเลือดน้อยลง 15% ตีเบาลง 10% (ด่านบอสเคยเป็นกำแพงของหลายคลาส)
+- 🔧 บัฟ Tinker (สายฟ้าลูกโซ่ทุก 5 ครั้ง), Corsair (พลปืนใหญ่ยิงกระหน่ำทุก 3 นัด), Warden (Thorns/Guard สะท้อนแรงขึ้น), Venom (Toxin +2.6%)
+- 🔮 Starcaller ร่ายซ้ำทุก Spell ที่ 5 และการร่ายซ้ำไม่ชาร์จอัลติ
+
 ## v0.9.1
 - 🐛 แก้บัคลูปชาร์จ: บิลด์ Tinker ที่ทำให้ไอเทมยิงทุก 0.1 วินาทีและอัลติออก 8 ครั้งใน 1.3 วิ ไม่เกิดแล้ว (อัลติพัก 3 วิหลังใช้)
 - 📅 วันที่ 1-2 มีแต่ไฟต์ อีเว้นเริ่มวันที่ 3, Russian Roulette เริ่มวันที่ 4, แท่นบูชาต้องสาปเริ่มวันที่ 6
