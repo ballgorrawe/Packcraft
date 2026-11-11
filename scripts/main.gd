@@ -1824,13 +1824,8 @@ func _night_overlay() -> Control:
 		if w.k != "fusion":
 			tiles.append(w)
 	if not tiles.is_empty():
-		var row := UI.hbox(10)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		for w in tiles:
-			var t := _reward_tile(w, 0.2 + 0.15 * k)
-			row.add_child(t)
-			k += 1
-		v.add_child(row)
+		v.add_child(_reward_row(tiles, 0.2))
+		k += tiles.size()
 	# other happenings that have no tile (used potions, defeat note...)
 	var covered := ["🏆", "🎁", "🎒", "❤️", "✨", "🧵", "🗿", "⭐"]
 	if rew.any(func(w): return w.k == "forge"):
@@ -1965,12 +1960,27 @@ func _summary_rows(cs: CombatSim) -> Control:
 
 
 ## A reward tile: big icon, a number that counts up, a caption. Pops in after `delay`.
-func _reward_tile(w: Dictionary, delay: float) -> Control:
+## Reward tiles in a centered row that always fits the column: tiles narrow when there are many
+## (gold, heart, tiles, EXP, level...), and wrap to a second line if they still don't fit.
+func _reward_row(list: Array, delay0: float) -> Control:
+	var row := HFlowContainer.new()
+	row.alignment = FlowContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("h_separation", 10)
+	row.add_theme_constant_override("v_separation", 10)
+	var n := list.size()
+	var w := clampf(floorf((640.0 - 10.0 * (n - 1)) / maxf(1.0, n)), 116.0, 148.0)
+	for i in n:
+		row.add_child(_reward_tile(list[i], delay0 + 0.15 * i, w))
+	return row
+
+
+func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 	var col := UI.GOLD
 	var icon := ""
 	var cap := ""
 	var num := 0
 	var fmt := "+%d"
+	var sub := ""
 	match w.k:
 		"gold":
 			icon = "🪙"
@@ -2015,6 +2025,8 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
 			fmt = "Lv %d"
 			cap = tr("Level up!")
 			col = UI.STAR
+			# what every level gives, so the tile explains itself
+			sub = "+%d ❤️  +%d%% ⚔️" % [int(GameData.leveling.get("hp", 0)), roundi(float(GameData.leveling.get("dmg", 0.0)) * 100)]
 		"loot", "forge":
 			var d: Dictionary = GameData.items[w.id]
 			icon = d.ic
@@ -2022,7 +2034,7 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
 			cap = tr(d.n)
 			fmt = ""
 	var p := UI.card(col.darkened(0.55), col, 20, 10)
-	p.custom_minimum_size = Vector2(148, 168)
+	p.custom_minimum_size = Vector2(tw, 168)
 	var vb := UI.vbox(2)
 	p.add_child(vb)
 	var il := UI.lbl(icon, 56)
@@ -2042,8 +2054,10 @@ func _reward_tile(w: Dictionary, delay: float) -> Control:
 		nl.create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
 	var cl := UI.plbl(cap, 14, Color("#e9e4ff"), true, true)
 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cl.custom_minimum_size.x = 128
+	cl.custom_minimum_size.x = tw - 20.0
 	vb.add_child(cl)
+	if sub != "":
+		vb.add_child(UI.plbl(sub, 13, col.lightened(0.45), true, true))
 	UI.pop_in(p, delay, 30)
 	var pp := p
 	pp.create_tween().tween_callback(func(): UI.burst(pp, pp.size / 2, col, 20, 300, 7)).set_delay(delay + 0.15)
@@ -2152,17 +2166,14 @@ func _event_overlay() -> Control:
 ## What the event gave you: reward tiles and an evolution/fusion card.
 func _event_result(v: VBoxContainer) -> void:
 	var ev: Dictionary = run.event
-	var tiles := UI.hbox(10)
-	tiles.alignment = BoxContainer.ALIGNMENT_CENTER
-	var k := 0
+	var tiles := []
 	for w in ev.rew:
 		if w.k == "fusion":
 			v.add_child(_fusion_card(w, 0.2))
 		elif w.k in ["gold", "loot", "hp", "heart", "maxhp"]:
-			tiles.add_child(_reward_tile(w, 0.15 * k))
-			k += 1
-	if tiles.get_child_count() > 0:
-		v.add_child(tiles)
+			tiles.append(w)
+	if not tiles.is_empty():
+		v.add_child(_reward_row(tiles, 0.0))
 	for l in ev.lines:
 		if l.begins_with("💥") or l.begins_with("📦") or l.begins_with("🗿"):
 			var p := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 12)

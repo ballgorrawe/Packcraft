@@ -29,6 +29,9 @@ func _run() -> void:
 	cs.won = true
 	cs.php = maxf(cs.php, 10)
 	r.go_night(r.nodes[0], true, cs)
+	# a full row like a real boss-day win: gold, heart, pack tiles, EXP, level
+	r.result.rew.push_front({"k": "tiles", "v": 4})
+	r.result.rew.push_front({"k": "heart", "v": 1})
 	main.render()
 	await create_timer(2.5).timeout
 	root.get_texture().get_image().save_png(out + "_0.png")
