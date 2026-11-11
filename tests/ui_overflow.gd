@@ -72,6 +72,11 @@ func _run() -> void:
 	main.show_book = true
 	main.render()
 	await _check("book")
+	# a tapped item in the book opens its full card
+	main.book_item = "flame_saber"
+	main.render()
+	await _check("book_item")
+	main.book_item = ""
 	main.show_book = false
 	# path choice
 	r.path = ""
@@ -220,11 +225,37 @@ func _run() -> void:
 	main.render()
 	await _check("end_buffs")
 	main._end_tab = 0
+	for s in latin:
+		print("LATIN|%s|%s" % [latin[s], s.replace("
+", " / ")])
 	print("FIT DONE: %d screens, %d problems" % [screens, issues])
 	quit()
 
 
 ## Waits for layout, saves a screenshot and reports anything that does not fit.
+var latin := {}   # Thai mode: visible text that still has English words -> first screen seen
+
+
+func _latin(n: Node, name: String) -> void:
+	if n is CanvasItem and not (n as CanvasItem).visible:
+		return
+	var s := ""
+	if n is Label:
+		s = (n as Label).text
+	elif n is Button:
+		s = (n as Button).text
+	elif n is RichTextLabel:
+		s = (n as RichTextLabel).get_parsed_text()
+	if s != "":
+		var re := RegEx.create_from_string("[A-Za-z]{3,}")
+		for m in re.search_all(s):
+			var w := m.get_string()
+			if not w in ["Max", "EXP", "PackCraft"] and not latin.has(s):
+				latin[s] = name
+	for c in n.get_children():
+		_latin(c, name)
+
+
 func _check(name: String) -> void:
 	await create_timer(2.6 if name.begins_with("night") or name.begins_with("morning_f") else 0.9).timeout
 	if only != "" and not name.contains(only):
@@ -233,6 +264,8 @@ func _check(name: String) -> void:
 	var vr := root.get_visible_rect()
 	var found: Array = []
 	_walk(main, vr, found)
+	if lang == "th":
+		_latin(main, name)
 	root.get_texture().get_image().save_png("%s_%s.png" % [out, name])
 	for f in found:
 		print("  [%s] %s" % [name, f])

@@ -14,6 +14,7 @@ var sel_pet := ""
 var sel_diff := "normal"
 var show_how := false
 var show_book := false
+var book_item := ""          # recipe book: item whose details are open
 var foe_info_e := {}      # the monster whose Details popup is open (road card)
 var book_page := 0
 
@@ -416,7 +417,7 @@ func _key() -> String:
 	if run.needs_path():
 		k += "path"
 	if show_book:
-		k += "book"
+		k += "book" + book_item
 	if run.phase == "morning" and _fusion_seen < _fusion_queue.size():
 		k += "fx%d" % _fusion_seen
 	return k
@@ -1148,6 +1149,7 @@ func _run_screen(fresh: bool) -> Control:
 	gh.add_child(stats)
 	var book := UI.btn("📖", func():
 		show_book = true
+		book_item = ""
 		render(), false, 22, "purple")
 	book.custom_minimum_size = Vector2(60, 56)
 	gh.add_child(book)
@@ -2092,7 +2094,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		icon = GameData.foe_icon(e.n)
 		nm = tr(e.n)
 		badges.append("❤️ %d" % roundi(e.hp))
-		badges.append("⚔️ %.1f/s" % (e.get("dps", 0.0) * run.hz.get("atk", 1.0)))
+		badges.append("⚔️ %.1f/%s" % [e.get("dps", 0.0) * run.hz.get("atk", 1.0), tr("s")])
 		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
 		if e.weak != "": badges.append("💥 " + tr("weak to %s") % (GameData.elem_icon(e.weak) + tr(e.weak)))
 		badges.append(("🎁 " + tr("loot")) if n.k != "combat" else ("🎲 " + tr("25% loot")))
@@ -2869,6 +2871,7 @@ func _book_entries() -> Array:
 func _book_overlay() -> Control:
 	var o := _overlay("📖 " + tr("RECIPE BOOK"), func():
 		show_book = false
+		book_item = ""
 		render())
 	var v: VBoxContainer = o[1]
 	var entries := _book_entries()
@@ -2888,7 +2891,7 @@ func _book_overlay() -> Control:
 	var st := UI.title(titles[sec], 26, Color("#5a3300"), Color("#f3e6c4"))
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pv.add_child(st)
-	var hl := UI.wrap_lbl(hints[sec], 16, Color("#7a5a3a"))
+	var hl := UI.wrap_lbl(hints[sec] + "  " + tr("Tap an item to see what it does."), 16, Color("#7a5a3a"))
 	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pv.add_child(hl)
 	for e in slice:
@@ -2913,6 +2916,21 @@ func _book_overlay() -> Control:
 	nxt.disabled = book_page >= pages - 1
 	nav.add_child(nxt)
 	v.add_child(nav)
+	if book_item != "" and GameData.items.has(book_item):
+		# the tapped item's full card on top; tap anywhere to close
+		var io := _overlay("", func():
+			book_item = ""
+			render())
+		var ic := _item_info_card({"id": book_item, "rot": 0, "item": null, "shop": {}})
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		io[1].add_child(ic)
+		var cb := UI.btn("✖ " + tr("Close"), func():
+			book_item = ""
+			render(), false, 20, "gray")
+		cb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		io[1].add_child(cb)
+		UI.pop_in(ic, 0.0, 12)
+		o[0].add_child(io[0])
 	return o[0]
 
 
@@ -2961,6 +2979,13 @@ func _book_chip(id: String, known: bool, tag: String) -> Control:
 	c.add_child(il)
 	if known:
 		c.tooltip_text = I18n.t(d.n)
+		# tap / click: open the item's full card
+		c.mouse_filter = Control.MOUSE_FILTER_STOP
+		c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		c.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				book_item = id
+				render())
 	v.add_child(c)
 	var nl := UI.lbl(tr(d.n) if known else "???", 14, Color("#3b2410"), true)
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3353,6 +3378,7 @@ func _autoshot(dir: String) -> void:
 	_cancel_drag()
 	_end_drag()
 	show_book = true
+	book_item = ""
 	render()
 	await get_tree().create_timer(0.5).timeout
 	await _shot(dir + "/06_book.png")

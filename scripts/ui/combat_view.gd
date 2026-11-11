@@ -71,7 +71,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	var ev := UI.vbox(4)
 	eh.add_child(ev)
 	var en := UI.hbox(8)
-	var tier_txt: String = {"boss": "💀 BOSS", "elite": "👹 ELITE", "tough": "TOUGH", "easy": "EASY"}.get(s.e.tier, "")
+	var tier_txt: String = {"boss": "💀 " + tr("BOSS"), "elite": "👹 " + tr("ELITE"), "tough": tr("TOUGH"), "easy": tr("EASY")}.get(s.e.tier, "")
 	if tier_txt != "":
 		var tp := UI.panel(Color("#7f1d1d"), Color(0, 0, 0, 0), 0, 99, 3)
 		tp.add_child(UI.lbl(tr(tier_txt), 12, Color.WHITE, true))
@@ -885,7 +885,7 @@ func _status_sub(k: String, n: float, tick: float) -> String:
 
 ## Per-tick damage under a DoT chip, e.g. "-4.8/s".
 func _rate_txt(v: float) -> String:
-	return ("-%s/s" % GameData._num(snappedf(v, 0.1))) if v > 0 else ""
+	return ("-%s/%s" % [GameData._num(snappedf(v, 0.1)), tr("s")]) if v > 0 else ""
 
 
 ## Colour of the strongest DoT on a side (for the HP bar forecast segment).

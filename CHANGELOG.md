@@ -4,6 +4,10 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.9.9
+- 🇹🇭 ภาษาไทยครบทุกจุด: ชื่อไอเทมทั้งหมด, ของมอนสเตอร์, ชื่อบอส/มอน, ท่าไม้ตาย, สภาพอากาศ, ข้อความในไฟต์และอีเว้นต์
+- 📖 สมุดสูตร: แตะไอเทมเพื่อดูรายละเอียดเต็ม (ดาเมจ, เอฟเฟกต์, สูตรที่เกี่ยวข้อง)
+
 ## v0.9.8
 - 🏁 หน้าจบเกม (ชนะ/แพ้) บอกละเอียด: คลาส สาย สัตว์เลี้ยง โหมด ม็อดประจำเกม วันที่ไปถึง เลเวล หัวใจ ทอง
 - 🎒 เห็นกระเป๋าสุดท้ายพร้อมค่าจริง: เลือด ดาเมจ/วิ โล่/วิ ฮีล/วิ

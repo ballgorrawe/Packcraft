@@ -43,7 +43,7 @@ static func build(e: Dictionary, width: float) -> Control:
 
 static func text(e: Dictionary) -> String:
 	var t := "[b][font_size=26]%s %s[/font_size][/b]\n" % [GameData.foe_icon(e.n), I18n.t(e.n)]
-	var top := ["❤️ %d" % roundi(e.hp), "⚔️ %.1f/s" % (float(e.get("dps", 0.0)) * float(e.get("dmg_mult_hz", 1.0)))]
+	var top := ["❤️ %d" % roundi(e.hp), "⚔️ %.1f/%s" % [float(e.get("dps", 0.0)) * float(e.get("dmg_mult_hz", 1.0)), I18n.t("s")]]
 	if e.get("imm", "") != "":
 		top.append("🛡️ " + I18n.t("resists %s") % (GameData.elem_icon(e.imm) + I18n.t(e.imm)) + " -80%")
 	if e.get("weak", "") != "":
