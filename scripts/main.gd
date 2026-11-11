@@ -73,7 +73,8 @@ func _ready() -> void:
 	sel_cls = GameData.class_keys[0]
 	sel_pet = SaveGame.get_setting("pet", GameData.pet_keys[0] if not GameData.pet_keys.is_empty() else "")
 	sel_diff = SaveGame.get_setting("diff", "normal")
-	add_child(UI.background())
+	_bg = UI.background()
+	add_child(_bg)
 	ghost_layer = CanvasLayer.new()
 	ghost_layer.layer = 50
 	add_child(ghost_layer)
@@ -180,6 +181,7 @@ const WIDE_W := 1720.0
 const WIDE_H := 1000
 var _landscape := false   # anything wider than a phone (mouse hints, centred column)
 var _end_tab := 0         # end screen on phones: 0 pack, 1 buffs
+var _bg: Control                # the dungeon wall behind everything (darker on deeper floors)
 var _bench_cache := {}    # class -> starting-kit numbers for the hero picker
 var _wide := false        # landscape wide enough for the two-column morning screen
 var _render_queued := false
@@ -260,6 +262,7 @@ func toast(text: String, col := UI.AC) -> void:
 
 func render() -> void:
 	_render_queued = false
+	UI.set_depth(_bg, 0.0 if run == null else float(mini(run.day, GameData.days) - 1) / float(GameData.days - 1))
 	_refresh_tip.call_deferred()   # the card under the mouse may have changed or gone
 	if screen:
 		screen.queue_free()
@@ -427,7 +430,7 @@ func _key() -> String:
 ## it is long; `close_cb` adds a ✖️ that stays in the corner whatever the scroll position.
 func _overlay(title: String, close_cb := Callable(), wide := false) -> Array:
 	var ov := ColorRect.new()
-	ov.color = Color(0.03, 0.02, 0.1, 0.88)
+	ov.color = Color(0.04, 0.03, 0.02, 0.9)
 	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ov.mouse_filter = Control.MOUSE_FILTER_STOP
 	var mc := MarginContainer.new()
@@ -549,7 +552,7 @@ func _start_screen() -> Control:
 	v.add_child(UI.spacer(false))
 	if _splash:
 		# splash: tap / click anywhere to open the menu (the language buttons still work)
-		var hint := UI.title(tr("Click anywhere to start") if _landscape else tr("Tap anywhere to start"), 34, Color.WHITE, Color("#3b1d7a"))
+		var hint := UI.title(tr("Click anywhere to start") if _landscape else tr("Tap anywhere to start"), 34, Color.WHITE, Color("#3d2716"))
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(hint)
@@ -588,7 +591,7 @@ func _start_screen() -> Control:
 		render(), false, 17, "purple")))
 	if show_how:
 		var hp := UI.panel(Color(UI.INK, 0.85), UI.BD, 2, 18, 16)
-		hp.add_child(UI.wrap_lbl(tr("HOW_TO_PLAY"), 18, Color("#e9e4ff")))
+		hp.add_child(UI.wrap_lbl(tr("HOW_TO_PLAY"), 18, Color("#efe4cf")))
 		v.add_child(hp)
 	var ver := UI.lbl("v" + str(ProjectSettings.get_setting("application/config/version", "")), 14, Color(UI.MU, 0.7))
 	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -702,7 +705,7 @@ func _hero_screen() -> Control:
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if _wide else HORIZONTAL_ALIGNMENT_CENTER
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cv.add_child(nm)
-	var dl := UI.wrap_lbl(tr(c.d), 22 if _wide else 18, Color("#f1edff"))
+	var dl := UI.wrap_lbl(tr(c.d), 22 if _wide else 18, Color("#f4ebd8"))
 	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if _wide else HORIZONTAL_ALIGNMENT_CENTER
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cv.add_child(dl)
@@ -713,12 +716,13 @@ func _hero_screen() -> Control:
 	sg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icons := {"Damage": "⚔️", "Defense": "🛡️", "Sustain": "💚", "Difficulty": "🧠"}
 	for s in ["Damage", "Defense", "Sustain", "Difficulty"]:
-		sg.add_child(UI.plbl(icons[s] + " " + tr(s), 21 if _wide else 16, Color("#e9e4ff"), true))
+		sg.add_child(UI.plbl(icons[s] + " " + tr(s), 21 if _wide else 16, Color("#efe4cf"), true))
 		var pips := UI.hbox(4)
 		pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var val := int(c.stats.get(s, 0))
 		for p in 5:
-			var pip := UI.panel(col if p < val else Color(0, 0, 0, 0.35), Color(0, 0, 0, 0), 0, 6, 0)
+			var pip := PanelContainer.new()   # a plain square block (a pixel frame would be too tall)
+			pip.add_theme_stylebox_override("panel", UI.box(col if p < val else Color(0, 0, 0, 0.35), Color(0, 0, 0, 0.5), 2, 2, 0))
 			pip.custom_minimum_size = Vector2(52, 22) if _wide else Vector2(36, 16)
 			pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			pips.add_child(pip)
@@ -730,7 +734,7 @@ func _hero_screen() -> Control:
 	nums.alignment = BoxContainer.ALIGNMENT_BEGIN if _wide else BoxContainer.ALIGNMENT_CENTER
 	nums.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fs := 19 if _wide else 15
-	nums.add_child(UI.plbl(tr("At start:"), fs, Color("#c9c2e8"), true))
+	nums.add_child(UI.plbl(tr("At start:"), fs, Color("#cdbfa2"), true))
 	nums.add_child(UI.plbl("❤️ %d" % roundi(b.hp), fs, Color("#ffb4b4"), true))
 	nums.add_child(UI.plbl("⚔️ %s/%s" % [GameData._num(snappedf(b.dps, 0.1)), tr("s")], fs, Color("#ffd27a"), true))
 	nums.add_child(UI.plbl("🛡️ %s/%s" % [GameData._num(snappedf(b.sps, 0.1)), tr("s")], fs, Color("#7dd3fc"), true))
@@ -746,7 +750,7 @@ func _hero_screen() -> Control:
 	var skv := UI.vbox(6)
 	skv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sk.add_child(skv)
-	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 20 if _wide else 16, Color("#e9e4ff")))
+	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 20 if _wide else 16, Color("#efe4cf")))
 	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 20 if _wide else 16, UI.GOLD))
 	cv.add_child(sk)
 	# how it is usually built
@@ -754,7 +758,7 @@ func _hero_screen() -> Control:
 	bt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cv.add_child(bt)
 	for line in c.comp:
-		var ll := UI.wrap_lbl("• " + tr(line), 19 if _wide else 15, Color("#f1edff"))
+		var ll := UI.wrap_lbl("• " + tr(line), 17 if _wide else 15, Color("#f4ebd8"))
 		ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cv.add_child(ll)
 	var chips := UI.hbox(8)
@@ -806,62 +810,42 @@ func _pet_screen() -> Control:
 	v.add_child(sub)
 	if not GameData.pets.has(sel_pet):
 		sel_pet = GameData.pet_keys[0]
-	var pd: Dictionary = GameData.pets[sel_pet]
-	var big := UI.card(Color("#3a2d7a"), UI.GOLD, 26, 18)
-	var bv := UI.vbox(6)
-	big.add_child(bv)
-	var bi := UI.lbl(pd.ic, 110)
-	bi.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bv.add_child(bi)
-	UI.breathe(bi, 0.08)
-	var bn := UI.title(tr(pd.n), 32, UI.GOLD)
-	bn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bv.add_child(bn)
-	var bd := UI.wrap_lbl(tr(pd.d), 22, Color.WHITE)
-	bd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bv.add_child(bd)
+	# the whole screen is the pet grid; the chosen pet just lights up
 	var g := GridContainer.new()
-	g.columns = 4
-	if _wide:
-		# PC: the chosen pet large on the left, all pets on the right
-		var row := UI.hbox(24)
-		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		big.custom_minimum_size.x = 560
-		big.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		bv.alignment = BoxContainer.ALIGNMENT_CENTER
-		bi.add_theme_font_size_override("font_size", 170)
-		bd.add_theme_font_size_override("font_size", 28)
-		row.add_child(big)
-		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(g)
-		v.add_child(row)
-	else:
-		v.add_child(big)
+	g.columns = 4 if _wide else 2
+	g.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(g)
 	g.add_theme_constant_override("h_separation", 10)
 	g.add_theme_constant_override("v_separation", 10)
 	for k in GameData.pet_keys:
 		var kk: String = k
 		var p: Dictionary = GameData.pets[k]
 		var on: bool = k == sel_pet
-		var c := UI.card(Color("#4a3a92") if on else UI.PN, UI.GOLD if on else UI.BD, 18, 6)
+		var c := UI.card(Color("#5a3f12") if on else UI.PN, UI.GOLD if on else Color("#6b5636"), 18, 6)
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var cv := UI.vbox(0)
+		c.size_flags_vertical = Control.SIZE_EXPAND_FILL   # the tiles share the rest of the screen
+		var cv := UI.vbox(2)
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cv.alignment = BoxContainer.ALIGNMENT_CENTER
 		c.add_child(cv)
-		cv.add_child(UI.plbl(p.ic, 72 if _wide else 46, UI.TX, false, true))
-		var nl := UI.plbl(tr(p.n), 18 if _wide else 13, UI.GOLD if on else UI.MU, true, true)
+		var pic := UI.plbl(p.ic, 96 if _wide else 64, UI.TX, false, true)
+		cv.add_child(pic)
+		if on:
+			UI.breathe(pic, 0.08)
+		var nl := UI.plbl(tr(p.n), 19 if _wide else 16, UI.GOLD if on else UI.TX, true, true)
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.custom_minimum_size.x = 120
 		cv.add_child(nl)
+		# what it does, so pets can be compared without tapping each one
+		var pdl := UI.plbl(tr(p.d), 16 if _wide else 14, Color("#f6e3b4") if on else UI.MU, false, true)
+		pdl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		pdl.custom_minimum_size.x = 120
+		cv.add_child(pdl)
 		UI.on_tap(c, func():
 			sel_pet = kk
 			render())
 		UI.juice(c)
 		g.add_child(c)
-	if not _wide:
-		v.add_child(g)
-	v.add_child(UI.spacer(false))
 	v.add_child(_step_nav(func():
 		title_step = 1
 		render(), tr("Next") + " ▶️", func():
@@ -883,16 +867,17 @@ func _diff_screen() -> Control:
 		dg.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.add_child(dg)
 		list = dg
-	var kinds := {"normal": Color("#3fd17a"), "hard": Color("#ffc93c"), "vhard": Color("#ff5d6c"), "abyss": Color("#a77bff")}
+	var kinds := {"normal": Color("#3fd17a"), "hard": Color("#ffc93c"), "vhard": Color("#ff5d6c"), "abyss": Color("#9b74c4")}
 	for df in GameData.difficulties:
 		var id: String = df.id
 		var on: bool = id == sel_diff
 		var col: Color = kinds.get(id, UI.BD)
 		var c := UI.card(col.darkened(0.55) if on else UI.PN, col if on else UI.BD, 22, 14)
+		c.size_flags_vertical = Control.SIZE_EXPAND_FILL   # the four cards share the screen
 		var h := UI.hbox(14)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.add_child(h)
-		var il := UI.plbl(df.ic, 90 if _wide else 60)
+		var il := UI.plbl(df.ic, 90 if _wide else 76)
 		if _wide:
 			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			c.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -900,24 +885,40 @@ func _diff_screen() -> Control:
 		var tv := UI.vbox(2)
 		tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER   # centred in the tall card
 		h.add_child(tv)
 		var tl := UI.title(tr(df.n), 34 if _wide else 26, col.lightened(0.2) if on else Color.WHITE)
 		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.add_child(tl)
-		var dl := UI.wrap_lbl(tr(df.d), 21 if _wide else 16, Color("#e9e4ff"))
+		var dl := UI.wrap_lbl(tr(df.d), 21 if _wide else 16, Color("#efe4cf"))
 		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.add_child(dl)
-		var ml := UI.plbl(tr("Enemies: HP ×%.2f · damage ×%.2f") % [df.hp, df.dps] + ("" if df.elite <= 0 else "  ·  " + tr("more Elites")), 14, UI.MU, true)
-		tv.add_child(ml)
+		var who := {"normal": "Recommended for your first runs.", "hard": "For players who can beat Normal.", "vhard": "A real challenge: plan your build.", "abyss": "Nearly impossible. Good luck."}
+		var wl := UI.plbl(tr(who.get(id, "")), 16 if _wide else 14, col.lightened(0.35), true)
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tv.add_child(wl)
+		# what this mode adds, as chips
+		var chips := HFlowContainer.new()
+		chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chips.add_theme_constant_override("h_separation", 6)
+		chips.add_theme_constant_override("v_separation", 4)
+		var adds := ["❤️ ×%.2f · ⚔️ ×%.2f" % [df.hp, df.dps]]
+		if df.get("pet", false):
+			adds.append("🐾 " + tr("Monster pets"))
+		if df.get("ult", false):
+			adds.append("⭐ " + tr("Monster Ultimates"))
+		if float(df.elite) > 0.0:
+			adds.append("👹 " + tr("More Elites (+%d%%)") % roundi(float(df.elite) * 100.0))
+		for a in adds:
+			chips.add_child(_chip(a, UI.MU))
+		tv.add_child(chips)
 		if on:
-			h.add_child(UI.plbl("✅", 34))
 			UI.breathe(il, 0.1)
 		UI.on_tap(c, func():
 			sel_diff = id
 			render())
 		UI.juice(c)
 		list.add_child(c)
-	v.add_child(UI.spacer(false))
 	var cls: Dictionary = GameData.classes[sel_cls]
 	var pet: Dictionary = GameData.pets.get(sel_pet, {})
 	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n)], 18, UI.GOLD, true)
@@ -1015,7 +1016,7 @@ func _end_header() -> Control:
 	chips.add_child(_chip(str(dd.ic) + " " + tr(dd.n), UI.GOLD))
 	var pt: Dictionary = GameData.pets.get(run.pet, {})
 	if not pt.is_empty():
-		chips.add_child(_chip(str(pt.ic) + " " + tr(pt.n), Color("#c4b5fd")))
+		chips.add_child(_chip(str(pt.ic) + " " + tr(pt.n), Color("#d9c49a")))
 	if str(run.mod.get("n", "")) != "":
 		chips.add_child(_chip("🌍 " + tr(run.mod.n), Color("#93c5fd")))
 	chips.add_child(_chip("📅 " + tr("Day %d/%d") % [run.day, GameData.days], UI.MU))
@@ -1084,7 +1085,7 @@ func _end_buffs_panel() -> Control:
 		rows.append(["⭐ " + tr("Level-ups"), tr("No level-up bonuses."), UI.MU])
 	var pt: Dictionary = GameData.pets.get(run.pet, {})
 	if not pt.is_empty():
-		rows.append(["%s %s" % [pt.ic, tr(pt.n)], tr(pt.d), Color("#c4b5fd")])
+		rows.append(["%s %s" % [pt.ic, tr(pt.n)], tr(pt.d), Color("#d9c49a")])
 	if run.path != "":
 		var pd2 := run.path_def()
 		var relic: String = str(pd2.get("relic", ""))
@@ -1108,7 +1109,7 @@ func _end_buffs_panel() -> Control:
 		nm.custom_minimum_size.x = 210 if _wide else 190
 		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		hb.add_child(nm)
-		var d := UI.wrap_lbl(r[1], fs - 1, Color("#e9e4ff"))
+		var d := UI.wrap_lbl(r[1], fs - 1, Color("#efe4cf"))
 		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hb.add_child(d)
 		cv.add_child(hb)
@@ -1131,7 +1132,7 @@ func _run_screen(fresh: bool) -> Control:
 	root.add_child(_ribbon())
 
 	# backpack
-	var gp := UI.card(Color(UI.PN, 0.92), UI.BD, 22, 10)
+	var gp := UI.card(Color("#3a2818", 0.96), Color("#7a5232"), 22, 10)
 	var gv := UI.vbox(6)
 	gp.add_child(gv)
 	var gh := UI.hbox(8)
@@ -1178,7 +1179,7 @@ func _run_screen(fresh: bool) -> Control:
 	root.add_child(gp)
 
 	# storage
-	var sp := UI.card(Color(UI.PN, 0.92), UI.BD, 22, 10)
+	var sp := UI.card(Color("#33261a", 0.96), Color("#6b4f33"), 22, 10)
 	storage_panel = sp
 	var sv := UI.vbox(6)
 	sp.add_child(sv)
@@ -1269,7 +1270,7 @@ func _chip(t: String, col: Color) -> Control:
 
 
 func _hud() -> Control:
-	var p := UI.card(Color("#3a2d7a"), Color("#1d1546"), 24, 10)
+	var p := UI.card(Color("#3a2f25"), Color("#1c1713"), 24, 10)
 	var outer := UI.vbox(2)
 	p.add_child(outer)
 	var h := UI.hbox(10)
@@ -1296,8 +1297,10 @@ func _hud() -> Control:
 	bar.custom_minimum_size = Vector2(0, 28)
 	bar.max_value = 1
 	var r := run.hp / run.mhp
-	var col := UI.GOOD if r > 0.5 else Color("#ffb020") if r > 0.25 else UI.BAD
-	bar.add_theme_stylebox_override("fill", UI.box(col, col.darkened(0.3), 2, 99, 0))
+	var col := Color("#b3121b") if r > 0.25 else Color("#7a0a10")
+	bar.add_theme_stylebox_override("fill", UI.box(col, col.darkened(0.45), 2, 99, 0))
+	bar.add_theme_stylebox_override("background", UI.box(Color("#1a0807"), Color("#6b5a44"), 3, 99, 0))
+	UI.liquid(bar)
 	var hpl := UI.lbl("", 17, Color.WHITE, true)
 	hpl.add_theme_color_override("font_outline_color", Color.BLACK)
 	hpl.add_theme_constant_override("outline_size", 5)
@@ -1329,10 +1332,10 @@ func _hud() -> Control:
 
 ## Hero level and EXP toward the next one, next to the Hearts.
 func _level_badge() -> Control:
-	var p := UI.panel(Color("#0c2a3f"), Color("#38bdf8"), 2, 99, 5)
+	var p := UI.panel(Color("#2a1d0c"), Color("#c9952f"), 2, 99, 5)
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var hb := UI.hbox(6)
-	hb.add_child(UI.plbl("⭐ " + tr("Lv %d") % run.lv, 15, Color.WHITE, true))
+	hb.add_child(UI.plbl("⭐ " + tr("Lv %d") % run.lv, 15, Color("#f6e3b4"), true))
 	var xb := ProgressBar.new()
 	xb.show_percentage = false
 	xb.custom_minimum_size = Vector2(70, 10)
@@ -1340,10 +1343,10 @@ func _level_badge() -> Control:
 	xb.max_value = 1.0
 	xb.value = float(run.xp) / float(run.xp_need())
 	xb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	xb.add_theme_stylebox_override("background", UI.box(Color("#082032"), Color(0, 0, 0, 0), 0, 99, 0))
-	xb.add_theme_stylebox_override("fill", UI.box(Color("#38bdf8"), Color(0, 0, 0, 0), 0, 99, 0))
+	xb.add_theme_stylebox_override("background", UI.box(Color("#140d05"), Color(0, 0, 0, 0), 0, 99, 0))
+	xb.add_theme_stylebox_override("fill", UI.box(Color("#e0a030"), Color(0, 0, 0, 0), 0, 99, 0))
 	hb.add_child(xb)
-	hb.add_child(UI.plbl("%d/%d" % [run.xp, run.xp_need()], 13, Color("#bae6fd"), true))
+	hb.add_child(UI.plbl("%d/%d" % [run.xp, run.xp_need()], 13, Color("#f0d9a0"), true))
 	p.add_child(hb)
 	return p
 
@@ -1380,13 +1383,13 @@ func _level_pick_card(delay: float) -> Control:
 
 
 func _gold_pill() -> Control:
-	var gp := UI.panel(Color("#1d1546"), UI.GOLD, 3, 99, 8)
+	var gp := UI.panel(Color("#2a1d0c"), Color("#b07a2a"), 3, 8, 8)   # square pixel coin purse
 	gp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	gp.custom_minimum_size.x = 112
 	var gl := UI.title("", 26, UI.GOLD)
 	gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gp.add_child(gl)
-	UI.count_to(gl, _shown_gold if _shown_gold >= 0 else run.gold, run.gold, "🪙 %d")
+	UI.count_to(gl, _shown_gold if _shown_gold >= 0 else run.gold, run.gold, "💰 %d")
 	_shown_gold = run.gold
 	return gp
 
@@ -1460,7 +1463,7 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	var d := it.def()
 	var c: Color = GameData.tier_colors[d.tier]
 	var on := selected == it
-	var p := UI.card(c.darkened(0.55), Color.WHITE if on else c, 16, 6)
+	var p := UI.item_card(c.darkened(0.55), Color.WHITE if on else c, 16, 6)
 	p.custom_minimum_size = Vector2(w, 104)
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1475,7 +1478,7 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(ShapeView.new().setup(it.id, it.rot, (6 if w < 56.0 else 8) if narrow else 11))
 	top.add_child(cc)
-	v.add_child(top)
+	v.add_child(UI.slot(top, 54, Color.WHITE if on else c))
 	var nm := UI.plbl(tr(d.n), 14, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size.x = w - 16.0
@@ -1495,13 +1498,16 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 # --------------------------------------------------------------- shop
 
 func _shop_panel(fresh: bool) -> Control:
-	var shop := UI.card(Color("#2f2468", 0.95), Color("#c47a0c"), 22, 10)
+	var shop := UI.card(Color("#45301c", 0.97), Color("#b07a2a"), 22, 10)
 	sell_zone = shop
 	var v := UI.vbox(10)
 	shop.add_child(v)
 	var head := UI.hbox(8)
 	sell_lbl = UI.title("🛒 " + tr("Shop"), 24, UI.GOLD)
-	head.add_child(sell_lbl)
+	var sign := PanelContainer.new()   # the merchant's sign
+	sign.add_theme_stylebox_override("panel", UI.px_frame(Color("#3a2414"), Color("#c8902c"), 0, 8, true))
+	sign.add_child(sell_lbl)
+	head.add_child(sign)
 	head.add_child(UI.spacer())
 	head.add_child(_gold_pill())
 	var rr := UI.btn("🎲 %d🪙" % run.reroll_cost(), func():
@@ -1561,7 +1567,7 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var d: Dictionary = GameData.items[e.id]
 	var col: Color = GameData.tier_colors[d.tier]
 	var on := inspect_idx == i
-	var p := UI.card(col.darkened(0.5), Color.WHITE if on else col, 16, 6)
+	var p := UI.item_card(col.darkened(0.5), Color.WHITE if on else col, 16, 6)
 	p.custom_minimum_size = Vector2(0, 180)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1588,14 +1594,14 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var bb := Vector2i.ZERO
 	for c in GameData.shape(e.id, 0).c:
 		bb = Vector2i(maxi(bb.x, c.x + 1), maxi(bb.y, c.y + 1))
-	var cpx := minf(28.0, minf(96.0 / bb.x, 58.0 / bb.y))
+	var cpx := minf(32.0, minf(100.0 / bb.x, 60.0 / bb.y))
 	var shv := ShapeView.new().setup(e.id, 0, cpx, true)
-	shv.icon_px = clampf(cpx * 0.95, 20.0, 30.0)
+	shv.icon_px = clampf(cpx * 1.1, 26.0, 38.0)   # big enough to read at a glance
 	var shc := CenterContainer.new()
 	shc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shc.custom_minimum_size.y = 62
 	shc.add_child(shv)
-	v.add_child(shc)
+	v.add_child(UI.slot(shc, 66, Color.WHITE if on else col))
 	var nm := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size = Vector2(80, 34)
@@ -1607,11 +1613,10 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	v.add_child(sl)
 	v.add_child(UI.spacer(false))
 	var can: bool = run.gold >= e.price
-	var pb := UI.panel(Color("#ffc93c") if can else Color("#4a4670"), Color("#c47a0c") if can else Color("#2c2950"), 0, 12, 4)
-	var sbx: StyleBoxFlat = pb.get_theme_stylebox("panel")
-	sbx.border_width_bottom = 5
+	# a gold coin plate (dull iron when you cannot afford it)
+	var pb := UI.panel(Color("#2a1c0b") if can else Color("#1d1916"), Color("#d9a441") if can else Color("#4a433b"), 2, 8, 4)   # square pixel coin plate
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pb.add_child(UI.plbl("🪙 %d" % e.price, 19, Color("#4a2800") if can else Color("#8f8ab8"), true, true))
+	pb.add_child(UI.plbl("🪙 %d" % e.price, 19, Color("#ffd27a") if can else Color("#7d7266"), true, true))
 	v.add_child(pb)
 	return p
 
@@ -1640,7 +1645,7 @@ func _inspector_popup() -> Control:
 		return Control.new()
 	var d: Dictionary = GameData.items[id]
 	var col: Color = GameData.tier_colors[d.tier]
-	var p := UI.card(Color("#221b4d"), col, 26, 18)
+	var p := UI.card(Color("#231d17"), col, 26, 18)
 	# always at the top: the shop row and storage stay visible while you read
 	var at_top := true
 	p.anchor_left = 0
@@ -1691,7 +1696,7 @@ func _inspector_popup() -> Control:
 	close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	h.add_child(close)
 	for line in GameData.describe_lines(id):
-		v.add_child(UI.wrap_lbl(line, 18, Color("#efeaff")))
+		v.add_child(UI.wrap_lbl(line, 18, Color("#f4ebd8")))
 	if owned:
 		v.add_child(_buff_panel(selected, minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 60.0))
 	for r in run.recipes_for(id):
@@ -1813,7 +1818,7 @@ func _move_tip() -> void:
 ## "In your pack now": the item's numbers with every buff applied, and what each buff comes from
 ## (greyed out with the reason when a buff does nothing on this item).
 func _buff_panel(it: PItem, width: float) -> Control:
-	var p := UI.panel(Color(0, 0, 0, 0.3), Color("#7c6bd6"), 2, 12, 8)
+	var p := UI.panel(Color(0, 0, 0, 0.3), Color("#8c7558"), 2, 12, 8)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true
@@ -1863,7 +1868,7 @@ func _item_info_card(t: Dictionary) -> Control:
 	var id: String = t.id
 	var d: Dictionary = GameData.items[id]
 	var col: Color = GameData.tier_colors[d.tier]
-	var p := UI.card(Color("#221b4d", 0.97), col, 22, 16)
+	var p := UI.card(Color("#231d17", 0.97), col, 22, 16)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.custom_minimum_size.x = 520
 	var v := UI.vbox(8)
@@ -1885,7 +1890,7 @@ func _item_info_card(t: Dictionary) -> Control:
 	var tags := " · ".join(d.tags.map(func(x): return tr(x)))
 	tv.add_child(UI.plbl(tr(GameData.tier_names[d.tier]) + " · " + tags, 15, col.lightened(0.3), true))
 	for line in GameData.describe_lines(id):
-		var l := UI.wrap_lbl(line, 18, Color("#efeaff"))
+		var l := UI.wrap_lbl(line, 18, Color("#f4ebd8"))
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.custom_minimum_size.x = 488
 		v.add_child(l)
@@ -1988,14 +1993,14 @@ func _path_choice_overlay() -> Control:
 	if _wide:
 		# PC: the three paths side by side
 		list = UI.hbox(18)
-	var s := UI.wrap_lbl(tr("This choice lasts the whole run. Your path relic goes to storage, and it unlocks that path's Masterwork recipe."), 18, Color("#e9e4ff"))
+	var s := UI.wrap_lbl(tr("This choice lasts the whole run. Your path relic goes to storage, and it unlocks that path's Masterwork recipe."), 18, Color("#efe4cf"))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	var k := 0
 	for pid in run.cls_def().paths:
 		var pp: String = pid
 		var pd: Dictionary = GameData.paths[pid]
-		var p := UI.card(Color("#3a2d7a"), UI.GOLD, 24, 18)
+		var p := UI.card(Color("#3a2f25"), UI.GOLD, 24, 18)
 		var pv := UI.vbox(10)
 		p.add_child(pv)
 		var hh := UI.hbox(12)
@@ -2009,7 +2014,7 @@ func _path_choice_overlay() -> Control:
 		var rd: Dictionary = GameData.items[pd.relic]
 		var rh := UI.hbox(10)
 		rh.add_child(UI.item_chip(pd.relic))
-		var rl := UI.wrap_lbl("%s: %s" % [tr(rd.n), tr(rd.d)], 16, Color("#e9e4ff"))
+		var rl := UI.wrap_lbl("%s: %s" % [tr(rd.n), tr(rd.d)], 16, Color("#efe4cf"))
 		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		rh.add_child(rl)
 		pv.add_child(rh)
@@ -2031,11 +2036,11 @@ func _path_choice_overlay() -> Control:
 
 
 const NK := {
-	"combat": ["⚔️", "FIGHT", "#6b7bd6", "red"], "elite": ["👹", "ELITE", "#ef4444", "red"], "boss": ["💀", "BOSS", "#a855f7", "red"],
-	"forge": ["🔨", "FORGE", "#f59e0b", "gold"], "camp": ["🏕️", "CAMPFIRE", "#22c55e", "green"], "ambush": ["⚠️", "AMBUSH", "#f97316", "red"],
-	"shrine": ["🗿", "DARK SHRINE", "#7c3aed", "purple"], "tailor": ["🧵", "TAILOR", "#0ea5e9", "blue"],
-	"smith": ["🔨", "EVENT", "#f59e0b", "gold"], "merchant": ["🛒", "EVENT", "#0ea5e9", "blue"], "roulette": ["🔫", "EVENT", "#ef4444", "red"],
-	"cauldron": ["⚗️", "EVENT", "#22c55e", "green"], "altar": ["🗿", "EVENT", "#7c3aed", "purple"], "chest": ["📦", "EVENT", "#d97706", "gold"],
+	"combat": ["⚔️", "FIGHT", "#8c6c4a", "red"], "elite": ["👹", "ELITE", "#b0302a", "red"], "boss": ["💀", "BOSS", "#9b1c3c", "red"],
+	"forge": ["🔨", "FORGE", "#b7791f", "gold"], "camp": ["🏕️", "CAMPFIRE", "#3d7a3a", "green"], "ambush": ["⚠️", "AMBUSH", "#b8581f", "red"],
+	"shrine": ["🗿", "DARK SHRINE", "#5b3a7a", "purple"], "tailor": ["🧵", "TAILOR", "#3a6a8a", "blue"],
+	"smith": ["🔨", "EVENT", "#b7791f", "gold"], "merchant": ["🛒", "EVENT", "#3a6a8a", "blue"], "roulette": ["🔫", "EVENT", "#b0302a", "red"],
+	"cauldron": ["⚗️", "EVENT", "#3d7a3a", "green"], "altar": ["🗿", "EVENT", "#5b3a7a", "purple"], "chest": ["📦", "EVENT", "#a8641a", "gold"],
 }
 
 const EV := {
@@ -2088,7 +2093,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	var nm := ""
 	var badges := []
 	var sub := ""
-	var sub_col := Color("#e9e4ff")
+	var sub_col := Color("#efe4cf")
 	if n.has("e"):
 		var e: Dictionary = n.e
 		icon = GameData.foe_icon(e.n)
@@ -2136,8 +2141,8 @@ func _road_card(n: Dictionary, i: int) -> Control:
 				cf.alignment = FlowContainer.ALIGNMENT_CENTER
 			for ch in chips:
 				var warn: bool = String(ch).begins_with("⚠️")
-				var cp := UI.panel(Color("#3a1408", 0.9) if warn else Color("#2e1065", 0.85), Color("#ff9f43") if warn else Color("#c084fc"), 2, 99, 6)
-				cp.add_child(UI.lbl(ch, 15 if _wide else 13, Color("#ffd8a8") if warn else Color("#f3e8ff"), true))
+				var cp := UI.panel(Color("#3a1408", 0.9) if warn else Color("#2b1f14", 0.85), Color("#ff9f43") if warn else Color("#c084fc"), 2, 99, 6)
+				cp.add_child(UI.lbl(ch, 15 if _wide else 13, Color("#ffd8a8") if warn else Color("#f5ecd9"), true))
 				cf.add_child(cp)
 			v.add_child(cf)
 	if not badges.is_empty():
@@ -2146,7 +2151,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 			bf.alignment = FlowContainer.ALIGNMENT_CENTER
 		for b in badges:
 			var bp := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 99, 6)
-			bp.add_child(UI.lbl(b, 14 if _wide else 12, Color("#e9e4ff"), true))
+			bp.add_child(UI.lbl(b, 14 if _wide else 12, Color("#efe4cf"), true))
 			bf.add_child(bp)
 		v.add_child(bf)
 	if n.has("e") and n.e.has("items"):
@@ -2315,7 +2320,7 @@ func _night_overlay() -> Control:
 
 const SUM_COLS := {
 	"Fire": Color("#ff7a3d"), "Nature": Color("#7ee06e"), "Physical": Color("#e5e7eb"), "Shock": Color("#facc15"),
-	"burn": Color("#e11d48"), "poison": Color("#b26bff"), "bleed": Color("#f87171"), "shield": Color("#60a5fa"), "heal": Color("#4ade80"),
+	"burn": Color("#e11d48"), "poison": Color("#a77bd0"), "bleed": Color("#f87171"), "shield": Color("#60a5fa"), "heal": Color("#4ade80"),
 }
 
 
@@ -2501,7 +2506,7 @@ func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 		var ff := fmt
 		var target := num
 		nl.create_tween().tween_callback(func(): UI.count_to(nl, 0, target, ff)).set_delay(delay + 0.2)
-	var cl := UI.plbl(cap, 14, Color("#e9e4ff"), true, true)
+	var cl := UI.plbl(cap, 14, Color("#efe4cf"), true, true)
 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cl.custom_minimum_size.x = tw - 20.0
 	vb.add_child(cl)
@@ -2596,7 +2601,7 @@ func _event_overlay() -> Control:
 	var t := UI.title(tr(info[1]), 38, UI.GOLD)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var d := UI.wrap_lbl(tr(info[2]), 18, Color("#e9e4ff"))
+	var d := UI.wrap_lbl(tr(info[2]), 18, Color("#efe4cf"))
 	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(d)
 	var gl := UI.lbl("🪙 %d    ❤️ %d/%d    %s" % [run.gold, roundi(run.hp), roundi(run.mhp), "❤️".repeat(run.res)], 18, UI.MU, true)
@@ -2817,7 +2822,7 @@ func _ev_altar(v: VBoxContainer) -> void:
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(tv)
 		tv.add_child(UI.title(tr(d.n), 22))
-		tv.add_child(UI.wrap_lbl(GameData.describe_lines(id)[0], 15, Color("#e9e4ff")))
+		tv.add_child(UI.wrap_lbl(GameData.describe_lines(id)[0], 15, Color("#efe4cf")))
 		var br := UI.hbox(8)
 		var ii: int = i
 		var hb := UI.btn("-1 ❤️", func():

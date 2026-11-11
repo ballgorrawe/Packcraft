@@ -60,11 +60,7 @@ func _draw() -> void:
 	var pulse := 0.5 + 0.5 * sin(_t * 4.0)
 
 	# tiles
-	var tile := StyleBoxFlat.new()
-	tile.bg_color = Color("#1c1745")
-	tile.border_color = Color("#3d3383")
-	tile.set_border_width_all(2)
-	tile.set_corner_radius_all(10)
+	var tile := UI.px_frame(Color("#130e0a"), Color("#5a4630"), 0, 0)   # pixel slot
 	for y in GameData.H:
 		for x in GameData.W:
 			var c := Vector2i(x, y)
@@ -72,12 +68,7 @@ func _draw() -> void:
 			if run.tiles.has(c):
 				draw_style_box(tile, r)
 			elif morning and run.can_unlock(c):
-				var s := StyleBoxFlat.new()
-				s.bg_color = Color(UI.GOOD, 0.14 + 0.2 * pulse)
-				s.border_color = Color(UI.GOOD, 0.85)
-				s.set_border_width_all(3)
-				s.set_corner_radius_all(10)
-				draw_style_box(s, r.grow(-1 + 2 * pulse))
+				draw_style_box(UI.px_frame(Color("#1c3a16"), UI.GOOD, 0, 0), r.grow(-1 + 2 * pulse))
 				_text("+", r, cell * 0.55, Color(1, 1, 1, 0.95))
 			else:
 				draw_rect(r.grow(-6), Color(1, 1, 1, 0.025))
@@ -150,14 +141,16 @@ func _draw() -> void:
 			sq = 1.0 + 0.16 * sin(t / 0.35 * PI) * (1.0 - t / 0.35)
 		draw_set_transform(center, 0.0, Vector2(sq, 2.0 - sq))
 		var body := StyleBoxFlat.new()
-		body.bg_color = col.darkened(0.2)
-		body.border_color = col.darkened(0.55)
+		# dark iron body tinted by rarity, with a bright rarity rim: the icon stands out
+		body.bg_color = Color("#1a130e").lerp(col, 0.42)
+		body.border_color = col.lightened(0.05)
 		body.set_border_width_all(2)
 		body.border_width_bottom = 5
 		body.set_corner_radius_all(int(cell * 0.2))
 		var shine := StyleBoxFlat.new()
 		shine.bg_color = Color(1, 1, 1, 0.14)
 		shine.set_corner_radius_all(int(cell * 0.16))
+
 		for c in shp:
 			var r := Rect2((base + Vector2(c)) * cell - center, Vector2(cell, cell)).grow(-4)
 			var g := Rect2(r)
@@ -198,8 +191,8 @@ func _aura_marks(it: PItem, shp: Array, base: Vector2, center: Vector2, occ: Dic
 	var bs := cell * 0.36
 	if not d.adj.is_empty():
 		var br := Rect2(mr.position + Vector2(1, mr.size.y - bs - 1), Vector2(bs, bs))
-		draw_circle(br.get_center(), bs * 0.5, Color("#1e1b4b"))
-		draw_arc(br.get_center(), bs * 0.5, 0, TAU, 20, Color("#c4b5fd"), 2.0)
+		draw_circle(br.get_center(), bs * 0.5, Color("#1f1a15"))
+		draw_arc(br.get_center(), bs * 0.5, 0, TAU, 20, Color("#d9c49a"), 2.0)
 		_text(GameData.tag_icon(d.adj[0].tag), br, bs * 0.62, Color.WHITE)
 		var arrow_col := Color(UI.GOOD, 0.7 + 0.3 * pulse)
 		for c in shp:

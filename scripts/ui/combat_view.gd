@@ -311,7 +311,7 @@ func _show_ult_info(on: bool) -> void:
 		return
 	if _ult_info:
 		return
-	var p := UI.panel(Color("#1b1336", 0.97), Color("#fde68a"), 3, 16, 14)
+	var p := UI.panel(Color("#1a1511", 0.97), Color("#fde68a"), 3, 16, 14)
 	p.z_index = 20   # above floating numbers
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var rt := RichTextLabel.new()
@@ -390,7 +390,7 @@ func _sprite(icon: String, fs: int, ax: float, ay: float) -> Label:
 func _draw_stage() -> void:
 	var s := stage.size
 	var sky := StyleBoxFlat.new()
-	sky.bg_color = Color("#3b2a7a")
+	sky.bg_color = Color("#3c3026")
 	sky.set_corner_radius_all(22)
 	stage.draw_style_box(sky, Rect2(Vector2.ZERO, s))
 	for i in 6:
@@ -416,8 +416,8 @@ func _draw_stage() -> void:
 func _draw_pack() -> void:
 	var f: Font = UI.font if UI.font else get_theme_default_font()
 	var tile := StyleBoxFlat.new()
-	tile.bg_color = Color("#1c1745")
-	tile.border_color = Color("#3d3383")
+	tile.bg_color = Color("#1b1713")
+	tile.border_color = Color("#3d3329")
 	tile.set_border_width_all(2)
 	tile.set_corner_radius_all(10)
 	for c in run.tiles:

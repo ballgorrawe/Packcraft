@@ -20,6 +20,8 @@ func _initialize() -> void:
 			out = a.substr(6)
 		if a.begins_with("--lang="):
 			lang = a.substr(7)
+		if a.begins_with("--item_style="):
+			UI.item_style = a.substr(13)
 		if a.begins_with("--only="):
 			only = a.substr(7)
 	_run()

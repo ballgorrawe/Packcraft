@@ -25,8 +25,8 @@ func setup(class_id: String, cell_px: float) -> StartBagView:
 func _draw() -> void:
 	var c: Dictionary = GameData.classes[cls]
 	var tile := StyleBoxFlat.new()
-	tile.bg_color = Color("#1c1745")
-	tile.border_color = Color("#3d3383")
+	tile.bg_color = Color("#1b1713")
+	tile.border_color = Color("#3d3329")
 	tile.set_border_width_all(2)
 	tile.set_corner_radius_all(int(cell * 0.18))
 	for t in c.bag:

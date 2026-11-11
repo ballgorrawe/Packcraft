@@ -67,7 +67,7 @@ func _draw() -> void:
 		draw_style_box(UI.box(Color(1, 1, 1, glow), Color("#bfe6ff"), 2 if _sh_pulse > 0 else 0, 99, 0), Rect2(0, 0, sw, SH_H))
 	# HP bar
 	var br := Rect2(0, SH_H + GAP, w, bar_h)
-	draw_style_box(UI.box(Color("#0f172a"), Color(0, 0, 0, 0.6), 2, 99, 0), br)
+	draw_style_box(UI.box(Color("#110e0b"), Color(0, 0, 0, 0.6), 2, 99, 0), br)
 	var fw := w * _shown_hp
 	if _ghost > _shown_hp:
 		draw_style_box(UI.box(Color(1, 0.9, 0.9, 0.55), Color(0, 0, 0, 0), 0, 99, 0), Rect2(br.position, Vector2(w * _ghost, bar_h)))

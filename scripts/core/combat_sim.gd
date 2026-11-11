@@ -550,7 +550,7 @@ func fire(idx: int) -> void:
 		_spell_n += 1
 		if _spell_n % 5 == 0:
 			_echoing = true
-			_num("hero", "🌠 " + I18n.t("ECHO"), Color("#c4b5fd"), true, x.i.uid)
+			_num("hero", "🌠 " + I18n.t("ECHO"), Color("#d9c49a"), true, x.i.uid)
 			fire(idx)
 			_echoing = false
 
@@ -867,7 +867,7 @@ func _hit_hero(dm: float, uid: int, icon: String, dodgeable := true, reflect := 
 		# Shadowstep / Phantom evasion: the hit misses completely
 		if dodge > 0:
 			dodge -= 1
-		_num("hero", "💨 " + I18n.t("EVADE"), Color("#c4b5fd"), true)
+		_num("hero", "💨 " + I18n.t("EVADE"), Color("#d9c49a"), true)
 		dm = 0.0
 	var ab := minf(shield, dm)
 	shield -= ab

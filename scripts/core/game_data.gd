@@ -293,7 +293,7 @@ static func stats_bb(id: String) -> String:
 	if not on.haste.is_empty():
 		line.call(Color("#ffe14a"), "[b]+%d%%[/b] %s" % [roundi(on.haste[0] * 100), I18n.t("speed")])
 	for b in d.adj:
-		line.call(Color("#c4b5fd"), "✨ %s %s" % [tag_icon(b.tag), _buff_short(b)])
+		line.call(Color("#d9c49a"), "✨ %s %s" % [tag_icon(b.tag), _buff_short(b)])
 	if d.pass.hp_pct > 0:
 		line.call(Color("#fb7185"), "[b]+%s%%[/b] %s" % [_num(d.pass.hp_pct), I18n.t("Max HP")])
 	if d.pass.hp > 0:

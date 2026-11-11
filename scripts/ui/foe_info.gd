@@ -26,7 +26,7 @@ static func chips(e: Dictionary) -> Array:
 
 ## The full panel. `e` should already have today's hazard applied (RunState.with_hazard).
 static func build(e: Dictionary, width: float) -> Control:
-	var p := UI.panel(Color("#1b1336", 0.98), Color("#c084fc"), 3, 18, 16)
+	var p := UI.panel(Color("#1a1511", 0.98), Color("#c084fc"), 3, 18, 16)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE   # a tap on it reaches whatever closes it
 	var rt := RichTextLabel.new()
 	rt.bbcode_enabled = true

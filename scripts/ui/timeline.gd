@@ -30,54 +30,70 @@ func _draw() -> void:
 	var w := size.x
 	var pad := 22.0
 	var step := (w - pad * 2) / float(n - 1)
-	var y := 30.0
 	var f: Font = UI.font if UI.font else get_theme_default_font()
-	# the path
-	draw_line(Vector2(pad, y), Vector2(w - pad, y), Color(1, 1, 1, 0.12), 6.0, true)
-	var done_x := pad + step * (run.day - first)
-	draw_line(Vector2(pad, y), Vector2(done_x, y), Color(UI.GOLD, 0.8), 6.0, true)
-	var phases := {"morning": "☀️", "afternoon": "🗺️", "evening": "⚔️", "night": "🌙"}
+	# each floor sits a little lower than the last: you are going down
+	var ys := func(d: int) -> float: return 16.0 + 18.0 * float(d - first) / float(n - 1)
+	var pt := func(d: int) -> Vector2: return Vector2(pad + step * (d - first), ys.call(d))
+	# the chain between floors (bronze where you have been)
+	for d in range(first, first + n - 1):
+		var a0: Vector2 = pt.call(d)
+		var a1: Vector2 = pt.call(d + 1)
+		var walked := d < run.day
+		var links := 4
+		for k in links:
+			var c0 := a0.lerp(a1, (k + 0.2) / links)
+			var c1 := a0.lerp(a1, (k + 0.8) / links)
+			draw_line(c0, c1, Color("#c9952f") if walked else Color("#4a4036"), 4.0, true)
+	var phases := {"morning": "🏕️", "afternoon": "🚪", "evening": "⚔️", "night": "🔥"}
 	for d in range(first, first + n):
-		var x := pad + step * (d - first)
+		var c: Vector2 = pt.call(d)
 		var boss: bool = run.boss_on(d) != null
 		var fork: bool = d == GameData.path_day
 		var cur := d == run.day
 		var past := d < run.day
-		var r := 9.0
-		var col := Color("#3d3383")
+		var r := 10.0
+		var col := Color("#3a3129")
 		if past:
-			col = UI.GOLD.darkened(0.25)
+			col = Color("#8a6a3a")
 		if boss:
-			col = Color("#ff4d5e") if not past else Color("#ff4d5e").darkened(0.4)
-			r = 12.0
+			col = Color("#8f1d2c") if not past else Color("#5a1520")
+			r = 13.0
 		if cur:
-			r = 17.0 + 1.5 * sin(_t * 4.0)
-			draw_circle(Vector2(x, y), r + 6, Color(UI.GOLD, 0.25))
-			col = UI.GOLD
-		draw_circle(Vector2(x, y), r, col)
-		draw_arc(Vector2(x, y), r, 0, TAU, 24, Color(0, 0, 0, 0.35), 2.0, true)
+			r = 17.0
+			# torchlight on the floor you are on
+			var glow := 0.22 + 0.08 * sin(_t * 9.0) + 0.05 * sin(_t * 23.0)
+			draw_circle(c, r + 10, Color(1.0, 0.55, 0.2, glow * 0.6))
+			draw_circle(c, r + 5, Color(1.0, 0.6, 0.25, glow))
+			col = Color("#d9a441")
+		# a stone step: a diamond with a lit top face
+		var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0)])
+		draw_colored_polygon(pts, col)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c, c + Vector2(-r, 0)]), Color(1, 1, 1, 0.1))
+		var rim := pts.duplicate()
+		rim.append(pts[0])
+		draw_polyline(rim, Color(0, 0, 0, 0.6), 2.0, true)
 		var label := ""
 		var lcol := Color.WHITE
-		var fs := 13
+		var fs := 12
 		if cur:
 			label = phases.get(run.phase, str(d))
-			fs = 17
+			fs = 16
 		elif boss:
 			label = GameData.foe_icon(run.boss_on(d).n)
-			fs = 14
+			fs = 13
 		elif past:
 			label = "✔"
-			lcol = Color("#4a2800")
+			lcol = Color("#2a1a05")
 		elif fork:
 			label = "🔀"
-			fs = 12
+			fs = 11
 		else:
 			label = str(d)
 			lcol = UI.MU
-		_center(f, label, Vector2(x, y), fs, lcol)
-		# day number under the important nodes
+		_center(f, label, c, fs, lcol)
+		# floor name under the important steps
 		if cur or boss or d == first or d == first + n - 1:
-			_center(f, str(d), Vector2(x, y + 30), 13 if not cur else 15, UI.GOLD if cur else UI.MU)
+			_center(f, "B%d" % d, c + Vector2(0, r + 13), 12 if not cur else 14, UI.GOLD if cur else UI.MU)
 
 
 func _center(f: Font, t: String, c: Vector2, fs: int, col: Color) -> void:
