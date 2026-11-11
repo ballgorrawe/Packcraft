@@ -317,22 +317,29 @@ func render() -> void:
 		screen.add_child(popup)
 
 
-## Morning: last night's fusions / evolutions, one card at a time (tap Next), with Skip all.
+## Morning: last night's fusions / evolutions, up to 3 per page (Next page), with Skip all.
+const FX_PER_PAGE := 3
+
 func _fusion_overlay() -> Control:
 	var o := _overlay("")
 	var v: VBoxContainer = o[1]
 	var n := _fusion_queue.size()
-	if n > 1:
-		var c := UI.lbl("%d / %d" % [_fusion_seen + 1, n], 20, UI.MU, true)
+	var pages := ceili(n / float(FX_PER_PAGE))
+	var page := _fusion_seen / FX_PER_PAGE
+	if pages > 1:
+		var c := UI.lbl(tr("Page %d / %d") % [page + 1, pages], 20, UI.MU, true)
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(c)
-	v.add_child(_fusion_card(_fusion_queue[_fusion_seen], 0.2))
-	var last := _fusion_seen >= n - 1
-	var nb := UI.big_btn((tr("Next") + " ▶️") if not last else (tr("Continue") + " ▶️"), func():
-		_fusion_seen += 1
+	var k := 0
+	for w in _fusion_queue.slice(_fusion_seen, _fusion_seen + FX_PER_PAGE):
+		v.add_child(_fusion_card(w, 0.2 + 0.45 * k))
+		k += 1
+	var last := _fusion_seen + FX_PER_PAGE >= n
+	var nb := UI.big_btn((tr("Next page") + " ▶️") if not last else (tr("Continue") + " ▶️"), func():
+		_fusion_seen += FX_PER_PAGE
 		render(), "green", 26)
 	v.add_child(_center(nb))
-	if n > 1 and not last:
+	if not last:
 		v.add_child(_center(UI.btn(tr("Skip all") + " ⏭️", func():
 			_fusion_seen = n
 			render(), false, 18, "gray")))

@@ -150,7 +150,7 @@ func _run() -> void:
 	r.result.rew.push_front({"k": "heart", "v": 1})
 	r.result.rew.append({"k": "level", "v": r.lv + 1})
 	r.result.rew.append({"k": "loot", "id": "iron_sword"})
-	for fx in 3:
+	for fx in 4:
 		r.result.rew.append({"k": "fusion", "a": "wooden_shield", "b": "leather_vest", "r": "brigandine", "evo": false, "stored": false})
 	main.render()
 	await _check("night_win")
@@ -167,6 +167,9 @@ func _run() -> void:
 	main.render()
 	await _check("morning_fusion")
 	main._fusion_seen = 3
+	main.render()
+	await _check("morning_fusion_p2")
+	main._fusion_seen = 4
 	r.phase = "afternoon"
 	# defeat night
 	r.phase = "afternoon"
@@ -190,7 +193,7 @@ func _run() -> void:
 
 ## Waits for layout, saves a screenshot and reports anything that does not fit.
 func _check(name: String) -> void:
-	await create_timer(2.6 if name.begins_with("night") else 0.9).timeout
+	await create_timer(2.6 if name.begins_with("night") or name.begins_with("morning_f") else 0.9).timeout
 	if only != "" and not name.contains(only):
 		return
 	screens += 1
