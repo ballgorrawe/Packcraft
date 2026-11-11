@@ -7,6 +7,11 @@ name: Discord patch notes
 on:
   page_build:
   workflow_dispatch:
+    inputs:
+      test_message:
+        description: "Send only this text (a test). Leave empty to post the live version notes."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -19,7 +24,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Send a test message
+        if: github.event_name == 'workflow_dispatch' && inputs.test_message != ''
+        env:
+          WEBHOOK: ${{ secrets.PACKCRAFT_WEBHOOK }}
+          MSG: ${{ inputs.test_message }}
+        run: |
+          jq -n --arg c "$MSG" '{content: $c, allowed_mentions: {parse: []}}' > payload.json
+          curl -sSf -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"
+          echo "Test message sent."
+
       - name: Post the live version's notes
+        if: github.event_name != 'workflow_dispatch' || inputs.test_message == ''
         env:
           WEBHOOK: ${{ secrets.PACKCRAFT_WEBHOOK }}
         run: |
