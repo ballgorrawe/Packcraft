@@ -35,6 +35,7 @@ var resv := 0               # class resource (Heat, Toxin, Gears, Guard)
 var res_acc := 0.0
 var ult := 0.0                # ultimate meter (item triggers)
 var ult_need := 24
+var ult_lock := 0             # ticks the Ultimate bar cannot fill after it fired
 var ults := 0
 var sp := {}                # specials present in the pack
 var turrets := 0
@@ -156,7 +157,7 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 		var d: Dictionary = i.def()
 		if d.cd > 0 or d.once:
 			var f := r.eff(i)
-			items.append({"i": i, "d": d, "f": f, "p": 0.0, "cd": f.cd, "used": false, "ramp": 0.0, "nb": [], "st": {"dmg": 0.0, "heal": 0.0, "shield": 0.0, "hits": 0, "el": f.el, "dot": {}}})
+			items.append({"i": i, "d": d, "f": f, "p": 0.0, "cd": f.cd, "lock": 0, "used": false, "ramp": 0.0, "nb": [], "st": {"dmg": 0.0, "heal": 0.0, "shield": 0.0, "hits": 0, "el": f.el, "dot": {}}})
 	for x in items:
 		_by_uid[x.i.uid] = x
 	# neighbour lists (item indices) for Charge
@@ -529,7 +530,7 @@ func fire(idx: int) -> void:
 		for b in x.nb:
 			if items[b].d.tags.has("Mech"):
 				_charge(b, 0.15)
-	if sp.has("perpetual"):
+	if sp.has("perpetual") and d.tags.has("Mech"):
 		for c in items.size():
 			if _isp(items[c].d, "perpetual") and c != idx:
 				for b in items[c].nb:
@@ -538,9 +539,11 @@ func fire(idx: int) -> void:
 	var rd := res_def()
 	if rd.gain == "trigger_tag" and d.tags.has(rd.tag):
 		_gain_res("trigger_tag", 1.0)
-	ult += 1.0
+	if ult_lock <= 0:
+		ult += 1.0
 	if ult >= ult_need:
 		ult = 0.0
+		ult_lock = 30   # loop guard: the Ultimate bar stays empty for 3s after it fires
 		fire_ult()
 	# Starcaller: every 3rd Spell is cast again
 	if sp.has("star_echo") and d.tags.has("Spell") and not _echoing:
@@ -595,7 +598,7 @@ func _item_speed(x: Dictionary) -> float:
 
 func _charge(idx: int, sec: float) -> void:
 	var y: Dictionary = items[idx]
-	if y.d.once:
+	if y.d.once or y.lock > 0:
 		return
 	y.p = minf(y.cd, y.p + sec)
 
@@ -615,7 +618,7 @@ func fire_ult() -> void:
 				add_status("poison", fs.poison * 0.5)
 		"full_charge":
 			for y in items:
-				if not y.d.once:
+				if not y.d.once and y.lock <= 0:
 					y.p = y.cd
 		"shadowstep":
 			dodge += 1
@@ -658,6 +661,8 @@ func step() -> void:
 	if done:
 		return
 	tk += 1
+	if ult_lock > 0:
+		ult_lock -= 1
 	var speed := (1.0 + haste()) * _soak_slow(hd)
 	if hero_freeze > 0:
 		hero_freeze -= 1
@@ -679,11 +684,15 @@ func step() -> void:
 					gain_shield(x.f.shield, x.i.uid)
 				_log(I18n.t("🧪 %s healed you") % I18n.t(d.n))
 			continue
+		if x.lock > 0:
+			x.lock -= 1
 		if grab_t > 0 and grab_uids.has(x.i.uid):
 			continue   # held by the Kraken
 		x.p += TICK * speed * _item_speed(x)
 		if x.p >= x.cd:
 			x.p -= x.cd
+			# loop guard: right after firing, outside charge cannot refill it (max ~2x its own speed)
+			x.lock = maxi(2, roundi(x.cd * 0.4 * 10))
 			fire(idx)
 	# relic timer
 	if sp.has("hp_strike") and tk % HP_STRIKE_TICKS == 0:

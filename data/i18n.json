@@ -691,7 +691,7 @@
   "Gains +4 damage every swing this fight. Weapons gain +1 damage every time they hit (this fight). Each Heat gives weapons 4% Armor Pierce.": "ดาเมจ +4 ทุกครั้งที่ฟันในไฟต์นี้ อาวุธดาเมจ +1 ทุกครั้งที่ตี (ในไฟต์นี้) และ Heat แต่ละหน่วยให้อาวุธเจาะเกราะ 4%",
   "Poison damage can crit: 25% chance for triple damage. Toxin builds twice as fast.": "ดาเมจพิษคริได้: โอกาส 25% ดาเมจ x3 ท็อกซินสะสมเร็วขึ้น 2 เท่า",
   "+5% damage per 10 gold you hold, and +5 gold after every win. +1% damage per gold you hold (max +50%).": "ดาเมจ +5% ต่อทอง 10 ที่ถือ และได้ทอง +5 ทุกครั้งที่ชนะ ดาเมจ +1% ต่อทอง 1 ที่ถือ (สูงสุด +50%)",
-  "Whenever any item triggers, items touching the Core gain 20% charge. Whenever any item triggers, Mech items touching it gain 0.15s of charge.": "ทุกครั้งที่ไอเทมใดทำงาน ไอเทมที่ติดกับ Core ได้ชาร์จ 20% ทุกครั้งที่ไอเทมใดทำงาน ไอเทมจักรกลที่ติดกันได้ชาร์จ 0.15 วินาที",
+  "Whenever a Mech item triggers, items touching the Core gain 20% charge. Whenever any item triggers, Mech items touching it gain 0.15s of charge.": "ทุกครั้งที่ไอเทมจักรกลทำงาน ไอเทมที่ติดกับ Core ได้ชาร์จ 20% ทุกครั้งที่ไอเทมใดทำงาน ไอเทมจักรกลที่ติดกันได้ชาร์จ 0.15 วินาที",
   "Turrets deal +2 damage for every Turret in your pack. Turrets deal +3 damage for every Turret in your pack and ignore Armor.": "ป้อมทุกตัวดาเมจ +2 ต่อป้อม 1 ตัวในกระเป๋า ป้อมดาเมจ +3 ต่อป้อม 1 ตัวในกระเป๋า และไม่สนเกราะ",
   "Thorns strike twice. Each time you are hit, gain 1 Thorns.": "หนามสะท้อน 2 ครั้ง ทุกครั้งที่โดนตี ได้หนาม 1",
   "Every 4s, deal 10% of your Max HP as damage. Every 4s, deal 17% of your Max HP as damage. Your Physical hits ignore Armor.": "ทุก 4 วินาที สร้างดาเมจ 10% ของ Max HP ทุก 4 วินาที สร้างดาเมจ 17% ของ Max HP และการตีกายภาพไม่สนเกราะ",

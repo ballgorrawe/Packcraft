@@ -9,6 +9,7 @@ const MIN_MAX_HP := 30.0       # the Cursed Altar can never take Max HP below th
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
 const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
+const EVENTS_FROM_DAY := 3      # days 1-2 are fights only (events come later and scale with the day)
 const SAVE_VERSION := 2
 
 var cls := ""
@@ -961,9 +962,9 @@ func event_ok(k: String) -> bool:
 		"smith":
 			return day >= 2
 		"roulette":
-			return day >= 2
+			return day >= 4   # a big gold swing: not in the first days
 		"altar":
-			return day >= 3 and res > 0
+			return day >= 6 and res > 0   # a Legendary item: not before the first boss
 		"cauldron":
 			return items.filter(func(i): return not i.starter).size() >= 2
 	return true
@@ -996,9 +997,14 @@ func begin_day() -> void:
 	nodes = [{"k": "combat", "e": foe(false)}]
 	var evs := EVENTS.filter(func(k): return event_ok(k))
 	evs.shuffle()
-	nodes.append({"k": evs[0]})
+	if day < EVENTS_FROM_DAY:
+		# the first days are fights only: two monsters to pick from (no free loot or gold skip)
+		nodes.append({"k": "combat", "e": foe(false)})
+		evs = []
+	else:
+		nodes.append({"k": evs[0]})
 	if randf() < 0.65:
-		var extra := [{"k": "camp"}, {"k": evs[1] if evs.size() > 1 else "camp"}]
+		var extra := [{"k": "camp"}, {"k": evs[1] if evs.size() > 1 else "camp"}] if not evs.is_empty() else []
 		if day >= ELITE_FROM_DAY:
 			extra.append({"k": "elite", "e": foe(true)})
 		if day >= 3:
@@ -1006,7 +1012,8 @@ func begin_day() -> void:
 			am.n = "Ambusher " + am.fam
 			am.hp = float(roundi(am.hp * 1.15))
 			extra.append({"k": "ambush", "e": am})
-		nodes.append(extra.pick_random())
+		if not extra.is_empty():
+			nodes.append(extra.pick_random())
 	# harder modes throw an extra Elite road at you more often
 	if randf() < diff_def().elite and day >= ELITE_FROM_DAY and nodes.size() < 3:
 		nodes.append({"k": "elite", "e": foe(true)})
@@ -1065,6 +1072,11 @@ func smith_cost() -> int:
 	return 6 + 2 * day
 
 
+## Item rarity events hand out: today's shop rank, one higher only from day 8.
+func _event_rank() -> int:
+	return rank() + (1 if day >= 8 else 0)
+
+
 func start_event(k: String) -> void:
 	phase = "event"
 	event = {"k": k, "lines": [], "rew": [], "done": false}
@@ -1072,7 +1084,7 @@ func start_event(k: String) -> void:
 		"merchant":
 			var stock := []
 			for _i in 3:
-				var id := roll_tiered(rank() + 1, 2)
+				var id := roll_tiered(_event_rank(), 2)
 				stock.append({"id": id, "price": roundi(GameData.items[id].cost * 1.3)})
 			event.stock = stock
 		"roulette":
@@ -1084,8 +1096,8 @@ func start_event(k: String) -> void:
 			pool.shuffle()
 			event.offer = pool.slice(0, 3)
 		"chest":
-			var item_id := roll_tiered(rank() + 1, 1)
-			var box := [{"k": "item", "id": item_id}, {"k": "gold", "v": 8 + 2 * day}, {"k": "curse", "v": 5 + day} if randf() < 0.6 else {"k": "gold", "v": 3 + day}]
+			var item_id := roll_tiered(_event_rank(), 1)
+			var box := [{"k": "item", "id": item_id}, {"k": "gold", "v": 4 + 2 * day}, {"k": "curse", "v": 5 + day} if randf() < 0.6 else {"k": "gold", "v": 3 + day}]
 			box.shuffle()
 			event.box = box
 
@@ -1146,7 +1158,7 @@ func ev_sell_full(it: PItem) -> bool:
 func roulette_pot(pulls: int) -> int:
 	var p := 0
 	for k in range(1, pulls + 1):
-		p += (3 + day) * k
+		p += roundi((1.0 + day * 0.5) * k)   # grows with the day: ~45 gold max on day 4, ~125 on day 15
 	return p
 
 
@@ -1177,8 +1189,8 @@ func ev_cash_out() -> void:
 	gold += event.pot
 	event.rew.append({"k": "gold", "v": event.pot})
 	event.lines.append(I18n.t("🔫 You walk away with %d gold after %d empty chambers.") % [event.pot, event.pulls])
-	if event.pulls >= 3:
-		var id := roll_tiered(rank() + 1, 1)
+	if event.pulls >= 4:
+		var id := roll_tiered(_event_rank(), 1)
 		items.append(make_item(id, "storage"))
 		event.rew.append({"k": "loot", "id": id})
 

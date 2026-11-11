@@ -262,6 +262,16 @@ func render() -> void:
 	m.add_theme_constant_override("margin_right", int(sm.z))
 	m.add_theme_constant_override("margin_bottom", int(sm.w))
 	screen.add_child(m)
+	# the build version, small in the bottom-left corner of every screen (handy while testing)
+	var ver := UI.lbl("v" + str(ProjectSettings.get_setting("application/config/version", "")), 12, Color(1, 1, 1, 0.35))
+	ver.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ver.anchor_top = 1.0
+	ver.anchor_bottom = 1.0
+	ver.offset_left = 6
+	ver.offset_top = -19
+	ver.offset_bottom = -2
+	ver.z_index = 50
+	screen.add_child(ver)
 	if run != null:
 		_autosave()   # every state change is saved; finished runs clear the save
 		if run.msg != "":

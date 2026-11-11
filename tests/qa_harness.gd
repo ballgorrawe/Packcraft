@@ -765,8 +765,13 @@ func _pro_spot(r: RunState, it: PItem) -> Dictionary:
 				it.x = x
 				it.y = y
 				var g := _pro_rate(r.pack_rates()) - base
-				if r.links().any(func(l): return l.a == it or l.b == it):
+				if r.links().any(func(l): return l.a == it or l.b == it or l.get("c") == it):
 					g += 4.0
+				elif _pro_mw_parts(r).has(it.id):
+					# Masterwork pieces: keep them together so the third one can join
+					for nb in r.neighbours(it):
+						if nb.id != it.id and _pro_mw_parts(r).has(nb.id):
+							g += 2.0
 				it.loc = keep_loc
 				if best.is_empty() or g > best.g:
 					best = {"x": x, "y": y, "rot": rot, "g": g}
@@ -998,6 +1003,8 @@ func _pro_build_tags(r: RunState) -> Dictionary:
 		if r.path != "" and str(rc.get("path", "")) == r.path:
 			parts[rc.a] = true
 			parts[rc.b] = true
+			if rc.get("c", "") != "":
+				parts[rc.c] = true
 	# ingredients of those ingredients (e.g. Dire Wolf <- Wolf Pup + Raw Meat)
 	for rc in GameData.recipes:
 		if parts.has(rc.r):
@@ -1024,4 +1031,22 @@ func _pro_build_bonus(r: RunState, id: String, build: Dictionary) -> float:
 		b += float(pro_cfg.get("cap", 3.0))
 	if r.recipe_partner_owned(id):
 		b += float(pro_cfg.get("fuse", 3.0))
+	# ⭐ growth: worth more the more fights are left to grow in
+	var gr: Dictionary = d.get("grow", {})
+	if not gr.is_empty():
+		var left := mini(int(gr.get("max", 12)), maxi(0, GameData.days - r.day))
+		b += float(pro_cfg.get("grow", 0.35)) * float(gr.get("v", 1.0)) * left * (2.0 if gr.get("adj", false) else 1.0)
 	return b
+
+
+## Ingredients of the chosen path's Masterwork (empty before the path or after it was made).
+func _pro_mw_parts(r: RunState) -> Dictionary:
+	var out := {}
+	if r.path == "" or r.mw_done:
+		return out
+	for rc in GameData.recipes:
+		if rc.get("c", "") != "" and rc.path == r.path:
+			out[rc.a] = true
+			out[rc.b] = true
+			out[rc.c] = true
+	return out
