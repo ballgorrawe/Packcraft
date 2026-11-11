@@ -178,6 +178,7 @@ const COLUMN_W := 760.0
 const WIDE_W := 1720.0
 const WIDE_H := 1000
 var _landscape := false   # anything wider than a phone (mouse hints, centred column)
+var _end_tab := 0         # end screen on phones: 0 pack, 1 buffs
 var _bench_cache := {}    # class -> starting-kit numbers for the hero picker
 var _wide := false        # landscape wide enough for the two-column morning screen
 var _render_queued := false
@@ -938,16 +939,13 @@ func _diff_screen() -> Control:
 
 func _end_screen() -> Control:
 	var cc := CenterContainer.new()
-	var v := UI.vbox(18)
+	var v := UI.vbox(10 if not _wide else 12)
+	v.custom_minimum_size.x = 1500.0 if _wide else 680.0
 	cc.add_child(v)
 	var w := run.end_state == "win"
-	var t := UI.title(("♾️ " + tr("ENDLESS")) if run.endless else (tr("VICTORY") if w else tr("DEFEATED")), 64, UI.GOLD if w or run.endless else UI.BAD)
+	var t := UI.title(("♾️ " + tr("ENDLESS")) if run.endless else (("🏆 " + tr("VICTORY")) if w else ("💀 " + tr("DEFEATED"))), 52 if _wide else 44, UI.GOLD if w or run.endless else UI.BAD)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var i := UI.lbl("🏆" if w or run.endless else "💀", 130)
-	i.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(i)
-	UI.breathe(i, 0.06)
 	var line := (tr("%s falls. Your build held.") % tr(run.boss_on(GameData.days).n if run.boss_on(GameData.days) != null else "")) if w else tr("You fell on day %d of %d.") % [run.day, GameData.days]
 	if run.endless:
 		# Endless: how far you got, and the best on this difficulty
@@ -957,25 +955,163 @@ func _end_screen() -> Control:
 		var best: int = run.get_meta("best_before")
 		if run.day > int(SaveGame.get_setting(key, 0)):
 			SaveGame.set_setting(key, run.day)
-		line = tr("Endless: you reached day %d.") % run.day + "
-" + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
-	var s := UI.wrap_lbl(line, 22)
+		line = tr("Endless: you reached day %d.") % run.day + "  " + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
+	var s := UI.wrap_lbl(line, 20 if _wide else 18)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
-	var path_txt := ""
-	if run.path != "":
-		path_txt = " · " + run.path_def().ic + " " + tr(run.path_def().n)
-	var s2 := UI.lbl("%s %s%s · 🪙 %d" % [run.cls_def().hero, tr(run.cls_def().n), path_txt, run.gold], 18, UI.MU, true)
-	s2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(s2)
+	v.add_child(_end_header())
+	if _wide:
+		# PC: the pack and the buffs side by side
+		var cols := UI.hbox(14)
+		var pk := _end_pack_panel(Vector2(700, 430))
+		var bf := _end_buffs_panel()
+		pk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cols.add_child(pk)
+		cols.add_child(bf)
+		v.add_child(cols)
+	else:
+		# phone: one tab at a time
+		var tabs := UI.hbox(10)
+		for i in 2:
+			var ii := i
+			var tb := UI.btn(["🎒 " + tr("Final pack"), "✨ " + tr("All buffs")][i], func():
+				_end_tab = ii
+				render(), _end_tab == i, 18, "gold" if _end_tab == i else "gray")
+			tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tabs.add_child(tb)
+		v.add_child(tabs)
+		v.add_child(_end_pack_panel(Vector2(640, 400)) if _end_tab == 0 else _end_buffs_panel())
 	var b := UI.big_btn("🔁 " + tr("PLAY AGAIN"), func():
+		_end_tab = 0
 		run = null
-		render(), "green", 30)
+		render(), "green", 28)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(b)
 	if w:
 		for k in 5:
 			cc.create_tween().tween_callback(func(): UI.burst(cc, Vector2(randf_range(80, 640), randf_range(200, 500)), [UI.GOLD, UI.GOOD, UI.STAR, Color("#4f8cff")].pick_random(), 40, 420, 9)).set_delay(0.3 + k * 0.35)
 	return cc
+
+
+## End screen header: who you played and how the run went.
+func _end_header() -> Control:
+	var card := UI.card(Color(UI.PN, 0.92), run.cls_def().col, 18, 12)
+	var hb := UI.hbox(14)
+	card.add_child(hb)
+	hb.add_child(UI.lbl(run.cls_def().hero, 64 if _wide else 52))
+	var cv := UI.vbox(6)
+	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(cv)
+	var who: String = str(run.cls_def().ic) + " " + tr(run.cls_def().n)
+	if run.path != "":
+		who += "  ·  " + run.path_def().ic + " " + tr(run.path_def().n)
+	cv.add_child(UI.title(who, 26 if _wide else 21, Color.WHITE))
+	var chips := HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 6)
+	chips.add_theme_constant_override("v_separation", 6)
+	var dd := run.diff_def()
+	chips.add_child(_chip(str(dd.ic) + " " + tr(dd.n), UI.GOLD))
+	var pt: Dictionary = GameData.pets.get(run.pet, {})
+	if not pt.is_empty():
+		chips.add_child(_chip(str(pt.ic) + " " + tr(pt.n), Color("#c4b5fd")))
+	if str(run.mod.get("n", "")) != "":
+		chips.add_child(_chip("🌍 " + tr(run.mod.n), Color("#93c5fd")))
+	chips.add_child(_chip("📅 " + tr("Day %d/%d") % [run.day, GameData.days], UI.MU))
+	chips.add_child(_chip("⭐ " + tr("Lv %d") % run.lv, Color("#bae6fd")))
+	chips.add_child(_chip("❤️ ×%d" % run.res, Color("#fca5a5")))
+	chips.add_child(_chip("🪙 %d" % run.gold, UI.GOLD))
+	cv.add_child(chips)
+	return card
+
+
+## The pack the run ended with (drawn small) and its real numbers on the training dummy.
+func _end_pack_panel(room: Vector2) -> Control:
+	var card := UI.card(Color(UI.PN, 0.92), UI.BD, 18, 12)
+	var cv := UI.vbox(8)
+	card.add_child(cv)
+	cv.add_child(UI.title("🎒 " + tr("Final pack"), 22, UI.GOLD))
+	var g := run.grid_items()
+	if g.is_empty():
+		cv.add_child(UI.lbl(tr("Empty pack."), 18, UI.MU))
+		return card
+	var lo := Vector2i(99, 99)
+	var hi := Vector2i(-1, -1)
+	for it in g:
+		for c in it.cells():
+			lo = Vector2i(mini(lo.x, c.x), mini(lo.y, c.y))
+			hi = Vector2i(maxi(hi.x, c.x), maxi(hi.y, c.y))
+	var gw := hi.x - lo.x + 1
+	var gh := hi.y - lo.y + 1
+	var e := {"gw": gw, "gh": gh, "items": g.map(func(it): return [it.id, it.x - lo.x, it.y - lo.y, it.rot])}
+	var cell := floorf(minf(minf((room.x - 40.0) / gw, (room.y - 120.0) / gh), 72.0))
+	var mp := MiniPack.new().setup(e, cell)
+	var mc := CenterContainer.new()
+	mc.add_child(mp)
+	cv.add_child(mc)
+	var b := run.bench_rates(12.0)
+	var nums := HFlowContainer.new()
+	nums.alignment = FlowContainer.ALIGNMENT_CENTER
+	nums.add_theme_constant_override("h_separation", 6)
+	nums.add_child(_chip("❤️ %d" % roundi(b.hp), Color("#fca5a5")))
+	nums.add_child(_chip("⚔️ %s/%s" % [GameData._num(snappedf(b.dps, 0.1)), tr("s")], Color("#ff9b5e")))
+	nums.add_child(_chip("🛡️ %s/%s" % [GameData._num(snappedf(b.sps, 0.1)), tr("s")], Color("#7dd3fc")))
+	nums.add_child(_chip("💚 %s/%s" % [GameData._num(snappedf(b.hps, 0.1)), tr("s")], Color("#4ade80")))
+	nums.add_child(_chip("🧩 %d" % g.size(), UI.MU))
+	cv.add_child(nums)
+	return card
+
+
+## Every buff the run ended with: level-ups, pet, path relic, Masterwork, growing items, run modifier.
+func _end_buffs_panel() -> Control:
+	var card := UI.card(Color(UI.PN, 0.92), UI.BD, 18, 12)
+	var cv := UI.vbox(6)
+	card.add_child(cv)
+	cv.add_child(UI.title("✨ " + tr("All buffs"), 22, UI.GOLD))
+	var fs := 17 if _wide else 16
+	var rows := []
+	# level-up bonuses (stacked picks of the same bonus count together)
+	for k in run.lvl_bonus:
+		var total := float(run.lvl_bonus[k])
+		if total <= 0.0:
+			continue
+		for pd in GameData.leveling.get("picks", []):
+			if pd.k == k:
+				rows.append(["%s %s ×%d" % [pd.ic, tr(pd.n), maxi(1, roundi(total / float(pd.v)))], tr(pd.d), Color("#fde68a")])
+				break
+	if rows.is_empty():
+		rows.append(["⭐ " + tr("Level-ups"), tr("No level-up bonuses."), UI.MU])
+	var pt: Dictionary = GameData.pets.get(run.pet, {})
+	if not pt.is_empty():
+		rows.append(["%s %s" % [pt.ic, tr(pt.n)], tr(pt.d), Color("#c4b5fd")])
+	if run.path != "":
+		var pd2 := run.path_def()
+		var relic: String = str(pd2.get("relic", ""))
+		var rtxt: String = tr(GameData.items[relic].n) if GameData.items.has(relic) else ""
+		rows.append(["%s %s" % [pd2.ic, tr(pd2.n)], rtxt, Color("#fdba74")])
+	for it in run.grid_items():
+		if GameData.recipes.any(func(rc): return str(rc.get("c", "")) != "" and rc.r == it.id):
+			rows.append(["👑 " + tr("Masterwork"), "%s %s" % [it.def().ic, tr(it.def().n)], UI.GOLD])
+	var grown := []
+	for it in run.grid_items():
+		var gr: Dictionary = it.def().get("grow", {})
+		if not gr.is_empty() and it.gc > 0:
+			grown.append("%s %s %d/%d" % [it.def().ic, tr(it.def().n), it.gc, int(gr.get("max", 12))])
+	if not grown.is_empty():
+		rows.append(["⭐ " + tr("Growing items"), ", ".join(grown), Color("#a7f3d0")])
+	if str(run.mod.get("n", "")) != "":
+		rows.append(["🌍 " + tr(run.mod.n), tr(run.mod.get("d", "")), Color("#93c5fd")])
+	for r in rows:
+		var hb := UI.hbox(8)
+		var nm := UI.lbl(r[0], fs, r[2], true)
+		nm.custom_minimum_size.x = 210 if _wide else 190
+		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hb.add_child(nm)
+		var d := UI.wrap_lbl(r[1], fs - 1, Color("#e9e4ff"))
+		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(d)
+		cv.add_child(hb)
+	return card
 
 
 # --------------------------------------------------------------- run screen

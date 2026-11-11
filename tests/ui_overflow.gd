@@ -214,6 +214,12 @@ func _run() -> void:
 	r.end_state = "over"
 	main.render()
 	await _check("end_over")
+	# phone: the buffs tab of the end screen (a few level-ups so the list is full)
+	r.lvl_bonus = {"dmg": 0.3, "hp_pct": 30.0, "haste": 0.16, "crit": 0.12}
+	main._end_tab = 1
+	main.render()
+	await _check("end_buffs")
+	main._end_tab = 0
 	print("FIT DONE: %d screens, %d problems" % [screens, issues])
 	quit()
 
