@@ -125,6 +125,28 @@ func _notification(what: int) -> void:
 			_autosave()
 
 
+## Sends a finished (or abandoned) run's play log to the collector (anonymous: decisions + a random player id).
+## Off when no collector URL is set, in dev/test builds, and for runs with nothing recorded.
+func _send_play_log(r: RunState, how: String) -> void:
+	var url := str(ProjectSettings.get_setting("packcraft/log_url", ""))
+	if url == "" or _dev or r == null or r.plog.is_empty() or r.has_meta("plog_sent"):
+		return
+	r.set_meta("plog_sent", true)
+	var pid := str(SaveGame.get_setting("pid", ""))
+	if pid == "":
+		pid = "%08x" % (randi() & 0x7fffffff)
+		SaveGame.set_setting("pid", pid)
+	var d := r.plog_payload()
+	d.end = how
+	var body := JSON.stringify({"k": "pc1", "ver": str(ProjectSettings.get_setting("application/config/version", "")), "pid": pid,
+		"when": Time.get_datetime_string_from_system(true), "run": d})
+	var h := HTTPRequest.new()
+	add_child(h)
+	h.request_completed.connect(func(_res, _code, _hd, _b): h.queue_free())
+	if h.request(url, ["Content-Type: text/plain;charset=utf-8"], HTTPClient.METHOD_POST, body) != OK:
+		h.queue_free()
+
+
 func _continue_run() -> void:
 	var r := SaveGame.load_run()
 	if r == null:
@@ -132,6 +154,7 @@ func _continue_run() -> void:
 		render()
 		return
 	run = r
+	run.plog_start()
 	_clear_sel()
 	anim.clear()
 	_pending_sim = run.resume_combat() if run.phase == "evening" else null
@@ -284,6 +307,7 @@ func render() -> void:
 	if run == null:
 		body = _title_screen()
 	elif run.end_state != "":
+		_send_play_log(run, run.end_state)
 		body = _end_screen()
 	elif run.phase == "evening" and _pending_sim != null:
 		var cvw := CombatView.new().setup(run, _pending_sim, _wide)
@@ -876,7 +900,9 @@ func _diff_screen() -> Control:
 		render(), "⚔️ " + tr("START RUN"), func():
 		SaveGame.set_setting("pet", sel_pet)
 		SaveGame.set_setting("diff", sel_diff)
+		_send_play_log(SaveGame.load_run(), "quit")   # a saved run left unfinished
 		run = RunState.new(sel_cls, sel_pet, sel_diff)
+		run.plog_start()
 		title_step = 0
 		_clear_sel()
 		anim.clear()

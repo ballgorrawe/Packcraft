@@ -15,7 +15,7 @@ config/description="Tactical backpack auto-battler. Pure strategy, deep crafting
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.svg"
-config/version="0.9.4"
+config/version="0.9.5"
 
 [display]
 
@@ -38,3 +38,7 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.054902, 0.101961, 0.113725, 1)
 textures/vram_compression/import_etc2_astc=true
+
+[packcraft]
+
+log_url="https://script.google.com/macros/s/AKfycbx0KCkWm5qhLG3tTylliusKPDTLWVjcctCV-st6rK9g8eQXz0MKFaphQ2pFHhg77zAQ/exec"

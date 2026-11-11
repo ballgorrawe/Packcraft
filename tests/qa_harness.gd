@@ -353,6 +353,8 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 				var merges: int = r.result.get("rew", []).filter(func(w): return w.k == "fusion").size()
 				if r.items.size() < before - merges - 1:
 					_fail("EVENT_LOSS", seed_v, "%s dropped %d items (%d fusions)" % [n.k, before - r.items.size(), merges])
+			elif st == "pro" and float(pro_cfg.get("events", 1.0)) > 0.0:
+				_pro_event(r)
 			else:
 				r.auto_event()
 		elif cs != null:
@@ -733,7 +735,7 @@ func _pro_value(r: RunState, benches: Array) -> float:
 		var cs := CombatSim.new(r, {"k": "preview", "e": e}, true)
 		cs.skip_to_end()
 		if cs.won:
-			s += 2.0 - maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp) - cs.tk / 6000.0
+			s += 2.0 - float(pro_cfg.get("hpw", 1.0)) * maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp) - cs.tk / 6000.0
 		else:
 			s += 1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp)
 	return s
@@ -878,7 +880,25 @@ func _pro_morning(r: RunState) -> void:
 			_pro_put(it, s)
 		else:
 			it.loc = "storage"
-	# rearrange: every pack item moves to its best spot
+	# rearrange: every pack item moves to its best spot (a few passes, kept only if the fight agrees)
+	var passes := int(pro_cfg.get("place", 1.0))
+	var snap := r.grid_items().map(func(g): return [g, g.x, g.y, g.rot])
+	var pv0 := _pro_value(r, benches) if passes > 1 else 0.0
+	for _pass in passes:
+		_pro_rearrange(r)
+	if passes > 1 and _pro_value(r, benches) < pv0 - 0.001:
+		for sn in snap:
+			sn[0].loc = "held"
+		for sn in snap:
+			sn[0].loc = "grid"
+			sn[0].x = sn[1]
+			sn[0].y = sn[2]
+			sn[0].rot = sn[3]
+		r.calc()
+	_pro_shop(r, benches)
+
+
+func _pro_rearrange(r: RunState) -> void:
 	for it in r.grid_items():
 		var ox: int = it.x
 		var oy: int = it.y
@@ -892,6 +912,9 @@ func _pro_morning(r: RunState) -> void:
 			it.rot = orot
 		else:
 			_pro_put(it, s)
+
+
+func _pro_shop(r: RunState, benches: Array) -> void:
 	# shopping, build-aware: every affordable card is tried in its best spot (swapping out the weakest
 	# item when the pack is full), scored by the damage/shield it adds plus build bonuses (class
 	# resource tags, the path's Masterwork ingredients, fusion partners); the top few are then checked
@@ -952,10 +975,13 @@ func _pro_morning(r: RunState) -> void:
 				continue
 			cands.append({"i": i, "s": s, "out": out, "gain": gain, "h": snappedf(gain, 0.01), "fv": snappedf(fv, 0.01), "price": float(e.price), "id": e.id})
 		cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
-		cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
+		# simall: every affordable card goes to the fight check (heals and Max HP do not show in damage/shield rates)
+		var simall := float(pro_cfg.get("simall", 0.0)) > 0.0
+		if not simall:
+			cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
 		# fight-check the best few: value gained in a no-dice fight, per gold
-		var n_check := int(pro_cfg.get("verify", 3))
-		if n_check > 0 and cands.size() > 1:
+		var n_check := int(pro_cfg.get("verify", 3)) if not simall else 10
+		if n_check > 0 and (cands.size() > 1 or simall):
 			var v0 := _pro_value(r, benches)
 			for c in cands.slice(0, n_check):
 				var tmp2 := r.make_item(c.id, "held")
@@ -971,6 +997,8 @@ func _pro_morning(r: RunState) -> void:
 				c.gain += float(pro_cfg.get("sim_w", 25.0)) * dv
 				c["dv"] = snappedf(dv, 0.001)
 			r.calc()
+			if simall:
+				cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
 			cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
 		# save for the target: lock it and only buy what still leaves enough gold for it tomorrow
 		var reserve := 0
@@ -1013,6 +1041,8 @@ func _pro_morning(r: RunState) -> void:
 	for it in r.storage_items():
 		if it.def().relic or it.starter:
 			continue
+		if not it.def().tags.has("Treasure") and _pro_seed_bonus(r, it.id) > 0.0 and r.storage_items().filter(func(q): return _pro_seed_bonus(r, q.id) > 0.0).size() <= 2:
+			continue
 		if it.def().tags.has("Treasure") or not r.recipe_partner_owned(it.id, true):
 			if tr_on:
 				tr_day["sold"] = tr_day.get("sold", []) + [it.id]
@@ -1029,9 +1059,21 @@ func _pro_morning(r: RunState) -> void:
 func _pro_node(r: RunState) -> int:
 	var best := 0
 	var best_s := -99.0
+	# boss prep: a boss tomorrow (or the day after) is judged with the HP each choice leaves
+	var prep := float(pro_cfg.get("prep", 0.0))
+	var boss_e = null
+	var dtb := 99
+	if prep > 0.0:
+		for d in range(r.day + 1, mini(r.day + 2, GameData.days) + 1):
+			var b = r.boss_on(d)
+			if b != null:
+				boss_e = r.boss_foe(b)
+				dtb = d - r.day
+				break
 	for i in r.nodes.size():
 		var n: Dictionary = r.nodes[i]
 		var s := 0.0
+		var h_after := r.hp
 		if n.has("e"):
 			r.calc()
 			var cs := CombatSim.new(r, {"k": "preview", "e": r.with_hazard(n.e)}, true)
@@ -1039,20 +1081,28 @@ func _pro_node(r: RunState) -> int:
 			var lost := maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp)
 			if tr_on:
 				tr_day["fc"] = tr_day.get("fc", []) + [{"i": i, "won": cs.won, "lost": snappedf(lost, 0.01), "left": snappedf(maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp), 0.01), "secs": cs.tk / 10.0}]
+			h_after = cs.php if cs.won else r.mhp * 0.5
 			if cs.won:
 				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss"] else 2.2) - 1.5 * lost
 			else:
 				s = -5.0 + (1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp))
 		else:
-			match n.k:
-				"camp": s = 2.6 if r.hp < r.mhp * 0.55 else 0.4
-				"smith": s = 1.6
-				"chest": s = 1.5
-				"merchant": s = 1.2
-				"roulette": s = 1.0
-				"cauldron": s = 1.0
-				"altar": s = 0.6
-				_: s = 0.8
+			if n.k != "camp" and float(pro_cfg.get("events", 1.0)) > 0.0:
+				s = _pro_event_score(r, n.k)
+			else:
+				match n.k:
+					"camp": s = 2.6 if r.hp < r.mhp * 0.55 else 0.4
+					"smith": s = 1.6
+					"chest": s = 1.5
+					"merchant": s = 1.2
+					"roulette": s = 1.0
+					"cauldron": s = 1.0
+					"altar": s = 0.6
+					_: s = 0.8
+		if n.k == "camp":
+			h_after = minf(r.mhp, r.hp + roundf(r.mhp * 0.5))
+		if boss_e != null:
+			s += prep * (1.0 if dtb == 1 else 0.5) * _pro_boss_at(r, boss_e, h_after)
 		if tr_on:
 			var o := {"k": n.k, "score": snappedf(s, 0.01)}
 			if n.has("e"):
@@ -1067,6 +1117,19 @@ func _pro_node(r: RunState) -> int:
 	if tr_on:
 		tr_day["pick"] = best
 	return best
+
+
+## How the boss fight goes (no dice) if the hero walks in with h HP: 2 - share of HP lost on a win, share of the boss beaten on a loss.
+func _pro_boss_at(r: RunState, e: Dictionary, h: float) -> float:
+	var keep := r.hp
+	r.hp = maxf(1.0, h)
+	r.calc()
+	var cs := CombatSim.new(r, {"k": "preview", "e": e}, true)
+	cs.skip_to_end()
+	var v := (2.0 - maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp)) if cs.won else (1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp))
+	r.hp = keep
+	r.calc()
+	return v
 
 
 ## Tags the build cares about: the class resource's tags and every tag of the path's Masterwork recipe.
@@ -1109,12 +1172,47 @@ func _pro_build_bonus(r: RunState, id: String, build: Dictionary) -> float:
 		b += float(pro_cfg.get("cap", 3.0))
 	if r.recipe_partner_owned(id):
 		b += float(pro_cfg.get("fuse", 3.0))
+	else:
+		b += _pro_seed_bonus(r, id)
 	# ⭐ growth: worth more the more fights are left to grow in
 	var gr: Dictionary = d.get("grow", {})
 	if not gr.is_empty():
 		var left := mini(int(gr.get("max", 12)), maxi(0, GameData.days - r.day))
 		b += float(pro_cfg.get("grow", 0.35)) * float(gr.get("v", 1.0)) * left * (2.0 if gr.get("adj", false) else 1.0)
 	return b
+
+
+## Half a recipe: worth buying early when the other half can still show up in the shop and the result
+## is rarer (the way players buy toward a fusion). Fewer new seeds once a few are already waiting.
+func _pro_seed_bonus(r: RunState, id: String) -> float:
+	var w := float(pro_cfg.get("seed", 0.0))
+	if w <= 0.0 or r.day > 12:
+		return 0.0
+	var best := 0.0
+	var t0: int = GameData.items[id].tier
+	for rc in GameData.recipes:
+		if str(rc.get("c", "")) != "" or not r.recipe_ok(rc) or (rc.a != id and rc.b != id):
+			continue
+		var other: String = rc.b if rc.a == id else rc.a
+		if not GameData.items.has(other) or not r.in_class_pool(other) or int(GameData.items[other].tier) > 3:
+			continue
+		best = maxf(best, float(int(GameData.items[rc.r].tier) - t0))
+	if best <= 0.0:
+		return 0.0
+	return w * best / (1.0 + 0.5 * _pro_seeds_waiting(r))
+
+
+## Owned items waiting for their recipe partner.
+func _pro_seeds_waiting(r: RunState) -> int:
+	var n := 0
+	for it in r.items:
+		if it.loc == "held" or it.def().relic or r.recipe_partner_owned(it.id, true):
+			continue
+		for rc in GameData.recipes:
+			if str(rc.get("c", "")) == "" and r.recipe_ok(rc) and (rc.a == it.id or rc.b == it.id):
+				n += 1
+				break
+	return n
 
 
 ## Ingredients of the chosen path's Masterwork (empty before the path or after it was made).
@@ -1250,3 +1348,171 @@ func _pro_hunting(r: RunState) -> bool:
 			if r.recipe_ok(rc) and (rc.a == it.id or rc.b == it.id) and GameData.items[rc.r].tier >= 3:
 				return true
 	return false
+
+
+# =============================================================== pro bot: events
+# Plays each event the way a strong player would, judging every option with the same no-dice
+# fight value it uses for buying (today's monster + the next boss).
+
+## Value of the pack if `it` sat in its best spot (it is put back where it was afterwards).
+func _pro_value_with(r: RunState, it: PItem, benches: Array) -> float:
+	var keep := [it.loc, it.x, it.y, it.rot]
+	if not r.items.has(it):
+		r.items.append(it)
+	it.loc = "held"
+	var s := _pro_spot(r, it)
+	var v := -99.0
+	if not s.is_empty():
+		_pro_put(it, s)
+		v = _pro_value(r, benches)
+	it.loc = keep[0]
+	it.x = keep[1]
+	it.y = keep[2]
+	it.rot = keep[3]
+	r.calc()
+	return v
+
+
+func _pro_event(r: RunState) -> void:
+	var ev: Dictionary = r.event
+	var benches := _pro_benches(r)
+	var v0 := _pro_value(r, benches)
+	var note := {"k": ev.k}
+	match ev.k:
+		"smith":
+			# evolve whatever gains the most (pack or storage)
+			var best: PItem = null
+			var best_v := v0 + 0.02
+			if r.gold >= r.smith_cost():
+				for it in r.items.duplicate():
+					if it.def().evo == "" or it.loc == "held":
+						continue
+					var old: String = it.id
+					it.id = it.def().evo
+					var v: float = _pro_value_with(r, it, benches) if it.loc != "grid" or not r.fits(it, it.x, it.y, it.rot, it) else _pro_value(r, benches)
+					it.id = old
+					r.calc()
+					if v > best_v:
+						best_v = v
+						best = it
+			if best != null:
+				note["evolve"] = best.id
+				r.ev_smith(best)
+				# the reforged item may have moved to storage: give it a spot
+				if best.loc == "storage":
+					best.loc = "held"
+					var s := _pro_spot(r, best)
+					if s.is_empty():
+						best.loc = "storage"
+					else:
+						_pro_put(best, s)
+		"merchant":
+			# sell what is only gathering dust, then buy the stock that adds most per gold
+			for it in r.storage_items():
+				if not it.starter and not it.def().relic and not r.recipe_partner_owned(it.id, true):
+					r.ev_sell_full(it)
+			for _n in 3:
+				var pick := -1
+				var pick_s := 0.0
+				for i in ev.stock.size():
+					var s: Dictionary = ev.stock[i]
+					if s.get("sold", false) or s.price > r.gold:
+						continue
+					var tmp := r.make_item(s.id, "held")
+					var v := _pro_value_with(r, tmp, benches)
+					r.items.erase(tmp)
+					var score := (v - v0) / maxf(1.0, s.price) + (0.05 if r.recipe_partner_owned(s.id) else 0.0)
+					if v > v0 + 0.02 and score > pick_s:
+						pick_s = score
+						pick = i
+				if pick < 0:
+					break
+				r.ev_buy(pick)
+				note["bought"] = note.get("bought", []) + [ev.stock[pick].id]
+				var got: PItem = r.items[r.items.size() - 1]
+				got.loc = "held"
+				var sp := _pro_spot(r, got)
+				if sp.is_empty():
+					got.loc = "storage"
+				else:
+					_pro_put(got, sp)
+				v0 = _pro_value(r, benches)
+		"cauldron":
+			# two items that do little become one item a rarity higher
+			var junk := r.items.filter(func(it): return not it.starter and not it.def().relic and it.loc != "held" and not r.recipe_partner_owned(it.id, true))
+			junk.sort_custom(func(a, b): return (_pro_contrib(r, a) if a.loc == "grid" else -1.0) < (_pro_contrib(r, b) if b.loc == "grid" else -1.0))
+			if junk.size() >= 2 and junk[0].def().tier <= 2 and junk[1].def().tier <= 2:
+				var a: PItem = junk[0]
+				var b: PItem = junk[1]
+				var a_c := _pro_contrib(r, a) if a.loc == "grid" else 0.0
+				var b_c := _pro_contrib(r, b) if b.loc == "grid" else 0.0
+				if a_c + b_c < 3.0:
+					var id := r.ev_brew(a, b)
+					note["brew"] = [a.id, b.id, id]
+					if id != "":
+						var got2: PItem = r.items[r.items.size() - 1]
+						got2.loc = "held"
+						var sp2 := _pro_spot(r, got2)
+						if sp2.is_empty():
+							got2.loc = "storage"
+						else:
+							_pro_put(got2, sp2)
+		"altar":
+			# a Legendary for a Heart, only with Hearts full (a boss win refills one) and a real gain
+			if r.res >= r.max_hearts():
+				var best_i := -1
+				var best_v2 := v0 + 0.15
+				for i in ev.offer.size():
+					var tmp2 := r.make_item(ev.offer[i], "held")
+					var v := _pro_value_with(r, tmp2, benches)
+					r.items.erase(tmp2)
+					if v > best_v2:
+						best_v2 = v
+						best_i = i
+				if best_i >= 0:
+					note["legendary"] = ev.offer[best_i]
+					r.ev_altar(best_i, "heart")
+					var got3: PItem = r.items[r.items.size() - 1]
+					got3.loc = "held"
+					var sp3 := _pro_spot(r, got3)
+					if sp3.is_empty():
+						got3.loc = "storage"
+					else:
+						_pro_put(got3, sp3)
+		"roulette":
+			# two empty clicks is the sweet spot while healthy; walk away otherwise
+			var pulls := 2 if r.hp > r.mhp * 0.6 else (1 if r.hp > r.mhp * 0.4 else 0)
+			for _p in pulls:
+				if r.ev_pull() != "click":
+					break
+			note["pulls"] = ev.get("pulls", 0)
+		"chest":
+			r.ev_chest(randi() % 3)
+	if tr_on:
+		tr_day["event"] = note
+	r.calc()
+	r.ev_leave()
+
+
+## How much an event is worth to this run right now (for the road choice).
+func _pro_event_score(r: RunState, k: String) -> float:
+	match k:
+		"smith":
+			if r.gold < r.smith_cost():
+				return 0.4
+			for it in r.grid_items():
+				if it.def().evo != "" and it.def().tier >= 1:
+					return 2.4
+			return 1.0
+		"merchant":
+			return 1.8 if r.gold >= 12 else 0.8
+		"cauldron":
+			var junk := r.items.filter(func(it): return not it.starter and not it.def().relic and it.def().tier <= 2 and not r.recipe_partner_owned(it.id, true))
+			return 1.6 if junk.size() >= 2 else 0.5
+		"altar":
+			return 1.8 if r.res >= r.max_hearts() else 0.0
+		"chest":
+			return 1.5
+		"roulette":
+			return 1.3 if r.hp > r.mhp * 0.6 else 0.4
+	return 0.8

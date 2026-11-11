@@ -49,6 +49,8 @@ var lvl_bonus := {}              # buffs chosen at level-up picks: key -> total 
 var picks: Array = []            # level-up offers waiting for a choice: each is 3 pick ids
 var mw_done := false             # a Masterwork was made this run (only one per run)
 var boss_pick := {}              # boss day -> the boss met this run (one of that day's pool)
+var plog_on := false             # record the player's decisions (real players only; bots and tests leave it off)
+var plog: Array = []             # one entry per day: {"d": day, "m": morning snapshot, "a": [actions]}
 
 
 func _init(c: String, p := "", df := "normal") -> void:
@@ -126,6 +128,7 @@ func pick_level(i: int) -> bool:
 	picks.pop_front()
 	if p.is_empty():
 		return false
+	_pl({"a": "lvl", "id": p.id})
 	lvl_bonus[p.k] = lvl_bonus.get(p.k, 0.0) + float(p.v)
 	sync_hp()
 	return true
@@ -148,6 +151,7 @@ func choose_path(id: String) -> void:
 	if path != "" or not cls_def().paths.has(id):
 		return
 	path = id
+	_pl({"a": "path", "id": id})
 	var relic: String = GameData.paths[id].relic
 	items.append(make_item(relic, "storage"))
 	msg = I18n.t("Path chosen: %s. %s is in your storage — put it in your pack.") % [I18n.t(GameData.paths[id].n), I18n.t(GameData.items[relic].n)]
@@ -657,6 +661,44 @@ func recipes_for(id: String) -> Array:
 	return GameData.recipes.filter(func(r): return (r.a == id or r.b == id or r.get("c", "") == id or r.r == id) and (r.path == "" or r.path == path or path == ""))
 
 
+# ---------------------------------------------------------------- play log
+# Real players' runs are recorded (anonymous: decisions only) and sent when the run ends, to train the
+# balance bot on how people actually play. Each morning keeps a full snapshot so a bot can replay it.
+
+func _pl(a: Dictionary) -> void:
+	if plog_on and not plog.is_empty():
+		plog[plog.size() - 1].a.append(a)
+
+
+func _plog_morning() -> void:
+	if not plog_on:
+		return
+	var snap := to_dict()
+	snap.erase("plog")
+	snap.result = {}
+	snap.seen = []
+	snap.msg = ""
+	plog.append({"d": day, "m": snap, "a": []})
+
+
+## Turns recording on (a real player's run). A fresh run records its first morning now.
+func plog_start() -> void:
+	plog_on = true
+	if plog.is_empty():
+		_plog_morning()
+
+
+## The pack as [id, x, y, rot] per item.
+func plog_pack() -> Array:
+	return grid_items().map(func(q): return [q.id, q.x, q.y, q.rot])
+
+
+## The whole run for sending: summary + every day.
+func plog_payload() -> Dictionary:
+	return {"cls": cls, "pet": pet, "diff": diff, "path": path, "win": end_state == "win", "end": end_state, "day": day, "lv": lv,
+		"endless": endless, "hearts": res, "pack": plog_pack(), "days": plog}
+
+
 # ---------------------------------------------------------------- economy
 
 func rank() -> int:
@@ -740,6 +782,7 @@ func reroll() -> bool:
 		return false
 	gold -= c
 	rr += 1
+	_pl({"a": "rr", "cost": c, "shop": shop.map(func(e): return e.get("id", "bag"))})
 	shop = shop.filter(func(e): return e.get("lock", false))
 	fill_shop()
 	return true
@@ -747,6 +790,7 @@ func reroll() -> bool:
 
 func toggle_lock(i: int) -> void:
 	shop[i].lock = not shop[i].get("lock", false)
+	_pl({"a": "lock" if shop[i].lock else "unlock", "id": shop[i].get("id", "bag")})
 
 
 func buy_bag(i: int) -> bool:
@@ -755,6 +799,7 @@ func buy_bag(i: int) -> bool:
 		msg = I18n.t("Not enough gold.")
 		return false
 	gold -= e.price
+	_pl({"a": "bag", "n": e.n, "price": e.price})
 	expand += e.n
 	bags += 1
 	# spec: a bag card is gone once bought (a fresh one comes with the next reroll or day)
@@ -773,6 +818,7 @@ func buy_item(i: int) -> PItem:
 		msg = I18n.t("Not enough gold.")
 		return null
 	gold -= e.price
+	_pl({"a": "buy", "id": e.id, "price": e.price})
 	shop.remove_at(i)
 	var it := make_item(e.id, "held")
 	it.paid = int(e.price)
@@ -787,6 +833,7 @@ func sell_price(it: PItem) -> int:
 func sell(it: PItem) -> bool:
 	if it.starter or it.def().relic:
 		return false
+	_pl({"a": "sell", "id": it.id, "loc": it.loc})
 	gold += sell_price(it)
 	items.erase(it)
 	return true
@@ -1032,6 +1079,7 @@ func max_hearts() -> int:
 
 ## Endless: beat the day-15 boss and keep going. +2 Hearts (max 5) and a new boss every 5 days.
 func go_endless() -> void:
+	_pl({"a": "endless"})
 	if endless:
 		return
 	endless = true
@@ -1115,6 +1163,7 @@ func begin_day() -> void:
 	var b = boss_on(day)
 	if b != null:
 		nodes = [{"k": "boss", "e": boss_foe(b)}]
+		_plog_morning()
 		return
 	nodes = [{"k": "combat", "e": foe(false)}]
 	var evs := EVENTS.filter(func(k): return event_ok(k))
@@ -1141,6 +1190,7 @@ func begin_day() -> void:
 		nodes.append({"k": "elite", "e": foe(true)})
 	if hp < mhp * 0.4 and not nodes.any(func(n): return n.k == "camp"):
 		nodes[nodes.size() - 1] = {"k": "camp"}
+	_plog_morning()
 
 
 func travel() -> bool:
@@ -1158,6 +1208,7 @@ func travel() -> bool:
 func choose(i: int) -> CombatSim:
 	var n: Dictionary = nodes[i]
 	cur_node = i
+	_pl({"a": "go", "i": i, "k": n.k, "hp": hp, "gold": gold, "pack": plog_pack(), "store": storage_items().map(func(q): return q.id)})
 	if n.has("e"):
 		calc()
 		sync_hp()
@@ -1240,6 +1291,7 @@ func ev_smith(it: PItem) -> bool:
 			it.x = s.x
 			it.y = s.y
 			it.rot = s.rot
+	_pl({"a": "ev", "k": "smith", "id": old})
 	event.rew.append({"k": "fusion", "a": old, "b": old, "r": it.id, "evo": true, "stored": it.loc == "storage"})
 	event.lines.append(I18n.t("🔨 The blacksmith reforges %s into %s.") % [I18n.t(GameData.items[old].n), I18n.t(it.def().n)])
 	event.done = true
@@ -1252,6 +1304,7 @@ func ev_buy(i: int) -> bool:
 	if s.get("sold", false) or gold < s.price:
 		return false
 	gold -= s.price
+	_pl({"a": "ev", "k": "m_buy", "id": s.id, "price": s.price})
 	s.sold = true
 	items.append(make_item(s.id, "storage"))
 	event.rew.append({"k": "loot", "id": s.id})
@@ -1272,6 +1325,7 @@ func merchant_price(it: PItem) -> int:
 func ev_sell_full(it: PItem) -> bool:
 	if it.starter or it.def().relic or not items.has(it):
 		return false
+	_pl({"a": "ev", "k": "m_sell", "id": it.id})
 	gold += merchant_price(it)
 	items.erase(it)
 	return true
@@ -1289,6 +1343,7 @@ func roulette_pot(pulls: int) -> int:
 func ev_pull() -> String:
 	if event.get("done", false):
 		return ""
+	_pl({"a": "ev", "k": "pull", "n": event.pulls + 1})
 	if event.pulls == event.bullet:
 		var dmg := roundf(mhp * 0.35)
 		hp = maxf(1.0, hp - dmg)
@@ -1325,6 +1380,7 @@ func ev_brew(a: PItem, b: PItem) -> String:
 	# one rarity step up. The shop pool tops out at Epic, so from Epic and above pick straight
 	# from the next rarity (never lower than the best input).
 	var id := roll_tiered(4, top + 1) if top + 1 <= 3 else _brew_high(top)
+	_pl({"a": "ev", "k": "brew", "ids": [a.id, b.id], "r": id})
 	items.erase(a)
 	items.erase(b)
 	items.append(make_item(id, "storage"))
@@ -1359,6 +1415,7 @@ func ev_altar(i: int, pay: String) -> bool:
 	res -= 1
 	event.rew.append({"k": "heart", "v": -1})
 	var id: String = event.offer[i]
+	_pl({"a": "ev", "k": "altar", "id": id, "offer": event.offer})
 	items.append(make_item(id, "storage"))
 	event.rew.append({"k": "loot", "id": id})
 	event.lines.append(I18n.t("🗿 The altar takes its price and leaves %s.") % I18n.t(GameData.items[id].n))
@@ -1371,6 +1428,7 @@ func ev_chest(i: int) -> Dictionary:
 	if event.get("done", false):
 		return {}
 	var c: Dictionary = event.box[i]
+	_pl({"a": "ev", "k": "chest", "i": i, "got": c.k})
 	event.done = true
 	event.picked = i
 	match c.k:
@@ -1391,6 +1449,7 @@ func ev_chest(i: int) -> Dictionary:
 func ev_leave() -> void:
 	if phase != "event":
 		return
+	_pl({"a": "ev", "k": "leave", "ev": event.k})
 	if event.k == "roulette" and not event.done:
 		ev_cash_out()
 	go_night(nodes[cur_node], true, null)
@@ -1448,7 +1507,7 @@ func to_dict() -> Dictionary:
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
 		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks, "mw_done": mw_done, "endless": endless,
-		"boss_pick": boss_pick,
+		"boss_pick": boss_pick, "plog": plog,
 	}
 
 
@@ -1563,6 +1622,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	elif r.phase == "night":
 		r.phase = "morning"
 	r.end_state = d.end_state
+	r.plog = d.get("plog", [])
 	r.msg = d.msg
 	r.seen = {}
 	for k in d.seen:
@@ -1693,6 +1753,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 			r.lines.append(I18n.t("✨ Evolution! Two %s %s became %s %s!") % [a.ic, I18n.t(a.n), rd.ic, I18n.t(rd.n)] + tail)
 		else:
 			r.lines.append(I18n.t("✨ Fusion! %s + %s ➡️ %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
+	_pl({"a": "night", "win": win, "hp": hp, "mhp": mhp, "res": res, "lv": lv, "fused": r.rew.filter(func(w): return w.k == "fusion").map(func(w): return w.r), "loot": r.rew.filter(func(w): return w.k == "loot").map(func(w): return w.id)})
 	if not win and hp <= 0:
 		r.over = true
 	elif n.k == "boss" and win and day == GameData.days:
