@@ -14,6 +14,7 @@ var sel_pet := ""
 var sel_diff := "normal"
 var show_how := false
 var show_book := false
+var foe_info_e := {}      # the monster whose Details popup is open (road card)
 var book_page := 0
 
 # drag / selection
@@ -293,6 +294,8 @@ func render() -> void:
 		ov = _night_overlay()
 	elif show_book:
 		ov = _book_overlay()
+	if ov != null and not foe_info_e.is_empty():
+		ov.add_child(_foe_info_overlay())
 	if ov != null:
 		screen.add_child(ov)
 		if fresh:
@@ -301,6 +304,31 @@ func render() -> void:
 	elif drag_item == null and not _landscape and (selected != null or inspect_id != ""):
 		popup = _inspector_popup()
 		screen.add_child(popup)
+
+
+## Full-screen dim with the monster Details panel; a tap anywhere closes it.
+func _foe_info_overlay() -> Control:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed:
+			foe_info_e = {}
+			render())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(cc)
+	var w := minf(get_viewport_rect().size.x - 40.0, 760.0)
+	var v := UI.vbox(8)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(FoeInfo.build(foe_info_e, w))
+	var hint := UI.lbl(tr("Tap anywhere to close."), 15, UI.MU, true)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(hint)
+	cc.add_child(v)
+	return dim
 
 
 func _key() -> String:
@@ -423,11 +451,12 @@ func _start_screen() -> Control:
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tag)
 	# the party waiting at the dungeon door
-	var party := UI.hbox(18)
+	var party := UI.hbox(18 if _wide else 2)
 	party.alignment = BoxContainer.ALIGNMENT_CENTER
 	var k := 0
+	var hero_px := 64 if _wide else clampi(int((minf(get_viewport_rect().size.x, COLUMN_W) - 90.0) / (GameData.class_keys.size() * 1.75)), 26, 64)
 	for c in GameData.class_keys:
-		var hl := UI.lbl(GameData.classes[c].hero, 64)
+		var hl := UI.lbl(GameData.classes[c].hero, hero_px)
 		party.add_child(hl)
 		var tw := hl.create_tween().set_loops()
 		tw.tween_interval(0.15 * k)
@@ -838,8 +867,8 @@ func _end_screen() -> Control:
 
 func _run_screen(fresh: bool) -> Control:
 	run.sync_hp()
-	# everything else on this screen is ~940px tall; the pack gets the rest (phones vary a lot)
-	cell_px = clampf(floorf((get_viewport_rect().size.y - 940.0) / GameData.H), 46.0, 74.0)
+	# everything else on this screen is ~1000px tall; the pack gets the rest (phones vary a lot)
+	cell_px = clampf(floorf((get_viewport_rect().size.y - 1032.0) / GameData.H), 34.0, 74.0)
 	if _wide:
 		# PC: the pack has the whole left half to itself
 		var vp := get_viewport_rect().size
@@ -937,8 +966,10 @@ func _run_screen(fresh: bool) -> Control:
 		row = fl
 	scr.add_child(row)
 	sv.add_child(scr)
+	# phone: cards narrow so up to ~8 fit in the row without scrolling
+	var sw := 112.0 if _wide or items.size() < 2 else clampf(floorf((get_viewport_rect().size.x - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 74.0, 112.0)
 	for it in items:
-		row.add_child(_storage_card(it))
+		row.add_child(_storage_card(it, sw))
 	if items.is_empty():
 		var el := UI.lbl(tr("Empty. Drag items here to store them."), 17, UI.MU)
 		el.custom_minimum_size.y = 100
@@ -1120,21 +1151,31 @@ func _ribbon() -> Control:
 		if b == null:
 			continue
 		var bi := GameData.foe_icon(b.n) + " "
-		pills.append([(bi + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else (bi + tr("Boss tomorrow!")) if b.d == run.day + 1 else (bi + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm) if b.imm != "" else "-", tr(b.weak)]])
+		pills.append([(bi + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else (bi + tr("Boss tomorrow!")) if b.d == run.day + 1 else (bi + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm) if b.imm != "" else "-", tr(b.weak)], true])
 	if not run.hz.is_empty():
 		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
 	if run.diff != "normal":
 		var dd := run.diff_def()
-		pills.append([dd.ic + " " + tr(dd.n), UI.BAD, tr("Enemies: HP ×%.2f · damage ×%.2f") % [dd.hp, dd.dps]])
+		pills.append([dd.ic + " " + tr(dd.n), UI.BAD, tr(dd.d)])
 	if run.pet != "":
 		pills.append([run.pet_def().ic + " " + tr(run.pet_def().n), UI.GOOD, tr(run.pet_def().d)])
 	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
 	if run.path != "":
 		pills.append([run.path_def().ic + " " + tr(run.path_def().n), UI.GOLD, tr(run.path_def().d)])
+	# too many to fit in one row: every pill but the boss one shrinks to its icon (tap still explains it)
+	var est := 0.0
+	for pl in pills:
+		est += String(pl[0]).length() * 8.5 + 34.0
+	var room := (WIDE_W if _wide else minf(get_viewport_rect().size.x, COLUMN_W)) - 2.0 * _side_pad() - 40.0
+	var compact := est > room
 	for pl in pills:
 		var info: String = pl[2]
 		var p := UI.panel(Color(pl[1], 0.18), pl[1], 2, 99, 8)
-		p.add_child(UI.plbl(pl[0], 15, Color.WHITE, true))
+		var txt: String = pl[0]
+		if compact and pl.size() < 4:
+			txt = txt.get_slice(" ", 0)
+			info = String(pl[0]) + ": " + info
+		p.add_child(UI.plbl(txt, 15, Color.WHITE, true))
 		UI.on_tap(p, func(): toast(info, UI.MU))
 		h.add_child(p)
 	return sc
@@ -1162,12 +1203,12 @@ func _held_text() -> String:
 	return tr("Point at an item to see it · right-click to rotate") if _landscape else tr("Tap an item to see it · tap again to rotate")
 
 
-func _storage_card(it: PItem) -> Control:
+func _storage_card(it: PItem, w := 112.0) -> Control:
 	var d := it.def()
 	var c: Color = GameData.tier_colors[d.tier]
 	var on := selected == it
 	var p := UI.card(c.darkened(0.55), Color.WHITE if on else c, 16, 6)
-	p.custom_minimum_size = Vector2(112, 104)
+	p.custom_minimum_size = Vector2(w, 104)
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(v)
@@ -1183,7 +1224,7 @@ func _storage_card(it: PItem) -> Control:
 	v.add_child(top)
 	var nm := UI.plbl(tr(d.n), 14, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nm.custom_minimum_size.x = 96
+	nm.custom_minimum_size.x = w - 16.0
 	v.add_child(nm)
 	if run.recipe_partner_owned(it.id, true):
 		v.add_child(UI.plbl("🔗 " + tr("match!"), 13, UI.GOLD, true, true))
@@ -1232,7 +1273,7 @@ func _shop_panel(fresh: bool) -> Control:
 	_shop_anim = false
 	for _k in range(cards.get_child_count(), 5):
 		var empty := UI.panel(Color(0, 0, 0, 0.2), UI.BD, 2, 16, 6)
-		empty.custom_minimum_size = Vector2(0, 184)
+		empty.custom_minimum_size = Vector2(0, 170)
 		empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var el := UI.plbl("✅\n" + tr("Sold"), 16, UI.MU, true, true)
 		el.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1266,7 +1307,7 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var col: Color = GameData.tier_colors[d.tier]
 	var on := inspect_idx == i
 	var p := UI.card(col.darkened(0.5), Color.WHITE if on else col, 16, 6)
-	p.custom_minimum_size = Vector2(0, 200)
+	p.custom_minimum_size = Vector2(0, 180)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(ev):
@@ -1288,8 +1329,18 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	if e.get("lock", false):
 		top.add_child(UI.plbl("🔒", 16))
 	v.add_child(top)
-	var ic := UI.plbl(d.ic, 38, UI.TX, false, true)
-	v.add_child(ic)
+	# the item's real shape, scaled down, with its icon: you can see how it will sit in the pack
+	var bb := Vector2i.ZERO
+	for c in GameData.shape(e.id, 0).c:
+		bb = Vector2i(maxi(bb.x, c.x + 1), maxi(bb.y, c.y + 1))
+	var cpx := minf(28.0, minf(96.0 / bb.x, 58.0 / bb.y))
+	var shv := ShapeView.new().setup(e.id, 0, cpx, true)
+	shv.icon_px = clampf(cpx * 0.95, 20.0, 30.0)
+	var shc := CenterContainer.new()
+	shc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shc.custom_minimum_size.y = 62
+	shc.add_child(shv)
+	v.add_child(shc)
 	var nm := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size = Vector2(80, 34)
@@ -1705,10 +1756,11 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	var k: Array = NK[n.k]
 	var c := Color(k[2])
 	var boss: bool = n.k == "boss"
-	var p := UI.card(c.darkened(0.62), c, 24, 14)
-	var v := UI.vbox(8)
+	# phone: compact (3 cards must fit one screen with no scrolling); PC: tall cards side by side
+	var p := UI.card(c.darkened(0.62), c, 24, 14 if _wide else 10)
+	var v := UI.vbox(8 if _wide else 5)
 	p.add_child(v)
-	var h: BoxContainer = UI.vbox(6) if _wide else UI.hbox(14)   # PC: a tall card, everything centred
+	var h: BoxContainer = UI.vbox(6) if _wide else UI.hbox(12)   # PC: a tall card, everything centred
 	if _wide:
 		h.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(h)
@@ -1725,7 +1777,6 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		badges.append("⚔️ %.1f/s" % (e.get("dps", 0.0) * run.hz.get("atk", 1.0)))
 		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
 		if e.weak != "": badges.append("💥 " + tr("weak to %s") % (GameData.elem_icon(e.weak) + tr(e.weak)))
-		if e.tr != "": badges.append(GameData.traits[e.tr].ic + " " + tr(GameData.traits[e.tr].n) + ((" " + tr(GameData.traits[e.tr].d)) if GameData.traits[e.tr].has("d") else ""))
 		badges.append(("🎁 " + tr("loot")) if n.k != "combat" else ("🎲 " + tr("25% loot")))
 		if n.k in ["elite", "ambush"]:
 			badges.append("🎒+1")
@@ -1733,7 +1784,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		icon = k[0]
 		nm = tr(EV[n.k][1]) if EV.has(n.k) else tr("Campfire")
 		sub = tr(EV[n.k][2]) if EV.has(n.k) else tr("Recover 50% HP")
-	var il := UI.lbl(icon, (130 if boss else 110) if _wide else (84 if boss else 68))
+	var il := UI.lbl(icon, (110 if boss else 90) if _wide else (64 if boss else 52))
 	if _wide:
 		il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(il)
@@ -1745,7 +1796,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 	tgp.add_child(UI.lbl(k[0] + " " + tr(k[1]), 15, Color.WHITE, true))
 	tgp.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if _wide else Control.SIZE_SHRINK_BEGIN
 	tv.add_child(tgp)
-	var ttl := UI.title(nm, 30 if _wide else 26)
+	var ttl := UI.title(nm, 30 if _wide else 22)
 	if _wide:
 		ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tv.add_child(ttl)
@@ -1754,28 +1805,60 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		if _wide:
 			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tv.add_child(sl)
+	if n.has("e"):
+		# short chips: style, pet, Ultimate, skills, boss move — the full story is behind Details
+		var chips: Array = FoeInfo.chips(n.e)
+		if not chips.is_empty():
+			var cf := UI.flow(6)
+			if _wide:
+				cf.alignment = FlowContainer.ALIGNMENT_CENTER
+			for ch in chips:
+				var warn: bool = String(ch).begins_with("⚠️")
+				var cp := UI.panel(Color("#3a1408", 0.9) if warn else Color("#2e1065", 0.85), Color("#ff9f43") if warn else Color("#c084fc"), 2, 99, 6)
+				cp.add_child(UI.lbl(ch, 15 if _wide else 13, Color("#ffd8a8") if warn else Color("#f3e8ff"), true))
+				cf.add_child(cp)
+			v.add_child(cf)
 	if not badges.is_empty():
 		var bf := UI.flow(6)
 		if _wide:
 			bf.alignment = FlowContainer.ALIGNMENT_CENTER
 		for b in badges:
 			var bp := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 99, 6)
-			bp.add_child(UI.lbl(b, 14, Color("#e9e4ff"), true))
+			bp.add_child(UI.lbl(b, 14 if _wide else 12, Color("#e9e4ff"), true))
 			bf.add_child(bp)
 		v.add_child(bf)
 	if n.has("e") and n.e.has("items"):
-		var mp := MiniPack.new().setup(n.e, 34.0)
-		mp.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		var mh := UI.hbox(8)
-		mh.alignment = BoxContainer.ALIGNMENT_CENTER
-		mh.add_child(UI.lbl("🎒", 22))
-		mh.add_child(mp)
-		v.add_child(mh)
+		if _wide:
+			var mp := MiniPack.new().setup(n.e, 28.0)
+			mp.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			var mh := UI.hbox(8)
+			mh.alignment = BoxContainer.ALIGNMENT_CENTER
+			mh.add_child(UI.lbl("🎒", 22))
+			mh.add_child(mp)
+			v.add_child(mh)
+		else:
+			# phone: the monster's pack sits small at the right of the header
+			var mp2 := MiniPack.new().setup(n.e, minf(18.0, 100.0 / maxf(1.0, n.e.get("gh", 3))))
+			mp2.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(mp2)
 	if _wide:
 		v.add_child(UI.spacer(false))   # buttons line up along the bottom
 	var go := UI.btn(("⚔️ " + tr("FIGHT!")) if n.has("e") else (tr("GO") + " ▶️"), func(): _choose(i), false, 26, k[3])
-	go.custom_minimum_size.y = 78
-	v.add_child(go)
+	go.custom_minimum_size.y = 66 if _wide else 54
+	if not _wide:
+		go.add_theme_font_size_override("font_size", 22)
+	if n.has("e"):
+		var br := UI.hbox(8)
+		var info_b := UI.btn("🔍 " + tr("Details"), func():
+			foe_info_e = run.with_hazard(n.e)
+			render(), false, 18 if _wide else 16, "purple")
+		info_b.custom_minimum_size = Vector2(150 if _wide else 128, go.custom_minimum_size.y)
+		go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		br.add_child(info_b)
+		br.add_child(go)
+		v.add_child(br)
+	else:
+		v.add_child(go)
 	if n.k in ["elite", "boss", "ambush"]:
 		var tw := p.create_tween().set_loops()
 		tw.tween_property(p, "self_modulate", Color(1.2, 1.1, 1.1), 0.8)
@@ -1784,6 +1867,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 
 
 func _choose(i: int) -> void:
+	foe_info_e = {}
 	_pending_sim = run.choose(i)
 	render()
 
@@ -2129,9 +2213,10 @@ var _cauldron_pick: Array = []   # uids picked for the cauldron
 func _event_overlay() -> Control:
 	var ev: Dictionary = run.event
 	var info: Array = EV.get(ev.k, ["❔", "Event", ""])
-	var o := _overlay("")
+	# PC: the Merchant gets the full width so its buy + sell cards fit without scrolling
+	var o := _overlay("", Callable(), _wide and ev.k == "merchant")
 	var v: VBoxContainer = o[1]
-	var big := UI.lbl(info[0], 96)
+	var big := UI.lbl(info[0], 72 if _wide else 96)
 	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(big)
 	UI.breathe(big, 0.05)
@@ -2254,8 +2339,12 @@ func _ev_merchant(v: VBoxContainer) -> void:
 		row.add_child(p)
 	v.add_child(row)
 	var st := UI.title("💰 " + tr("Sell at full price"), 22, UI.GOLD)
+	if _wide:
+		st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(st)
 	var fl := UI.flow(10)
+	if _wide:
+		fl.alignment = FlowContainer.ALIGNMENT_CENTER
 	for it in run.items:
 		if it.starter or it.loc == "held" or it.def().relic:
 			continue

@@ -59,6 +59,21 @@ var log_lines: Array = []
 var items: Array = []       # {i, d, f, p (progress s), cd, used, ramp, nb: Array[int], st:{dmg, heal, shield, hits}}
 var events: Array = []
 var _rng := RandomNumberGenerator.new()
+# boss moves (data: bosses[].mech): a warning bar fills, then the move goes off
+var mech := {}              # the boss's move, empty for normal monsters
+var mech_t := 0             # ticks until the warning starts
+var mech_warn := -1         # ticks left in the warning (-1 = not warning)
+var mech_casts := 0
+var rally := 0.0            # War Cry / Berserk: extra monster damage
+var spiders := 0            # Broodmother's spiderlings: each bites every second, your hits kill one each
+var hero_freeze := 0        # ticks your items stay frozen (Frost Nova, Earthquake)
+var grab_uids: Array = []   # your items the Kraken is holding
+var grab_t := 0
+var _cleanse_t := 0         # Purifier trait timer
+var _trs: PackedStringArray = []   # the monster's skills (Armored, Vampiric...), Abyss monsters can have several
+var fpet := {}              # the monster's pet buff (Hard and up)
+var fult_def := {}          # the monster's Ultimate (Very Hard and up): charges as its items fire
+var fult := 0.0
 
 
 func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
@@ -74,6 +89,14 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 		e.merge(r.build_pack(str(e.get("fam", "Goblin")), e.get("tier", "") == "elite"), true)
 		r._tune_pack(e)
 	ehp = e.hp
+	if e.has("pet") and GameData.foe_pets.has(str(e.pet)):
+		fshield += roundf(e.hp * float(GameData.foe_pets[e.pet].get("shield", 0.0)))
+	mech = e.get("mech", {})
+	_trs = str(e.get("tr", "")).split(",", false)
+	fpet = GameData.foe_pets.get(str(e.get("pet", "")), {})
+	fult_def = e.get("ult", {})
+	if not mech.is_empty():
+		mech_t = roundi(float(mech.get("first", mech.every)) * 10)
 	var fidx := 0
 	for it in e.items:
 		var fd: Dictionary = GameData.items[it[0]]
@@ -110,10 +133,10 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 		used += i.cells().size()
 	empty_tiles = maxi(0, r.tiles.size() - used)
 	if sp.has("empty_evasion"):
-		evade = minf(0.45, 0.15 + empty_tiles * 0.04)
+		evade = minf(0.35, 0.10 + empty_tiles * 0.03)
 	hero_dmg = 1.0 + r.pv("dmg")
 	if sp.has("gold_power"):
-		gold_mult += minf(0.4, r.gold * 0.005)
+		gold_mult += minf(0.5, r.gold * 0.01)
 	if sp.has("gold_engine"):
 		gold_mult += 0.05 * floorf(r.gold / 10.0)
 	for i in g:
@@ -261,10 +284,10 @@ func _soak_slow(st: Dictionary) -> float:
 func _defense_mult(is_mag: bool, pierce: float) -> float:
 	var m := 1.0
 	if is_mag:
-		if e.get("tr", "") == "warded":
+		if has_tr("warded"):
 			m *= 1.0 - GameData.WARD_CUT
 		m *= 1.0 + fs.get("soaked", 0.0) * GameData.statuses.get("soaked", {}).get("magic_amp", 0.0)
-	elif e.get("tr", "") == "armored":
+	elif has_tr("armored"):
 		m *= 1.0 - GameData.ARMOR_CUT * (1.0 - clampf(pierce, 0.0, 1.0))
 	return m
 
@@ -295,7 +318,7 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 		# Momentum (Rogue): crit chance and crit damage per stack on the tagged items
 		if rd.eff == "crit_tag" and x.d.tags.has(rd.etag):
 			crit += minf(float(rd.get("cap", 0.45)), rd.v * resv)
-			critx += minf(1.0, float(rd.get("v2", 0.0)) * resv)   # at most +100% crit damage
+			critx += minf(0.8, float(rd.get("v2", 0.0)) * resv)   # at most +80% crit damage
 		if next_crit and x.d.tags.has("Weapon"):
 			next_crit = false
 			shadow = true
@@ -343,9 +366,15 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 			_gain_res("alternate", 1.0)   # Equilibrium: switching between Physical and Magic
 		_last_cat = cat
 		if sp.has("dusk_lifesteal") and not is_mag and x.d.tags.has("Weapon"):
-			heal(v * 0.12)
+			heal(v * 0.15)
 		if shadow:
 			add_status("bleed", 6, x.i.uid)
+		if spiders > 0:
+			spiders -= 1   # every item hit also squashes a spiderling
+			_num("foe", "🕷️✖", Color("#d9f99d"))
+		if has_tr("spiked"):
+			# Spiked: every item hit cuts you for 8% of its damage (Shield blocks it)
+			_hit_hero(maxf(1.0, roundf(v * 0.08)), -1, "🦔", false)
 	var is_crit := cm > 1.0 and not preview
 	_ev({"t": "hit", "uid": uid, "v": v, "el": el, "m": m, "crit": is_crit, "melee": x != null and x.d.tags.has("Melee"), "icon": x.d.ic if x != null else src})
 	var who: String = (x.d.ic + " " + I18n.t(x.d.n)) if x != null else src
@@ -481,7 +510,7 @@ func _class_trigger(idx: int, x: Dictionary) -> void:
 	if sp.has("apex") and d.tags.has("Beast"):
 		add_status("bleed", 1, x.i.uid)
 	if sp.has("shaman") and d.tags.has("Beast"):
-		heal(0.7, x.i.uid)
+		heal(1.0, x.i.uid)
 	if sp.has("equilibrium") and x.f.dmg > 0:
 		for b in x.nb:
 			var y: Dictionary = items[b]
@@ -568,6 +597,13 @@ func step() -> void:
 		return
 	tk += 1
 	var speed := (1.0 + haste()) * _soak_slow(hd)
+	if hero_freeze > 0:
+		hero_freeze -= 1
+		speed = 0.0
+	if grab_t > 0:
+		grab_t -= 1
+		if grab_t == 0:
+			grab_uids = []
 	for idx in items.size():
 		var x: Dictionary = items[idx]
 		var d: Dictionary = x.d
@@ -581,13 +617,15 @@ func step() -> void:
 					gain_shield(x.f.shield, x.i.uid)
 				_log(I18n.t("🧪 %s healed you") % I18n.t(d.n))
 			continue
+		if grab_t > 0 and grab_uids.has(x.i.uid):
+			continue   # held by the Kraken
 		x.p += TICK * speed * _item_speed(x)
 		if x.p >= x.cd:
 			x.p -= x.cd
 			fire(idx)
 	# relic timer
 	if sp.has("hp_strike") and tk % HP_STRIKE_TICKS == 0:
-		damage(null, mhp * 0.14, "Physical", 0, 2, "🌲")
+		damage(null, mhp * 0.17, "Physical", 0, 2, "🌲")
 	# once per second: regen and status ticks
 	if tk % 10 == 0:
 		if rg > 0 and php < mhp:
@@ -616,15 +654,32 @@ func step() -> void:
 			_num("hero", "-" + GameData._num(roundf(v * 10) / 10.0), s.col, false, -1, "dot", "hd:" + k)
 			if s.decay > 0:
 				hd[k] = maxf(0.0, hd[k] - s.decay)
-		if e.tr == "regen" and ehp < e.hp:
+		if has_tr("regen") and ehp < e.hp:
 			var v := maxf(1.0, roundf(e.hp * 0.015))
 			ehp = minf(e.hp, ehp + v)
 			_num("foe", "+%d" % roundi(v), Color("#4ade80"))
+		# Berserk: +5% damage every second after the first 6 s (max +100%)
+		if has_tr("berserk") and tk > 60 and rally < 1.0:
+			rally = minf(1.0, rally + 0.05)
+		# Purifier: every 5 s it shakes off 30% of your Burn, Poison and Bleed
+		if has_tr("purifier"):
+			_cleanse_t += 1
+			if _cleanse_t % 5 == 0:
+				var any := false
+				for k in ["burn", "poison", "bleed"]:
+					if fs.get(k, 0.0) > 0:
+						fs[k] = floorf(fs[k] * 0.7)
+						any = true
+				if any:
+					_num("foe", "✨ " + I18n.t("CLEANSE"), Color("#e0f2fe"), true)
+		# spiderlings bite (cannot be evaded; your Shield blocks them)
+		if spiders > 0:
+			_hit_hero(roundf(spiders * float(mech.get("bite", 0.1)) * e.dps * 10.0) / 10.0, -1, "🕷️", false, false)
 	for x in hastes:
 		x.t -= 1
 	hastes = hastes.filter(func(x): return x.t > 0)
 	# the monster's items charge and fire
-	var fspeed := (1.0 + _foe_haste()) * _soak_slow(fs)
+	var fspeed := (1.0 + _foe_haste() + float(fpet.get("haste", 0.0))) * _soak_slow(fs)
 	if freeze_t > 0:
 		freeze_t -= 1
 		fspeed = 0.0
@@ -638,6 +693,18 @@ func step() -> void:
 	for x in fhastes:
 		x.t -= 1
 	fhastes = fhastes.filter(func(x): return x.t > 0)
+	# boss move: count down, warn, then go off (a frozen boss pauses its move too)
+	if not mech.is_empty() and freeze_t <= 0:
+		if mech_warn >= 0:
+			mech_warn -= 1
+			if mech_warn < 0:
+				_cast_move(mech)
+				mech_t = _mech_every()
+		else:
+			mech_t -= 1
+			if mech_t <= 0:
+				mech_warn = roundi(float(mech.warn) * 10)
+				_ev({"t": "mech_warn", "n": mech.n, "ic": mech.ic})
 	# boss rage at half HP
 	if not enraged and node.get("k", "") == "boss" and ehp <= e.hp * 0.5 and ehp > 0:
 		enraged = true
@@ -675,20 +742,10 @@ func foe_fire(fx: Dictionary) -> void:
 	_ev({"t": "foe_trigger", "uid": fx.uid})
 	_bleed_trigger("foe")
 	if on.dmg > 0:
-		var dm: float = roundf(on.dmg * dm_mult * _crit(on.crit, on.critx) * 10.0) / 10.0
-		if dodge > 0 or (evade > 0 and _rng.randf() < evade):
-			# Shadowstep / Phantom evasion: the hit misses completely
-			if dodge > 0:
-				dodge -= 1
-			_num("hero", "💨 " + I18n.t("EVADE"), Color("#c4b5fd"), true)
-			dm = 0.0
-		var ab := minf(shield, dm)
-		shield -= ab
-		blocked += ab
-		php -= dm - ab
-		fx.st.dmg += dm
-		_ev({"t": "foe_atk", "dm": dm, "ab": ab, "uid": fx.uid, "icon": fx.d.ic})
-		_reflect()
+		var dm: float = roundf(on.dmg * dm_mult * _foe_power() * _crit(on.crit, on.critx) * 10.0) / 10.0
+		fx.st.dmg += _hit_hero(dm, fx.uid, fx.d.ic, true)
+		for k in fpet.get("st", {}):
+			_put_on_hero(k, float(fpet.st[k]) * float(e.get("st_mult", 1.0)))
 	for k in on.st:
 		var s: Dictionary = GameData.statuses[k]
 		var n: float = snappedf(on.st[k] * dm_mult, 0.1)   # scaled like the hits, no rounding up
@@ -704,6 +761,131 @@ func foe_fire(fx: Dictionary) -> void:
 	if not on.haste.is_empty():
 		fhastes.append({"v": on.haste[0], "t": roundi(on.haste[1] * 10)})
 		_num("foe", "💨+%d%%" % roundi(on.haste[0] * 100), Color("#ffe14a"))
+	# its Ultimate charges as its items fire
+	if not fult_def.is_empty():
+		fult += 1.0
+		if fult >= float(fult_def.need):
+			fult = 0.0
+			_cast_move(fult_def, true)
+
+
+## Monster damage multiplier: War Cry / Berserk and its pet.
+func _foe_power() -> float:
+	return (1.0 + rally) * (1.0 + float(fpet.get("dmg", 0.0)))
+
+
+## A status a monster puts on you (stacks, number, first-time callout in the view).
+func _put_on_hero(k: String, n: float) -> void:
+	if n <= 0:
+		return
+	var s: Dictionary = GameData.statuses[k]
+	n = snappedf(n, 0.1)
+	hd[k] = _stack(s, hd.get(k, 0.0), n)
+	_num("hero", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, -1, "status", "hd:" + k)
+
+## A monster hit on you: evasion, then your Shield, then HP. Returns the damage dealt.
+## dodgeable: item hits and boss moves can be evaded; recoil (Spiked) and spiderling bites cannot.
+func _hit_hero(dm: float, uid: int, icon: String, dodgeable := true, reflect := true) -> float:
+	if dodgeable and (dodge > 0 or (evade > 0 and _rng.randf() < evade)):
+		# Shadowstep / Phantom evasion: the hit misses completely
+		if dodge > 0:
+			dodge -= 1
+		_num("hero", "💨 " + I18n.t("EVADE"), Color("#c4b5fd"), true)
+		dm = 0.0
+	var ab := minf(shield, dm)
+	shield -= ab
+	blocked += ab
+	php -= dm - ab
+	_ev({"t": "foe_atk", "dm": dm, "ab": ab, "uid": uid, "icon": icon})
+	var leech := (0.4 if has_tr("vampiric") else 0.0) + float(fpet.get("leech", 0.0))
+	if leech > 0 and dm - ab > 0 and ehp > 0:
+		var h := minf(e.hp - ehp, roundf((dm - ab) * leech * 10.0) / 10.0)
+		if h > 0:
+			ehp += h
+			_num("foe", "🧛+" + GameData._num(h), Color("#4ade80"))
+	if reflect and dodgeable:
+		_reflect()
+	return dm
+
+
+## A boss move or a monster Ultimate goes off.
+func _cast_move(m: Dictionary, is_ult := false) -> void:
+	if not is_ult:
+		mech_casts += 1
+	_ev({"t": "mech", "n": m.n, "ic": m.ic})
+	_log("%s %s!" % [m.ic, I18n.t(m.n)])
+	if m.has("nuke"):
+		var dm := roundf(float(m.nuke) * e.dps * _foe_power() * 10.0) / 10.0
+		_hit_hero(dm, -1, m.ic, true)
+	for k in m.get("st", {}):
+		_put_on_hero(k, float(m.st[k]) * (float(e.get("st_mult", 1.0)) if is_ult else 1.0))
+	if m.has("haste"):
+		fhastes.append({"v": float(m.haste[0]), "t": roundi(float(m.haste[1]) * 10)})
+		_num("foe", "💨+%d%%" % roundi(float(m.haste[0]) * 100), Color("#ffe14a"), true)
+	if m.has("heal_pct") and ehp < e.hp:
+		var hh := minf(e.hp - ehp, roundf(e.hp * float(m.heal_pct)))
+		ehp += hh
+		_num("foe", "+" + GameData._num(hh), Color("#4ade80"), true)
+	if m.has("freeze"):
+		hero_freeze = maxi(hero_freeze, roundi(float(m.freeze) * 10))
+		_num("hero", "❄️ " + I18n.t("FROZEN"), Color("#93c5fd"), true)
+	if m.has("shell"):
+		var sv := roundf(e.hp * float(m.shell))
+		fshield += sv
+		_num("foe", "🛡️+" + GameData._num(sv), Color("#7dd3fc"), false, -1, "shield")
+	if m.has("rally"):
+		rally += float(m.rally)
+		_num("foe", "📯 +%d%%" % roundi(float(m.rally) * 100), Color("#fca5a5"), true)
+	if m.has("spawn"):
+		spiders = mini(9, spiders + int(m.spawn))
+	if m.has("purge"):
+		var tot := 0.0
+		var frac := float(m.get("purge_frac", 1.0))
+		for k in ["burn", "poison", "bleed"]:
+			if fs.get(k, 0.0) > 0:
+				var cut := ceilf(fs[k] * frac)
+				tot += cut
+				fs[k] -= cut
+		var h := minf(e.hp - ehp, roundf(tot * float(m.purge)))
+		if h > 0:
+			ehp += h
+			_num("foe", "✨+" + GameData._num(h), Color("#4ade80"), true)
+	if m.has("grab"):
+		# grabs your strongest charging items
+		var cand := items.filter(func(x): return not x.d.once)
+		cand.sort_custom(func(a, b): return _grab_value(a) > _grab_value(b))
+		grab_uids = cand.slice(0, int(m.get("grab_n", 1))).map(func(x): return x.i.uid)
+		if not grab_uids.is_empty():
+			grab_t = roundi(float(m.grab) * 10)
+			_ev({"t": "grab", "uids": grab_uids})
+
+
+func _grab_value(x: Dictionary) -> float:
+	return (x.f.dmg + x.f.shield + x.f.heal + 1.0) / maxf(0.5, x.cd)
+
+
+## What the boss move bar shows: {n, ic, warn (bool), p (0..1 toward the move), s (seconds left)}.
+func mech_state() -> Dictionary:
+	if mech.is_empty():
+		if fult_def.is_empty():
+			return {}
+		var need := float(fult_def.need)
+		return {"n": fult_def.n, "ic": fult_def.ic, "warn": fult >= need - 1.0, "p": fult / need, "s": -1.0, "cnt": "%d/%d" % [roundi(fult), roundi(need)]}
+	var every := _mech_every()
+	var warn := roundi(float(mech.warn) * 10)
+	if mech_warn >= 0:
+		return {"n": mech.n, "ic": mech.ic, "warn": true, "p": 1.0 - float(mech_warn) / maxf(1, warn), "s": mech_warn / 10.0}
+	return {"n": mech.n, "ic": mech.ic, "warn": false, "p": 1.0 - float(mech_t) / maxf(1, every), "s": (mech_t + warn) / 10.0}
+
+
+func _mech_every() -> int:
+	var s: float = float(mech.get("every2", mech.every)) if enraged else float(mech.every)
+	return roundi(s * 10) - roundi(float(mech.warn) * 10)
+
+
+func has_tr(k: String) -> bool:
+	return _trs.has(k)
+
 
 ## Thorns-style hero statuses and the Guard resource hit back when you are struck.
 func _reflect() -> void:

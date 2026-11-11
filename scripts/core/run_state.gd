@@ -749,21 +749,63 @@ func foe(elite: bool) -> Dictionary:
 	if e.tier == "tough":
 		e.hp = float(roundi(e.hp * 1.3))
 		e.dps *= 1.25
-	if e.tier == "elite" or e.tier == "tough" or (e.tier == "normal" and day >= 4 and randf() < 0.2):
-		e.tr = GameData.traits.keys().pick_random()
-		match e.tr:
+	_add_skills(e)
+	_add_mode_extras(e)
+	e.merge(build_pack(e.fam, elite), true)
+	_tune_pack(e)
+	return e
+
+
+## Skills (Armored, Vampiric...) by mode and tier: difficulties[].skills = {tier: n or [min, max]}.
+## Normal: bosses 1 · Hard: Elites and bosses 1 · Very Hard: all 1, bosses 2 · Abyss: all 2+, bosses 3+.
+## A boss keeps its own skill (e.g. the Titan is Armored) and it counts.
+func _add_skills(e: Dictionary) -> void:
+	var spec = diff_def().get("skills", {}).get(str(e.get("tier", "normal")), 0)
+	var want: int = randi_range(int(spec[0]), int(spec[1])) if spec is Array else int(spec)
+	var got: Array = str(e.get("tr", "")).split(",", false)
+	if want <= got.size():
+		return
+	# late skills (Vampiric, Spiked, Berserk, Purifier) from day 7, likelier from day 10
+	var pool := []
+	for k in GameData.traits:
+		if got.has(k):
+			continue
+		if GameData.traits[k].get("late", false):
+			if day >= 7:
+				pool.append(k)
+				if day >= 10:
+					pool.append(k)
+		else:
+			pool.append(k)
+	while got.size() < want and not pool.is_empty():
+		var k: String = pool.pick_random()
+		pool = pool.filter(func(x): return x != k)
+		if (k == "armored" and got.has("warded")) or (k == "warded" and got.has("armored")):
+			continue
+		got.append(k)
+		match k:
 			"swift":
-				e.cd_mult = 0.7
+				e.cd_mult *= 0.7
 				e.dps *= 0.85
 			"brute":
 				e.hp = float(roundi(e.hp * 1.4))
 				e.dps *= 1.4
-				e.cd_mult = 1.3
+				e.cd_mult *= 1.3
 			"regen":
 				e.hp = float(roundi(e.hp * 1.1))
-	e.merge(build_pack(e.fam, elite), true)
-	_tune_pack(e)
-	return e
+	e.tr = ",".join(got)
+
+
+## Hard and up: the monster brings a pet buff. Very Hard and up: monsters (not bosses) get an Ultimate.
+## Statuses from pets and Ultimates grow with the day (st_mult).
+func _add_mode_extras(e: Dictionary) -> void:
+	e["st_mult"] = 1.0 + day * 0.1
+	if diff_def().get("pet", false) and not GameData.foe_pets.is_empty():
+		var pid: String = GameData.foe_pets.keys().pick_random()
+		e["pet"] = pid
+		e.hp = float(roundi(e.hp * (1.0 + float(GameData.foe_pets[pid].get("hp", 0.0)))))
+	if diff_def().get("ult", false) and e.get("tier", "") != "boss" and GameData.foe_ults.has(str(e.get("fam", ""))):
+		e["ult"] = GameData.foe_ults[e.fam]
 
 
 ## Expected damage per second of a monster item before scaling (hits + rough status value).
@@ -772,7 +814,7 @@ static func m_dps(id: String) -> float:
 	var on: Dictionary = d.on
 	if d.cd <= 0:
 		return 0.0
-	var v: float = on.dmg * (1.0 + on.crit) + on.st.get("poison", 0.0) * 4.0 + on.st.get("burn", 0.0) * 3.0
+	var v: float = on.dmg * (1.0 + on.crit) + on.st.get("poison", 0.0) * 4.0 + on.st.get("burn", 0.0) * 3.0 + on.st.get("bleed", 0.0) * 2.5
 	return v / d.cd
 
 
@@ -836,8 +878,10 @@ func boss_foe(b: Dictionary) -> Dictionary:
 	e["gw"] = bp.get("w", 4)
 	e["gh"] = bp.get("h", 3)
 	e["items"] = bp.get("items", []).map(func(it): return [it[0], it[1], it[2], 0])
+	_add_skills(e)
 	_tune_pack(e)
 	e.sup_mult = 1.0   # boss heals/shields are tuned by hand in the data
+	_add_mode_extras(e)
 	return e
 
 

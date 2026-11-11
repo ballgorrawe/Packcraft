@@ -304,7 +304,7 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 		for b in GameData.bosses:
 			if b.n == force_boss:
 				r.boss_pick[b.d] = b.n
-	var info := {"gold": [], "deaths": [], "kinds": {}, "elite_w": 0, "elite_l": 0, "camp_hp": [], "fights": 0, "losses": 0, "max_gold": 0}
+	var info := {"gold": [], "deaths": [], "kinds": {}, "elite_w": 0, "elite_l": 0, "camp_hp": [], "fights": 0, "losses": 0, "max_gold": 0, "bosses": []}
 	var guard := 0
 	while r.end_state == "" and guard < 60:
 		guard += 1
@@ -345,6 +345,8 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 				cs.skip_to_end()
 				if not cs.done:
 					_fail("STALEMATE", seed_v, "day %d" % r.day)
+			if n.k == "boss":
+				info.bosses.append("%s:%d" % [n.e.n, 1 if cs.won else 0])
 			if not cs.won:
 				info.losses += 1
 				info.deaths.append(r.day)
@@ -364,7 +366,7 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 	return {
 		"win": r.end_state == "win", "day": r.day, "pet": pet, "cls": cls, "path": r.path,
 		"items": grid_ids, "all": r.items.map(func(i): return i.id), "info": info,
-		"cap": r.items.any(func(i): return i.def().lv == 4),
+		"cap": r.items.any(func(i): return i.def().lv == 4), "lv": r.lv,
 	}
 
 
@@ -391,13 +393,13 @@ func _monte_carlo() -> void:
 			var s: int = i * 1009 + GameData.class_keys.find(cls) * 7 + {"random": 1, "greedy": 2, "smart": 3}.get(style, 0) * 1000003
 			var res := play_run(cls, pet, style, s, false)
 			var inf: Dictionary = res.info
-			print("RUN|%s|%s|%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%s|%s|%s" % [
+			print("RUN|%s|%s|%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s" % [
 				style, diff, cls, pet, s, 1 if res.win else 0, res.day, res.path,
 				",".join(inf.gold.map(func(g): return str(g))),
 				",".join(inf.deaths.map(func(d): return str(d))),
 				",".join(res.items), inf.fights, inf.losses, inf.elite_w, inf.elite_l, inf.max_gold,
 				JSON.stringify(inf.kinds), ",".join(inf.camp_hp.map(func(h): return str(snappedf(h, 0.01)))),
-				"1" if res.cap else "0"])
+				"1" if res.cap else "0", res.lv, ",".join(inf.bosses)])
 
 
 ## Replays one seed of --mode=inv (find the seed in a VIOLATION line) and prints each event's effect.

@@ -22,6 +22,9 @@ static var class_keys: Array = []
 static var paths := {}
 static var monster_items: Array = []   # ids of enemy-only items (also stored in `items`)
 static var families := {}              # foe name -> monster item ids
+static var foe_styles := {}            # foe name -> {ic, n, d}: what its pack is built around
+static var foe_pets := {}              # id -> {ic, n, d, dmg/shield/leech/st/haste/hp}: monster pets (Hard and up)
+static var foe_ults := {}              # foe name -> Ultimate move (Very Hard and up), same keys as boss moves
 static var boss_packs := {}            # boss name -> {w, h, items: [[id, x, y]]}
 static var boss_drops := {}            # boss name -> [[item id, weight]]
 static var pets := {}                  # pet id -> {n, ic, d, hp, crit, income, shield, haste, regen, free_reroll, ult}
@@ -76,6 +79,9 @@ static func ensure_loaded() -> void:
 		items[k] = _norm_item(m)
 		monster_items.append(k)
 	families = d.get("families", {})
+	foe_styles = d.get("foe_styles", {})
+	foe_pets = d.get("foe_pets", {})
+	foe_ults = d.get("foe_ults", {})
 	for k in d.get("pets", {}):
 		var p: Dictionary = d.pets[k]
 		pets[k] = {"n": p.n, "ic": p.ic, "d": p.d}
@@ -83,7 +89,7 @@ static func ensure_loaded() -> void:
 			pets[k][key] = float(p.get(key, 0.0))
 		pet_keys.append(k)
 	for df in d.get("difficulties", []):
-		difficulties.append({"id": df.id, "n": df.n, "ic": df.ic, "d": str(df.get("d", "")), "hp": float(df.hp), "dps": float(df.dps), "elite": float(df.get("elite", 0.0))})
+		difficulties.append({"id": df.id, "n": df.n, "ic": df.ic, "d": str(df.get("d", "")), "hp": float(df.hp), "dps": float(df.dps), "elite": float(df.get("elite", 0.0)), "pet": bool(df.get("pet", false)), "ult": bool(df.get("ult", false)), "skills": df.get("skills", {})})
 	for k in d.get("boss_packs", {}):
 		var bp: Dictionary = d.boss_packs[k]
 		boss_packs[k] = {"w": int(bp.w), "h": int(bp.h), "items": bp.items.map(func(e): return [str(e[0]), int(e[1]), int(e[2])])}
@@ -119,7 +125,7 @@ static func ensure_loaded() -> void:
 	foe_atk_mult = float(d.get("foe_atk_mult", 1.0))
 	late_ramp = float(d.get("late_ramp", 0.0))
 	for b in d.bosses:
-		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": str(b.get("tr", ""))})
+		bosses.append({"d": int(b.d), "n": b.n, "hp": roundf(float(b.hp) * float(d.get("foe_hp_mult", 1.0))), "atk": snappedf(float(b.atk) * float(d.get("foe_atk_mult", 1.0)), 0.1), "cd": float(b.cd), "imm": b.imm, "weak": b.weak, "tier": "boss", "tr": str(b.get("tr", "")), "mech": b.get("mech", {})})
 	mods = d.mods
 	traits = d.traits
 	for h in d.hazards:
@@ -401,6 +407,36 @@ static func diff_def(id: String) -> Dictionary:
 		if df.id == id:
 			return df
 	return difficulties[0] if not difficulties.is_empty() else {"id": "normal", "n": "Normal", "ic": "🙂", "hp": 1.0, "dps": 1.0, "elite": 0.0}
+
+
+## "☠️ Toxic: stacks Poison on you…" for a monster of a styled family, or "" (bosses, unstyled).
+static func foe_style_txt(e: Dictionary) -> String:
+	var st: Dictionary = foe_styles.get(str(e.get("fam", "")), {})
+	if st.is_empty() or e.get("tier", "") == "boss":
+		return ""
+	return "%s %s: %s" % [st.ic, I18n.t(st.n), I18n.t(st.d)]
+
+
+## Badge text for each skill a monster has (Armored, Vampiric...).
+static func trait_badges(e: Dictionary) -> Array:
+	var out := []
+	for k in str(e.get("tr", "")).split(",", false):
+		if traits.has(k):
+			var tdef: Dictionary = traits[k]
+			out.append(tdef.ic + " " + I18n.t(tdef.n) + ((" " + I18n.t(tdef.d)) if tdef.has("d") else ""))
+	return out
+
+
+## Lines about the extras a harder mode gives this monster: its pet and its Ultimate.
+static func mode_extra_lines(e: Dictionary) -> Array:
+	var out := []
+	if foe_pets.has(str(e.get("pet", ""))):
+		var pd: Dictionary = foe_pets[e.pet]
+		out.append("%s %s: %s" % [pd.ic, I18n.t(pd.n), I18n.t(pd.d)])
+	if not e.get("ult", {}).is_empty():
+		var u: Dictionary = e.ult
+		out.append("⭐ %s %s (%d ⚡): %s" % [u.ic, I18n.t(u.n), int(u.need), I18n.t(u.d)])
+	return out
 
 
 static func foe_icon(name: String) -> String:

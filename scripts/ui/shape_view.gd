@@ -8,6 +8,7 @@ var cell := 12.0
 var show_icon := false
 var tint := Color(1, 1, 1, 1)
 var origin_offset := Vector2.ZERO   # pixel position of shape cell (0,0)
+var icon_px := 0.0                  # icon size in px (0 = 60% of a cell); shop cards draw it bigger
 
 
 func setup(item_id: String, rotation_steps: int, cell_px: float, icon := false) -> ShapeView:
@@ -56,7 +57,8 @@ func _draw() -> void:
 		draw_style_box(sb, r)
 	if show_icon:
 		var m := GameData.mid_cell(id, rot)
-		_center_text(GameData.items[id].ic, Rect2(origin_offset + Vector2(m) * cell, Vector2(cell, cell)), cell * 0.6, Color(1, 1, 1, tint.a))
+		var fs := icon_px if icon_px > 0 else cell * 0.6
+		_center_text(GameData.items[id].ic, Rect2(origin_offset + Vector2(m) * cell, Vector2(cell, cell)), fs, Color(1, 1, 1, tint.a))
 
 
 func _center_text(t: String, r: Rect2, fs: float, col: Color) -> void:

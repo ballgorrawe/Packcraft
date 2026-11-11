@@ -13,12 +13,12 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".out"))) {
   for (const line of fs.readFileSync(path.join(dir, f), "utf8").split("\n")) {
     if (!line.startsWith("RUN|")) continue;
     const p = line.trim().split("|");
-    if (p.length !== 20) continue; // half-written line (job still running)
+    if (p.length < 20) continue; // half-written line (job still running)
     runs.push({
       style: p[1], diff: p[2], cls: p[3], pet: p[4], seed: +p[5], win: p[6] === "1", day: +p[7], path: p[8],
       gold: p[9] ? p[9].split(",").map(Number) : [], deaths: p[10] ? p[10].split(",").map(Number) : [],
       items: p[11] ? p[11].split(",") : [], fights: +p[12], losses: +p[13], ew: +p[14], el: +p[15], maxGold: +p[16],
-      kinds: JSON.parse(p[17] || "{}"), campHp: p[18] ? p[18].split(",").map(Number) : [], cap: p[19] === "1",
+      kinds: JSON.parse(p[17] || "{}"), campHp: p[18] ? p[18].split(",").map(Number) : [], cap: p[19] === "1", lv: Number(p[20] || 0), bosses: p[21] ? p[21].split(",") : [],
     });
   }
 }
@@ -34,6 +34,8 @@ for (const [st, rs] of Object.entries(by(runs, (r) => r.style))) {
 }
 
 const smart = runs.filter((r) => r.style === "smart");
+if (smart.length) { const av = (xs) => (xs.reduce((a, r) => a + r.lv, 0) / Math.max(1, xs.length)).toFixed(1); { const bw = {}; for (const r of smart) for (const b of r.bosses) { const [n, w] = b.split(":"); bw[n] = bw[n] || [0, 0]; bw[n][0] += +w; bw[n][1]++; } line("- Boss fights won: " + Object.entries(bw).map(([n, [w, t]]) => `${n} ${(100 * w / t).toFixed(0)}% (${t})`).join(" | ")); }
+  line(`- Final level: all ${av(smart)} | wins ${av(smart.filter((r) => r.win))}`); }
 line("\n## Win rate by pet (smart bot, all classes)");
 for (const [p, x] of Object.entries(by(smart, (r) => r.pet)).sort()) line(`- ${p}: ${pct(x.filter((r) => r.win).length, x.length)} (n=${x.length})`);
 

@@ -39,11 +39,21 @@ var _flash := {}        # uid -> seconds since it fired
 var _xi := {}           # uid -> combat item dict
 var _shake_tw: Tween
 var _intro := 0.0        # seconds of boss entrance left (the fight waits)
+var mech_box: PanelContainer    # boss move bar (bosses only)
+var mech_lbl: Label
+var mech_bar: ProgressBar
+var _mech_was_warn := false
+var _hero_hit_st := {}          # statuses a monster has put on you this fight (first-time callout)
+var _ult_info: PanelContainer   # the Ultimate / resource explainer, while open
+var _ult_info_lbl: RichTextLabel
+var _wide := false
+var _foe_info: Control          # the monster read-out while open (the fight is paused)
 
 
 ## wide: PC layout (your HP + pack on the left, the fight in the middle, the monster on the right).
 func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	var ks := 1.35 if wide else 1.0   # text / sprite scale on PC
+	_wide = wide
 	run = r
 	sim = s
 	for x in s.items:
@@ -72,10 +82,17 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 		badges.append("🛡 %s%s -80%%" % [GameData.elem_icon(s.e.imm), tr(s.e.imm)])
 	if s.e.weak != "":
 		badges.append("💥 %s%s +50%%" % [GameData.elem_icon(s.e.weak), tr(s.e.weak)])
-	if s.e.tr != "":
-		badges.append(GameData.traits[s.e.tr].ic + " " + tr(GameData.traits[s.e.tr].n) + ((" " + tr(GameData.traits[s.e.tr].d)) if GameData.traits[s.e.tr].has("d") else ""))
+	var style_txt := GameData.foe_style_txt(s.e)
+	if style_txt != "":
+		badges.append(style_txt.get_slice(":", 0))   # icon + style name; the full line is on the road card
+	for ch in FoeInfo.chips(s.e):
+		if not String(ch).begins_with("⚠️") and ch != style_txt.get_slice(":", 0):
+			badges.append(ch)
+	badges.append("🔍")   # tap the monster for the full read-out
 	var bl := UI.lbl("  ".join(badges), roundi(13 * ks), Color("#fca5a5"))
 	bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # many skills / a pet must not push the screen wider
+	bl.custom_minimum_size.x = 160
 	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	en.add_child(bl)
 	ev.add_child(en)
@@ -85,6 +102,18 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	foe_chips.alignment = BoxContainer.ALIGNMENT_END
 	foe_chips.custom_minimum_size.y = 30
 	ev.add_child(foe_chips)
+	# boss move: a bar that fills toward the move, then flashes red while it warns
+	if not s.mech.is_empty() or not s.fult_def.is_empty():
+		mech_box = UI.panel(Color("#2a1020"), Color("#ff9f43"), 2, 14, 6)
+		mech_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var mv := UI.vbox(3)
+		mech_box.add_child(mv)
+		mech_lbl = UI.lbl("", roundi(15 * ks), Color("#ffd8a8"), true)
+		mv.add_child(mech_lbl)
+		mech_bar = _bar(Color("#ff9f43"), roundi(10 * ks))
+		mech_bar.value = 0.0
+		mv.add_child(mech_bar)
+		ev.add_child(mech_box)
 	# the monster's pack: its items charge and fire just like yours
 	var mc := minf(46.0, minf(640.0 / maxf(1, s.e.get("gw", 4)), 150.0 / maxf(1, s.e.get("gh", 3))))
 	if wide:
@@ -93,6 +122,12 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	mpack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ev.add_child(mpack)
 	v.add_child(eh)
+	# tap (phone) or click (PC) the monster card: full read-out of what it does; the fight pauses
+	eh.mouse_filter = Control.MOUSE_FILTER_STOP
+	eh.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	eh.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_toggle_foe_info())
 
 	# stage
 	stage = Control.new()
@@ -113,6 +148,8 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	hero = _sprite(r.cls_def().hero, 130 if wide else 70, 0.26, 0.42)
 	if r.pet != "":
 		_sprite(r.pet_def().ic, 64 if wide else 40, 0.1, 0.62)
+	if not s.fpet.is_empty():
+		_sprite(s.fpet.ic, 64 if wide else 40, 0.9, 0.62)   # the monster's pet (Hard and up)
 	combo_lbl = UI.lbl("", 30, UI.GOLD, true)
 	combo_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	combo_lbl.add_theme_constant_override("outline_size", 8)
@@ -147,6 +184,20 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	ult_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ulr.add_child(ult_bar)
 	hv.add_child(ulr)
+	# hover (PC) or tap (phone) the Ultimate / resource rows to read what they do mid-fight
+	ult_bar.mouse_filter = Control.MOUSE_FILTER_PASS
+	for row in [ur, ulr]:
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.mouse_default_cursor_shape = Control.CURSOR_HELP
+		if wide:
+			row.mouse_entered.connect(func(): _show_ult_info(true))
+			row.mouse_exited.connect(func(): _show_ult_info(false))
+		else:
+			row.gui_input.connect(func(e):
+				if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+					_show_ult_info(_ult_info == null))
+	var tip := UI.lbl("ℹ️", roundi(14 * ks), Color("#fde68a"), true)
+	ulr.add_child(tip)
 	v.add_child(hb)
 
 	# pack with live charge
@@ -221,6 +272,84 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 		_intro = 2.6
 		_boss_intro.call_deferred()
 	return self
+
+
+func _toggle_foe_info() -> void:
+	if _foe_info:
+		_foe_info.queue_free()
+		_foe_info = null
+		return
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.z_index = 30
+	dim.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed:
+			_toggle_foe_info())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(cc)
+	var vb := UI.vbox(8)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(FoeInfo.build(sim.e, minf(size.x - 40.0, 760.0)))
+	var hint := UI.lbl("⏸️ " + tr("Tap anywhere to close."), 15, UI.MU, true)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(hint)
+	cc.add_child(vb)
+	add_child(dim)
+	_foe_info = dim
+
+
+## Opens / closes the explainer for your Ultimate and class resource (live charge numbers).
+func _show_ult_info(on: bool) -> void:
+	if not on:
+		if _ult_info:
+			_ult_info.queue_free()
+			_ult_info = null
+		return
+	if _ult_info:
+		return
+	var p := UI.panel(Color("#1b1336", 0.97), Color("#fde68a"), 3, 16, 14)
+	p.z_index = 20   # above floating numbers
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rt := RichTextLabel.new()
+	rt.bbcode_enabled = true
+	rt.fit_content = true
+	rt.scroll_active = false
+	rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rt.add_theme_font_size_override("normal_font_size", 22 if _wide else 18)
+	rt.add_theme_font_size_override("bold_font_size", 24 if _wide else 20)
+	var w := minf(fxl.size.x - 40.0, 620.0)
+	rt.custom_minimum_size.x = w - 28.0
+	p.add_child(rt)
+	fxl.add_child(p)
+	_ult_info = p
+	_ult_info_lbl = rt
+	_fill_ult_info()
+	p.reset_size()
+	# just above your HP card
+	var hb_rect := php_bar.get_global_rect()
+	var top := hb_rect.position.y - fxl.get_global_rect().position.y - 60.0
+	p.position = Vector2(clampf(hb_rect.position.x - fxl.get_global_rect().position.x, 20.0, fxl.size.x - w - 20.0), 0)
+	p.size.x = w
+	(func():
+		if is_instance_valid(p):
+			p.position.y = maxf(10.0, top - p.size.y)).call_deferred()
+
+
+func _fill_ult_info() -> void:
+	if _ult_info_lbl == null:
+		return
+	var u: Dictionary = run.cls_def().ult
+	var rd := sim.res_def()
+	var t := "[b][color=#ffe14a]%s %s[/color][/b]\n%s\n" % [u.ic, tr(u.n), tr(u.d)]
+	t += "[color=#fde68a]⚡ " + tr("Charges +1 every time one of your items triggers.") + " [b]%d / %d[/b][/color]\n\n" % [floori(sim.ult), sim.ult_need]
+	t += "[b][color=#7dd3fc]%s %s: %d[/color][/b]\n%s" % [rd.ic, tr(rd.n), sim.resv, tr(rd.d)]
+	if not _wide:
+		t += "\n[color=#9ca3af][i]" + tr("Tap again to close.") + "[/i][/color]"
+	_ult_info_lbl.text = t
 
 
 func _bar(col: Color, h := 14) -> ProgressBar:
@@ -345,6 +474,17 @@ func _draw_pack() -> void:
 		var sz := int(pcell * 0.56 * (1.0 + lit * 0.4))
 		var w := f.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 		pack.draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(1, 1, 1, 0.3 if used else 1.0))
+		if sim and sim.grab_t > 0 and sim.grab_uids.has(it.uid):
+			# held by the Kraken: dark purple with a tentacle on top
+			for c in cells:
+				pack.draw_rect(Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-3), Color(0.25, 0.05, 0.35, 0.7))
+			var gs := int(pcell * 0.6)
+			var gw := f.get_string_size("🐙", HORIZONTAL_ALIGNMENT_LEFT, -1, gs).x
+			pack.draw_string(f, mc + Vector2(-gw / 2.0, gs * 0.36), "🐙", HORIZONTAL_ALIGNMENT_LEFT, -1, gs)
+	if sim and sim.hero_freeze > 0:
+		# Frost Nova / Earthquake: your items are frozen
+		for c in run.tiles:
+			pack.draw_rect(Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-2), Color(0.55, 0.8, 1.0, 0.3))
 
 
 # --------------------------------------------------------------- loop
@@ -370,6 +510,8 @@ func _process(delta: float) -> void:
 	if _intro > 0:
 		_intro -= delta
 		return
+	if _foe_info:
+		return   # paused while you read what the monster does
 	_acc += delta
 	while _acc >= CombatSim.TICK and not sim.done:
 		_acc -= CombatSim.TICK
@@ -405,6 +547,15 @@ func _handle(evs: Array) -> void:
 				elif kind == "dot" or kind == "status":
 					var ck: String = ev.side + ":" + ev.key
 					var sk: String = String(ev.key).trim_prefix("hd:")
+					if kind == "status" and ev.side == "hero" and String(ev.key).begins_with("hd:") and not _hero_hit_st.has(sk):
+						# the first time a monster puts a status on you this fight: say it loud
+						_hero_hit_st[sk] = true
+						var s0: Dictionary = GameData.statuses[sk]
+						var word: String = {"burn": "BURNING!", "poison": "POISONED!", "bleed": "BLEEDING!", "soaked": "SOAKED!"}.get(sk, s0.n)
+						_float_at(_center_of(hero) + Vector2(0, -90), s0.ic + " " + tr(word), s0.col, true)
+						var tw0 := hero.create_tween()
+						hero.scale = Vector2(1.25, 1.25)
+						tw0.tween_property(hero, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK)
 					_pop_chip(ck, kind == "dot")
 					if fxl.get_child_count() < (25 if quiet else 70):
 						var at := (_chip_pos(ck) + Vector2(0, -34)) if _chips.has(ck) else _side_pos(ev.side, ev.uid)
@@ -442,6 +593,12 @@ func _handle(evs: Array) -> void:
 				var tw := foe.create_tween().set_loops(3)
 				tw.tween_property(foe, "scale", Vector2(1.25, 1.25), 0.12)
 				tw.tween_property(foe, "scale", Vector2.ONE, 0.12)
+			"mech_warn":
+				_float_at(_center_of(foe) + Vector2(0, -70), "⚠️ " + tr(ev.n) + "!", Color("#ff9f43"), true)
+			"mech":
+				_ult_banner(ev.ic + " " + tr(ev.n) + "!")
+				foe.self_modulate = Color(1.5, 0.8, 0.5)
+				foe.create_tween().tween_property(foe, "self_modulate", Color(1.4, 0.55, 0.55) if sim.enraged else Color.WHITE, 0.4)
 			"burst":
 				_shake()
 				_float_at(_center_of(foe), "💥 " + GameData._num(ev.v), Color("#ff8a3d"), true)
@@ -646,9 +803,36 @@ func _refresh() -> void:
 			var s: Dictionary = GameData.statuses[k]
 			var sub := ("↩%s" % GameData._num(snappedf(sim.hs[k] * s.reflect, 0.1))) if s.reflect > 0 else ""
 			_chip("hero:" + k, hero_chips, k, "%s %s" % [s.ic, GameData._num(sim.hs[k])], sub, seen)
+	# your hero is tinted by the worst status a monster put on you
+	var bad := ""
+	for k in sim.hd:
+		if sim.hd[k] > 0 and (bad == "" or sim.hd[k] > sim.hd[bad]):
+			bad = k
+	hero.self_modulate = Color.WHITE.lerp(GameData.statuses[bad].col, 0.45 + 0.15 * sin(_t * 6.0)) if bad != "" else Color.WHITE
 	var h := sim.haste()
 	if h > 0:
 		_chip("hero:haste", hero_chips, "", "💨 +%d%%" % roundi(h * 100), "", seen)
+	# boss moves and late-monster traits
+	if sim.hero_freeze > 0:
+		_chip("hero:frozen", hero_chips, "", "❄️ %.1fs" % (sim.hero_freeze / 10.0), "", seen)
+	if sim.grab_t > 0:
+		_chip("hero:grab", hero_chips, "", "🐙 %.1fs" % (sim.grab_t / 10.0), "", seen)
+	if sim.spiders > 0:
+		_chip("foe:spiders", foe_chips, "", "🕷️ %d" % sim.spiders, "", seen)
+	if sim.rally > 0:
+		_chip("foe:rally", foe_chips, "", "%s +%d%%" % ["😡" if sim.e.tr == "berserk" else "📯", roundi(sim.rally * 100)], "", seen)
+	if mech_box:
+		var ms := sim.mech_state()
+		var warn: bool = ms.warn
+		var when: String = ("%.1fs" % ms.s) if ms.s >= 0 else ("⭐ " + tr("Ultimate") + " " + str(ms.cnt))
+		mech_lbl.text = ("⚠️ " if warn else "") + "%s %s  %s" % [ms.ic, tr(ms.n), when]
+		mech_bar.value = clampf(ms.p, 0.0, 1.0)
+		if warn != _mech_was_warn:
+			_mech_was_warn = warn
+			var col := Color("#ff3b3b") if warn else Color("#ff9f43")
+			mech_bar.add_theme_stylebox_override("fill", UI.box(col, col.darkened(0.35), 2, 99, 0))
+			mech_lbl.add_theme_color_override("font_color", Color("#ffb4b4") if warn else Color("#ffd8a8"))
+		mech_box.self_modulate = Color(1.0, 0.55 + 0.45 * absf(sin(_t * 9.0)), 0.55 + 0.45 * absf(sin(_t * 9.0))) if warn else Color.WHITE
 	for key in _chips.keys():
 		if not seen.has(key):
 			_chips[key].queue_free()
@@ -656,6 +840,8 @@ func _refresh() -> void:
 	var rd := sim.res_def()
 	res_lbl.text = "%s %s %d" % [rd.ic, tr(rd.n), sim.resv]
 	ult_bar.value = float(sim.ult) / float(sim.ult_need)
+	if _ult_info:
+		_fill_ult_info()
 	log_lbl.text = "  ·  ".join(sim.log_lines.slice(0, 2))
 
 
