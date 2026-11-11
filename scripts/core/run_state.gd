@@ -883,11 +883,14 @@ func foe_base(elite: bool) -> Dictionary:
 	var curve: Array = GameData.foe_curve
 	if not curve.is_empty() and day >= 1:
 		var f: float = float(curve[mini(day, curve.size()) - 1])
+		var dc: Array = GameData.foe_dps_curve if not GameData.foe_dps_curve.is_empty() else curve
+		var fd: float = float(dc[mini(day, dc.size()) - 1])
 		var early: Array = diff_def().get("early_ease", [])
 		if day <= early.size():
 			f = float(early[day - 1])
+			fd = f
 		e.hp = float(roundi(e.hp * f))
-		e.dps *= f
+		e.dps *= fd
 	if elite:
 		e.n = "Elite " + fam
 		e.hp = float(roundi(e.hp * 1.5))

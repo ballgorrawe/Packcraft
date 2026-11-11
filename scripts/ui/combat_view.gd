@@ -770,7 +770,8 @@ func _on_end(won: bool) -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fxl.add_child(dim)
-	var ban := UI.lbl(tr("VICTORY!") if won else tr("DEFEAT"), 56, Color("#ffe14a") if won else Color("#ff5a5f"), true)
+	var saved: bool = not won and run.res > 0   # a Heart will bring you back: you survived this one
+	var ban := UI.lbl(tr("VICTORY!") if won else (tr("SURVIVED") if saved else tr("DEFEAT")), 56, Color("#ffe14a") if won else (Color("#ffb020") if saved else Color("#ff5a5f")), true)
 	ban.add_theme_color_override("font_outline_color", Color.BLACK)
 	ban.add_theme_constant_override("outline_size", 12)
 	ban.set_anchors_preset(Control.PRESET_FULL_RECT)

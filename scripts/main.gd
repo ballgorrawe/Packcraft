@@ -14,6 +14,7 @@ var sel_pet := ""
 var sel_diff := "normal"
 var show_how := false
 var show_book := false
+var show_effects := false      # the 📜 popup (what affects this run)
 var book_item := ""          # recipe book: item whose details are open
 var foe_info_e := {}      # the monster whose Details popup is open (road card)
 var book_page := 0
@@ -361,6 +362,8 @@ func render() -> void:
 		ov = _fusion_overlay()
 	elif show_book:
 		ov = _book_overlay()
+	elif show_effects:
+		ov = _effects_overlay()
 	if ov != null and not foe_info_e.is_empty():
 		ov.add_child(_foe_info_overlay())
 	if ov != null and _all_stats_cs != null and run.phase == "night":
@@ -443,6 +446,8 @@ func _key() -> String:
 		k += "path"
 	if show_book:
 		k += "book" + book_item
+	if show_effects:
+		k += "fx"
 	if run.phase == "morning" and _fusion_seen < _fusion_queue.size():
 		k += "fx%d" % _fusion_seen
 	return k
@@ -867,6 +872,7 @@ func _pet_screen() -> Control:
 			sel_pet = kk
 			render())
 		UI.juice(c)
+		UI.hover_glow(c)
 		g.add_child(c)
 	v.add_child(_step_nav(func():
 		title_step = 1
@@ -940,6 +946,7 @@ func _diff_screen() -> Control:
 			sel_diff = id
 			render())
 		UI.juice(c)
+		UI.hover_glow(c)
 		list.add_child(c)
 	var cls: Dictionary = GameData.classes[sel_cls]
 	var pet: Dictionary = GameData.pets.get(sel_pet, {})
@@ -1143,15 +1150,14 @@ func _end_buffs_panel() -> Control:
 func _run_screen(fresh: bool) -> Control:
 	run.sync_hp()
 	# everything else on this screen is ~1000px tall; the pack gets the rest (phones vary a lot)
-	cell_px = clampf(floorf((get_viewport_rect().size.y - 1032.0) / GameData.H), 34.0, 74.0)
+	cell_px = clampf(floorf((get_viewport_rect().size.y - 930.0) / GameData.H), 34.0, 82.0)
 	if _wide:
 		# PC: the pack has the whole left half to itself
 		var vp := get_viewport_rect().size
 		var left_w := (minf(vp.x, WIDE_W) - 40.0) * 0.5
-		cell_px = clampf(floorf(minf((vp.y - 330.0) / GameData.H, (left_w - 60.0) / GameData.W)), 40.0, 110.0)
+		cell_px = clampf(floorf(minf((vp.y - 276.0) / GameData.H, (left_w - 60.0) / GameData.W)), 40.0, 110.0)
 	var root := UI.vbox(10)
 	root.add_child(_memo("hud", _hud_key(), _hud))
-	root.add_child(_memo("ribbon", _ribbon_key(), _ribbon))
 
 	# backpack
 	var gp := UI.card(Color("#3a2818", 0.96), Color("#7a5232"), 22, 10)
@@ -1329,7 +1335,7 @@ func _storage_section() -> Control:
 
 
 func _hud_key() -> String:
-	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size()]
+	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size(), run.boss_on(run.day) != null or run.boss_on(run.day + 1) != null, run.path]
 
 
 func _storage_key() -> String:
@@ -1401,6 +1407,7 @@ func _hud() -> Control:
 	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(maxi(0, run.max_hearts() - run.res)), 18))
 	hr.add_child(_level_badge())
 	hr.add_child(UI.spacer())
+	hr.add_child(_effects_button())
 	var dl := UI.lbl(("♾️ " + tr("Day %d") % run.day) if run.endless else tr("Day %d/%d") % [run.day, GameData.days], 16, UI.GOLD, true)
 	hr.add_child(dl)
 	hv.add_child(hr)
@@ -1466,7 +1473,10 @@ func _gold_pill() -> Control:
 	var gp := UI.panel(Color("#2a1d0c"), Color("#b07a2a"), 3, 8, 8)   # square pixel coin purse
 	gp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	gp.custom_minimum_size.x = 112
-	var gl := UI.title("", 26, UI.GOLD)
+	# plain bold digits with an outline: the pixel heading font was hard to read at this size
+	var gl := UI.lbl("", 26, UI.GOLD, true)
+	gl.add_theme_color_override("font_outline_color", Color("#1a0f05"))
+	gl.add_theme_constant_override("outline_size", 6)
 	gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gp.add_child(gl)
 	UI.count_to(gl, _shown_gold if _shown_gold >= 0 else run.gold, run.gold, "💰 %d")
@@ -1475,6 +1485,69 @@ func _gold_pill() -> Control:
 
 
 ## One tidy row of pills: boss warning, today's hazard, modifier, path. Tap one for details.
+## Everything affecting this run: a near boss, the floor's hazard, mode, pet, run modifier, path.
+## Each entry: [label, colour, explanation, is_boss_warning?].
+func _effect_list() -> Array:
+	var pills := []
+	for bd in range(run.day, run.day + 4):
+		var b = run.boss_on(bd)
+		if b == null:
+			continue
+		var bi := GameData.foe_icon(b.n) + " "
+		pills.append([(bi + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else (bi + tr("Boss tomorrow!")) if b.d == run.day + 1 else (bi + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm) if b.imm != "" else "-", tr(b.weak)], true])
+	if not run.hz.is_empty():
+		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
+	if run.diff != "normal":
+		var dd := run.diff_def()
+		pills.append([dd.ic + " " + tr(dd.n), UI.BAD, tr(dd.d)])
+	if run.pet != "":
+		pills.append([run.pet_def().ic + " " + tr(run.pet_def().n), UI.GOOD, tr(run.pet_def().d)])
+	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
+	if run.path != "":
+		pills.append([run.path_def().ic + " " + tr(run.path_def().n), UI.GOLD, tr(run.path_def().d)])
+	return pills
+
+
+## The top-bar button that replaced the effect ribbon: 📜 (and 💀 when a boss is a floor away or here).
+func _effects_button() -> Control:
+	var boss_near := false
+	for b in [run.boss_on(run.day), run.boss_on(run.day + 1)]:
+		if b != null:
+			boss_near = true
+	# a compact chip (a full button's side padding made the top bar too wide)
+	var col: Color = UI.BAD if boss_near else UI.BD
+	var p := UI.panel(Color(col, 0.3), col, 2, 40, 5)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.add_child(UI.plbl(("💀" if boss_near else "") + "📜", 16, Color.WHITE, true))
+	UI.on_tap(p, func():
+		show_effects = true
+		render())
+	return p
+
+
+## Popup with every effect on the run, explained (opened from the 📜 button).
+func _effects_overlay() -> Control:
+	var o := _overlay("📜 " + tr("This run"), func():
+		show_effects = false
+		render())
+	var v: VBoxContainer = o[1]
+	var card := UI.card(Color(UI.PN, 0.96), UI.BD, 18, 14)
+	var cv := UI.vbox(10)
+	card.add_child(cv)
+	for pl in _effect_list():
+		var row := UI.hbox(10)
+		var nm := UI.lbl(pl[0], 18, pl[1].lightened(0.25), true)
+		nm.custom_minimum_size.x = 230
+		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(nm)
+		var d := UI.wrap_lbl(pl[2], 16, Color("#efe4cf"))
+		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(d)
+		cv.add_child(row)
+	v.add_child(card)
+	return o[0]
+
+
 func _ribbon() -> Control:
 	var sc := ScrollContainer.new()
 	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1675,23 +1748,20 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var bb := Vector2i.ZERO
 	for c in GameData.shape(e.id, 0).c:
 		bb = Vector2i(maxi(bb.x, c.x + 1), maxi(bb.y, c.y + 1))
-	var cpx := minf(32.0, minf(100.0 / bb.x, 60.0 / bb.y))
+	var cpx := minf(36.0, minf(104.0 / bb.x, 80.0 / bb.y))
 	var shv := ShapeView.new().setup(e.id, 0, cpx, true)
-	shv.icon_px = clampf(cpx * 1.1, 26.0, 38.0)   # big enough to read at a glance
+	shv.icon_px = clampf(cpx * 1.15, 30.0, 44.0)   # big enough to read at a glance
 	var shc := CenterContainer.new()
 	shc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shc.custom_minimum_size.y = 62
+	shc.custom_minimum_size.y = 84
 	shc.add_child(shv)
-	v.add_child(UI.slot(shc, 66, Color.WHITE if on else col))
+	v.add_child(UI.slot(shc, 88, Color.WHITE if on else col))
 	var nm := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size = Vector2(80, 34)
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(nm)
-	var sl := UI.rich(GameData.stats_bb(e.id), 15)
-	sl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sl.custom_minimum_size.x = 80
-	v.add_child(sl)
+	# just the overview here (picture, name, price): tap (phone) or hover (PC) shows the full card
 	v.add_child(UI.spacer(false))
 	var can: bool = run.gold >= e.price
 	# a gold coin plate (dull iron when you cannot afford it)
@@ -2293,7 +2363,8 @@ func _night_overlay() -> Control:
 	var fight: bool = r.n.has("e")
 	var head := "🌙 " + tr("NIGHT")
 	if fight:
-		head = ("🏆 " + tr("VICTORY!")) if r.win else ("💔 " + tr("DEFEAT"))
+		# won: Victory · went down but a Heart pulled you through: Survived · no Hearts left: Defeat
+		head = ("🏆 " + tr("VICTORY!")) if r.win else (("💔 " + tr("DEFEAT")) if r.over else ("🩹 " + tr("SURVIVED") + "  -1 ❤️"))
 	var o := _overlay(head, Callable(), _wide)
 	var v: VBoxContainer = o[1]
 	var side: VBoxContainer = v   # where the fight summary goes

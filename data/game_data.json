@@ -526,14 +526,14 @@
  "_difficulties": "Enemy HP and damage multipliers per mode, applied on top of the curve. elite: chance an extra Elite/Ambush road appears.",
  "difficulties": [
   {"id": "normal", "n": "Normal",    "ic": "🙂", "d": "Plain monsters. Only bosses have a skill.", "hp": 1.0,  "dps": 1.0,  "elite": 0.0, "skills": {"boss": 1}},
-  {"id": "hard",   "n": "Hard",      "ic": "😠", "d": "Monsters bring a pet. Elites and bosses have a skill.", "hp": 1.08, "dps": 1.08, "elite": 0.12, "pet": true, "skills": {"elite": 1, "boss": 1}},
-  {"id": "vhard",  "n": "Very Hard", "ic": "😈", "d": "Pets, monster Ultimates, every monster has a skill (bosses 2).", "hp": 1.12,  "dps": 1.12,  "elite": 0.22, "pet": true, "ult": true, "skills": {"easy": 1, "normal": 1, "tough": 1, "elite": [1, 2], "boss": 2}},
-  {"id": "abyss",  "n": "Abyss",     "ic": "🕳️", "d": "Pets, Ultimates, 2+ skills on every monster (bosses 3+).", "hp": 1.2, "dps": 1.2, "elite": 0.3, "early_ease": [0.55, 0.69, 0.83, 0.92], "extras_from": 3, "pet": true, "ult": true, "skills": {"easy": 2, "normal": 2, "tough": 2, "elite": [2, 3], "boss": [3, 4]}}
+  {"id": "hard",   "n": "Veteran",   "ic": "😠", "d": "Monsters bring a pet. Elites and bosses have a skill.", "hp": 1.0, "dps": 1.0, "elite": 0.12, "pet": true, "skills": {"elite": 1, "boss": 1}},
+  {"id": "vhard",  "n": "Nightmare", "ic": "😈", "d": "Pets, monster Ultimates, every monster has a skill (bosses 2).", "hp": 1.05,  "dps": 1.05,  "elite": 0.22, "pet": true, "ult": true, "skills": {"easy": 1, "normal": 1, "tough": 1, "elite": [1, 2], "boss": 2}},
+  {"id": "abyss",  "n": "Abyss",     "ic": "🕳️", "d": "Pets, Ultimates, 2+ skills on every monster (bosses 3+).", "hp": 1.15, "dps": 1.15, "elite": 0.3, "early_ease": [0.55, 0.69, 0.83, 0.92], "extras_from": 3, "pet": true, "ult": true, "skills": {"easy": 2, "normal": 2, "tough": 2, "elite": [2, 3], "boss": [3, 4]}}
  ],
  "foe_hp_mult": 3.7,
  "foe_atk_mult": 2.4,
- "boss_hp_mult": 1.08,
- "boss_atk_mult": 1.05,
+ "boss_hp_mult": 0.85,
+ "boss_atk_mult": 0.88,
  "late_ramp": 0.05,
 
  "bosses": [
@@ -588,8 +588,9 @@
  "elem_icons": {"Fire": "🔥", "Nature": "🌿", "Physical": "⚔️", "Shock": "⚡"},
  "days": 15,
  "base_hp": 60,
- "foe_curve": [0.42, 0.57, 0.66, 0.75, 0.85, 0.95, 1.0, 1.04, 1.08, 1.12, 1.16, 1.2, 1.24, 1.28, 1.32],
- "first_boss": {"hp": 0.73, "dps": 0.81},
+ "foe_curve": [0.38, 0.5, 0.6, 0.7, 0.8, 0.84, 0.87, 0.9, 0.92, 0.94, 0.96, 0.98, 1.0, 1.02, 1.04],
+ "foe_dps_curve": [0.22, 0.3, 0.4, 0.5, 0.65, 0.75, 0.82, 0.88, 0.92, 0.94, 0.96, 0.98, 1.0, 1.02, 1.04],
+ "first_boss": {"hp": 0.85, "dps": 0.9},
  "_leveling": "Win fights for EXP (xp per node kind). need = need_base + floor((level-1) / need_step) EXP per level. Every level: +hp Max HP and +dmg (fraction) damage. Every pick_every levels: choose 1 of 3 picks. Pick keys add to the same buffs pets use (hp, hp_pct, dmg, crit, haste, regen, shield).",
  "leveling": {
   "xp": {"combat": 3, "elite": 4, "ambush": 4, "boss": 5},

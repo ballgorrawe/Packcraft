@@ -501,6 +501,12 @@ static func juice(c: Control) -> void:
 				tw.tween_property(c, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 
 
+## PC: a card brightens while the mouse is over it (pickers).
+static func hover_glow(c: Control) -> void:
+	c.mouse_entered.connect(func(): c.create_tween().tween_property(c, "modulate", Color(1.22, 1.17, 1.06), 0.1))
+	c.mouse_exited.connect(func(): c.create_tween().tween_property(c, "modulate", Color.WHITE, 0.15))
+
+
 ## Gentle looping "breathe" for the main button on a screen.
 static func breathe(c: Control, amount := 0.04) -> void:
 	c.resized.connect(func(): c.pivot_offset = c.size / 2)

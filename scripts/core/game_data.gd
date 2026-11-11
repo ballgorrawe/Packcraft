@@ -48,7 +48,8 @@ static var elem_colors := {}
 static var elem_icons := {}
 static var days := 15
 static var base_hp := 60.0
-static var foe_curve: Array = []           # monster HP/damage multiplier per floor (weak early, strong late)
+static var foe_curve: Array = []           # monster HP multiplier per floor (weak early, strong late)
+static var foe_dps_curve: Array = []       # monster damage multiplier per floor (softer early: HP does not regenerate)
 static var first_boss := {}                # HP/damage multipliers for the day-5 boss
 static var leveling := {}            # EXP per node, EXP curve, stats per level, level-up picks
 static var W := 9
@@ -146,6 +147,7 @@ static func ensure_loaded() -> void:
 	days = int(d.days)
 	base_hp = float(d.base_hp)
 	foe_curve = d.get("foe_curve", [])
+	foe_dps_curve = d.get("foe_dps_curve", foe_curve)
 	first_boss = d.get("first_boss", {})
 	leveling = d.get("leveling", {})
 	W = int(d.grid_w)
