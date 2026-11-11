@@ -19,6 +19,27 @@ func _fps(secs: float) -> float:
 	return float(Engine.get_frames_drawn() - f0) / ((Time.get_ticks_usec() - t0) / 1e6)
 
 
+## Frame-time spikes over secs: average, worst frame, and how many frames took longer than 16.7 ms.
+func _spikes(secs: float) -> String:
+	var ts: Array = []
+	var t0 := Time.get_ticks_usec()
+	var last := t0
+	while Time.get_ticks_usec() - t0 < int(secs * 1e6):
+		await process_frame
+		var now := Time.get_ticks_usec()
+		ts.append((now - last) / 1000.0)
+		last = now
+	var worst := 0.0
+	var slow := 0
+	var sum := 0.0
+	for x in ts:
+		worst = maxf(worst, x)
+		sum += x
+		if x > 16.7:
+			slow += 1
+	return "avg %.1f ms, worst %.1f ms, %d of %d frames over 16.7 ms" % [sum / ts.size(), worst, slow, ts.size()]
+
+
 func _ms(c: Callable, n: int) -> float:
 	var t0 := Time.get_ticks_usec()
 	for i in n:
@@ -65,6 +86,24 @@ func _run() -> void:
 	print("morning, no background: %.0f fps" % await _fps(3.0))
 	main._bg.visible = true
 	print("full screen rebuild (render): %.1f ms" % _ms(func(): main.render(), 10))
+	await process_frame
+	await process_frame
+	var tap := 0.0
+	for k in 10:
+		var t9 := Time.get_ticks_usec()
+		main.render()
+		await process_frame
+		tap += (Time.get_ticks_usec() - t9) / 1000.0
+	print("one tap (rebuild + the next frame): %.1f ms" % (tap / 10.0))
+	main._memo_nodes.clear()
+	tap = 0.0
+	for k in 10:
+		main._memo_nodes.clear()
+		var t8 := Time.get_ticks_usec()
+		main.render()
+		await process_frame
+		tap += (Time.get_ticks_usec() - t8) / 1000.0
+	print("one tap without reuse: %.1f ms" % (tap / 10.0))
 	for part in ["_hud", "_ribbon", "_storage_panel"]:
 		if main.has_method(part):
 			print("  %s: %.1f ms" % [part, _ms(func(): main.call(part).free(), 10)])
@@ -112,13 +151,53 @@ func _run() -> void:
 		main.grid.set_process(false)
 		print("morning, pack not redrawn every frame: %.0f fps" % await _fps(3.0))
 		main.grid.set_process(true)
+	# what each part of the shop screen costs once it is on screen (build + add + first frame)
+	main.screen.visible = false
+	for part in ["_hud", "_ribbon", "_shop_panel", "_run_screen"]:
+		if not main.has_method(part):
+			continue
+		var tot := 0.0
+		for k in 5:
+			var t1 := Time.get_ticks_usec()
+			var node: Control = main.call(part, false) if part in ["_shop_panel", "_run_screen"] else main.call(part)
+			main.add_child(node)
+			await process_frame
+			tot += (Time.get_ticks_usec() - t1) / 1000.0
+			node.free()
+			await process_frame
+		print("  part %s: %.1f ms (build+add+frame)" % [part, tot / 5.0])
+	for kind in ["rich", "label", "shape"]:
+		var tot2 := 0.0
+		for k in 5:
+			var t3 := Time.get_ticks_usec()
+			var box := VBoxContainer.new()
+			for id in ["blessed_blade", "storm_rune", "mana_crystal", "iron_sword", "health_potion"]:
+				if kind == "rich":
+					box.add_child(UI.rich(GameData.stats_bb(id), 15))
+				elif kind == "label":
+					box.add_child(UI.wrap_lbl("4 ดาเมจ +2 ฮีล ทุก 2 วิ", 15))
+				else:
+					box.add_child(ShapeView.new().setup(id, 0, 28.0, true))
+			main.add_child(box)
+			await process_frame
+			tot2 += (Time.get_ticks_usec() - t3) / 1000.0
+			box.free()
+			await process_frame
+		print("  5x %s: %.1f ms" % [kind, tot2 / 5.0])
+	var tb := 0.0
+	for k in 5:
+		var t2 := Time.get_ticks_usec()
+		await process_frame
+		tb += (Time.get_ticks_usec() - t2) / 1000.0
+	print("  empty frame: %.1f ms" % (tb / 5.0))
+	main.screen.visible = true
 	# a fight
 	r.travel()
 	main.render()
 	await process_frame
+	SaveGame.set_setting("fight_speed", 4.0)
 	main._choose(0)
-	await _fps(1.0)
-	print("fight: %.0f fps" % await _fps(4.0))
+	print("fight frames (vsync off): ", await _spikes(5.0))
 	main._bg.visible = false
 	print("fight, no background: %.0f fps" % await _fps(3.0))
 	quit()

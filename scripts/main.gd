@@ -1150,8 +1150,8 @@ func _run_screen(fresh: bool) -> Control:
 		var left_w := (minf(vp.x, WIDE_W) - 40.0) * 0.5
 		cell_px = clampf(floorf(minf((vp.y - 330.0) / GameData.H, (left_w - 60.0) / GameData.W)), 40.0, 110.0)
 	var root := UI.vbox(10)
-	root.add_child(_hud())
-	root.add_child(_ribbon())
+	root.add_child(_memo("hud", _hud_key(), _hud))
+	root.add_child(_memo("ribbon", _ribbon_key(), _ribbon))
 
 	# backpack
 	var gp := UI.card(Color("#3a2818", 0.96), Color("#7a5232"), 22, 10)
@@ -1200,62 +1200,17 @@ func _run_screen(fresh: bool) -> Control:
 	gv.add_child(held_lbl)
 	root.add_child(gp)
 
-	# storage
-	var sp := UI.card(Color("#33261a", 0.96), Color("#6b4f33"), 22, 10)
+	# storage (reused while nothing it shows has changed)
+	var sp: Control = _memo("storage", _storage_key(), _storage_section)
 	storage_panel = sp
-	var sv := UI.vbox(6)
-	sp.add_child(sv)
-	var items := run.storage_items()
-	var sh := UI.hbox(8)
-	sh.add_child(UI.title("📦 " + tr("Storage"), 22))
-	var cnt := _chip(str(items.size()), UI.MU)
-	sh.add_child(cnt)
-	sh.add_child(UI.spacer())
-	if run.phase == "morning" and not run.grid_items().is_empty():
-		sh.add_child(UI.btn("📥 " + tr("Empty pack"), func():
-			if drag_item != null:
-				return
-			var n := run.clear_pack()
-			_clear_sel()
-			run.msg = tr("Moved %d items into storage.") % n
-			render(), false, 16, "blue"))
-	sv.add_child(sh)
-	var scr := ScrollContainer.new()
-	if _wide:
-		# PC: a grid of cards that scrolls down (the panel fills the rest of the right column)
-		scr.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scr.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	else:
-		scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scr.custom_minimum_size.y = 112
-	storage_scroll = scr
-	var keep_x := _storage_x
-	scr.ready.connect(func(): scr.set_deferred("scroll_horizontal", keep_x))
-	scr.get_h_scroll_bar().value_changed.connect(func(v): _storage_x = int(v))
-	var row: Container = UI.hbox(10)
-	if _wide:
-		var fl := HFlowContainer.new()
-		fl.add_theme_constant_override("h_separation", 10)
-		fl.add_theme_constant_override("v_separation", 10)
-		fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row = fl
-	scr.add_child(row)
-	sv.add_child(scr)
-	# phone: cards narrow so up to ~8 fit in the row without scrolling
-	var sw := (112.0 if items.size() <= 8 else 80.0) if _wide else 112.0 if items.size() < 2 else clampf(floorf((minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 46.0, 112.0)
-	for it in items:
-		row.add_child(_storage_card(it, sw))
-	if items.is_empty():
-		var el := UI.lbl(tr("Empty. Drag items here to store them."), 17, UI.MU)
-		el.custom_minimum_size.y = 100
-		el.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(el)
+	storage_scroll = sp.get_meta("scroll")
 	root.add_child(sp)
 
 	var shop: Control = null
 	if run.phase == "morning":
-		shop = _shop_panel(fresh)
+		shop = _memo("shop", _shop_key(), func(): return _shop_panel(fresh)) if not fresh and not _shop_anim else _memo_put("shop", _shop_key(), _shop_panel(fresh))
+		sell_zone = shop
+		sell_lbl = shop.get_meta("sell_lbl")
 		root.add_child(shop)
 	if _wide:
 		# PC: the pack big on the left; shop (with Depart) and the storage grid on the right
@@ -1289,6 +1244,109 @@ func _chip(t: String, col: Color) -> Control:
 	p.add_child(UI.lbl(t, 16, col, true))
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return p
+
+
+# ---- reusing unchanged parts of the screen
+# Every action rebuilds the screen. Rebuilding the HUD, the ribbon and the shop is most of that cost,
+# and a tap in the pack changes none of them, so each keeps its node while its fingerprint (the data
+# it shows) is the same: the node moves into the new screen instead of being built again.
+var _memo_nodes := {}   # name -> {"key": String, "node": Control}
+
+
+func _memo(name: String, key: String, build: Callable) -> Control:
+	var e: Dictionary = _memo_nodes.get(name, {})
+	if not e.is_empty() and e.key == key and is_instance_valid(e.node):
+		var n: Control = e.node
+		if n.get_parent() != null:
+			n.get_parent().remove_child(n)
+		return n
+	return _memo_put(name, key, build.call())
+
+
+func _memo_put(name: String, key: String, node: Control) -> Control:
+	_memo_nodes[name] = {"key": key, "node": node}
+	return node
+
+
+func _memo_base() -> String:
+	return "%s|%s|%s|%s" % [I18n.lang(), _wide, get_viewport_rect().size, run.day]
+
+
+## The storage box: what you keep out of the pack.
+func _storage_section() -> Control:
+	var sp := UI.card(Color("#33261a", 0.96), Color("#6b4f33"), 22, 10)
+	storage_panel = sp
+	var sv := UI.vbox(6)
+	sp.add_child(sv)
+	var items := run.storage_items()
+	var sh := UI.hbox(8)
+	sh.add_child(UI.title("📦 " + tr("Storage"), 22))
+	var cnt := _chip(str(items.size()), UI.MU)
+	sh.add_child(cnt)
+	sh.add_child(UI.spacer())
+	if run.phase == "morning" and not run.grid_items().is_empty():
+		sh.add_child(UI.btn("📥 " + tr("Empty pack"), func():
+			if drag_item != null:
+				return
+			var n := run.clear_pack()
+			_clear_sel()
+			run.msg = tr("Moved %d items into storage.") % n
+			render(), false, 16, "blue"))
+	sv.add_child(sh)
+	var scr := ScrollContainer.new()
+	if _wide:
+		# PC: a grid of cards that scrolls down (the panel fills the rest of the right column)
+		scr.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scr.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	else:
+		scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scr.custom_minimum_size.y = 112
+	storage_scroll = scr
+	sp.set_meta("scroll", scr)
+	var keep_x := _storage_x
+	scr.ready.connect(func(): scr.set_deferred("scroll_horizontal", keep_x))
+	scr.get_h_scroll_bar().value_changed.connect(func(v): _storage_x = int(v))
+	var row: Container = UI.hbox(10)
+	if _wide:
+		var fl := HFlowContainer.new()
+		fl.add_theme_constant_override("h_separation", 10)
+		fl.add_theme_constant_override("v_separation", 10)
+		fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row = fl
+	scr.add_child(row)
+	sv.add_child(scr)
+	# phone: cards narrow so up to ~8 fit in the row without scrolling
+	var sw := (112.0 if items.size() <= 8 else 80.0) if _wide else 112.0 if items.size() < 2 else clampf(floorf((minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 46.0, 112.0)
+	for it in items:
+		row.add_child(_storage_card(it, sw))
+	if items.is_empty():
+		var el := UI.lbl(tr("Empty. Drag items here to store them."), 17, UI.MU)
+		el.custom_minimum_size.y = 100
+		el.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(el)
+	return sp
+
+
+func _hud_key() -> String:
+	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size()]
+
+
+func _storage_key() -> String:
+	var owned := run.items.map(func(i): return i.id)
+	owned.sort()
+	var st := run.storage_items().map(func(i): return "%d:%s:%d" % [i.uid, i.id, i.rot])
+	return _memo_base() + "|%s|%s|%s|%s|%s" % [run.phase, selected.uid if selected != null else -1, ",".join(st), ",".join(owned), run.grid_items().is_empty()]
+
+
+func _ribbon_key() -> String:
+	return _memo_base() + "|%s|%s|%s|%s" % [run.hz.get("id", ""), run.path, run.diff, run.mod.get("id", "")]
+
+
+func _shop_key() -> String:
+	var owned := run.items.map(func(i): return i.id)
+	owned.sort()
+	return _memo_base() + "|%s|%d|%d|%d|%s" % [JSON.stringify(run.shop), run.gold, inspect_idx, run.reroll_cost(), ",".join(owned)]
 
 
 func _hud() -> Control:
@@ -1526,6 +1584,7 @@ func _shop_panel(fresh: bool) -> Control:
 	shop.add_child(v)
 	var head := UI.hbox(8)
 	sell_lbl = UI.title("🛒 " + tr("Shop"), 24, UI.GOLD)
+	shop.set_meta("sell_lbl", sell_lbl)
 	var sign := PanelContainer.new()   # the merchant's sign
 	sign.add_theme_stylebox_override("panel", UI.px_frame(Color("#3a2414"), Color("#c8902c"), 0, 8, true))
 	sign.add_child(sell_lbl)

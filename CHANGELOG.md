@@ -4,6 +4,10 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.10.2
+- ⚡ แตะ/ลากของในกระเป๋าไวขึ้นราว 30%: ส่วนที่ไม่เปลี่ยน (แถบบน, ร้านค้า, กล่องเก็บของ) ไม่สร้างใหม่ทุกครั้งที่แตะ
+- 🩸 หลอดเลือดไม่คอมไพล์เอฟเฟกต์ใหม่ทุกครั้ง
+
 ## v0.10.1
 - ⚡ ลื่นขึ้น: หน้าร้านค้าเร็วขึ้นราว 2 เท่า
 - 💾 เซฟเกมเฉพาะตอนหยุดกดชั่วครู่ (เดิมเซฟทุกครั้งที่แตะ ทำให้กระตุกบนเว็บ) และเซฟทันทีเมื่อเปลี่ยนช่วง/ปิดแอป

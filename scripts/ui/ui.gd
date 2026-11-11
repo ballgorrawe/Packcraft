@@ -381,9 +381,13 @@ void fragment() {
 
 
 ## Slow light rolling through a red liquid (the HP vial). Only reddish pixels shimmer.
+static var _liquid_shader: Shader
+
+
 static func liquid(c: Control) -> void:
-	var sh := Shader.new()
-	sh.code = """
+	if _liquid_shader == null:
+		_liquid_shader = Shader.new()
+		_liquid_shader.code = """
 shader_type canvas_item;
 void fragment() {
 	vec4 c = COLOR;
@@ -396,7 +400,7 @@ void fragment() {
 }
 """
 	var m := ShaderMaterial.new()
-	m.shader = sh
+	m.shader = _liquid_shader
 	c.material = m
 
 
