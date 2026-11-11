@@ -12,9 +12,17 @@ on:
         description: "Send only this text (a test). Leave empty to post the live version notes."
         required: false
         default: ""
+      ping:
+        description: "Also tag @BetaTester on the test message"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
+
+env:
+  BETA_ROLE: "1569950561879592960"   # Discord role @BetaTester, tagged on every version post
 
 jobs:
   post:
@@ -29,8 +37,13 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.PACKCRAFT_WEBHOOK }}
           MSG: ${{ inputs.test_message }}
+          PING: ${{ inputs.ping }}
         run: |
-          jq -n --arg c "$MSG" '{content: $c, allowed_mentions: {parse: []}}' > payload.json
+          if [ "$PING" = "true" ]; then
+            jq -n --arg c "<@&$BETA_ROLE> $MSG" --arg r "$BETA_ROLE" '{content: $c, allowed_mentions: {parse: [], roles: [$r]}}' > payload.json
+          else
+            jq -n --arg c "$MSG" '{content: $c, allowed_mentions: {parse: []}}' > payload.json
+          fi
           curl -sSf -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"
           echo "Test message sent."
 
@@ -51,8 +64,8 @@ jobs:
             echo "No notes for v$VER in CHANGELOG.md, nothing posted."
             exit 0
           fi
-          MSG=$(printf '🎮 **PackCraft v%s** อัปเดตแล้ว!\n%s\n\n▶️ เล่นเลย: https://ballgorrawe.github.io/Packcraft/\n(ถ้ายังเห็นเวอร์ชันเก่า ให้รีเฟรชหน้า หรือกด Ctrl+Shift+R บนคอม)' "$VER" "$NOTES")
-          jq -n --arg c "${MSG:0:1990}" '{content: $c, allowed_mentions: {parse: []}}' > payload.json
+          MSG=$(printf '<@&%s>\n🎮 **PackCraft v%s** อัปเดตแล้ว!\n%s\n\n▶️ เล่นเลย: https://ballgorrawe.github.io/Packcraft/\n(ถ้ายังเห็นเวอร์ชันเก่า ให้รีเฟรชหน้า หรือกด Ctrl+Shift+R บนคอม)' "$BETA_ROLE" "$VER" "$NOTES")
+          jq -n --arg c "${MSG:0:1990}" --arg r "$BETA_ROLE" '{content: $c, allowed_mentions: {parse: [], roles: [$r]}}' > payload.json
           curl -sSf -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"
           git tag "$TAG"
           git push origin "$TAG"
