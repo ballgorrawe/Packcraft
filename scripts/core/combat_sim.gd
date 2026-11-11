@@ -49,7 +49,6 @@ var empty_tiles := 0        # unlocked pack tiles with nothing on them
 var dmg_phys := 0.0         # Physical / Magic damage dealt this fight (Judgement Strike)
 var dmg_mag := 0.0
 var _last_cat := -1         # 0 Physical, 1 Magic: the kind of your last hit (Equilibrium)
-var _tick_toggle := false   # alternates for "every other" path effects (Tempest, Void Caller)
 var _void_toggle := false
 # v0.9 path relics
 var _revived := false       # Phoenix: rose again this fight

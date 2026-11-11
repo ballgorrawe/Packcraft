@@ -236,41 +236,6 @@ static func elem_icon(el: String) -> String:
 	return elem_icons.get(el, "")
 
 
-## Short one-line stats for cards: "⚔ 5 ⏱ 2s 🔥1".
-static func short_stats(id: String) -> String:
-	var d: Dictionary = items[id]
-	var on: Dictionary = d.on
-	var p := []
-	if on.dmg > 0:
-		p.append("%s%s" % [elem_icon(on.el) if on.el != "" else "⚔", _num(on.dmg)])
-	if on.shield > 0:
-		p.append("🛡%s" % _num(on.shield))
-	if on.heal > 0:
-		p.append("💚%s" % _num(on.heal))
-	for k in on.st:
-		p.append(statuses[k].ic + _num(on.st[k]))
-	if on.charge > 0:
-		p.append("🔋%ss" % _num(on.charge))
-	if not on.haste.is_empty():
-		p.append("💨%d%%" % roundi(on.haste[0] * 100))
-	if d.cd > 0:
-		p.append("⏱%ss" % _num(d.cd))
-	elif d.once:
-		p.append(I18n.t("once"))
-	if p.is_empty() or d.cd == 0 and not d.once:
-		if not d.adj.is_empty():
-			p.append("✨ " + I18n.t("aura"))
-		elif d.pass.hp_pct > 0:
-			p.append("❤️+%s%%" % _num(d.pass.hp_pct))
-		elif d.pass.hp > 0:
-			p.append("❤️+%s" % _num(d.pass.hp))
-		elif d.pass.income > 0:
-			p.append("🪙+%d" % d.pass.income)
-		elif p.is_empty():
-			p.append("✨ " + I18n.t("passive"))
-	return " ".join(p)
-
-
 ## Icons for the tags auras look for (corner badges and card lines).
 const TAG_ICONS := {"Weapon": "⚔️", "Fire": "🔥", "Potion": "🧪", "Mech": "⚙️", "Nature": "🌿", "Armor": "🛡️", "Shield": "🛡️", "Turret": "🔫", "Spell": "🔮", "Rune": "🔯", "Beast": "🐾", "Sea": "🌊", "Totem": "🎋", "Food": "🍖", "Arcane": "💫", "Water": "💧"}
 
@@ -426,28 +391,6 @@ static func foe_style_txt(e: Dictionary) -> String:
 	if st.is_empty() or e.get("tier", "") == "boss":
 		return ""
 	return "%s %s: %s" % [st.ic, I18n.t(st.n), I18n.t(st.d)]
-
-
-## Badge text for each skill a monster has (Armored, Vampiric...).
-static func trait_badges(e: Dictionary) -> Array:
-	var out := []
-	for k in str(e.get("tr", "")).split(",", false):
-		if traits.has(k):
-			var tdef: Dictionary = traits[k]
-			out.append(tdef.ic + " " + I18n.t(tdef.n) + ((" " + I18n.t(tdef.d)) if tdef.has("d") else ""))
-	return out
-
-
-## Lines about the extras a harder mode gives this monster: its pet and its Ultimate.
-static func mode_extra_lines(e: Dictionary) -> Array:
-	var out := []
-	if foe_pets.has(str(e.get("pet", ""))):
-		var pd: Dictionary = foe_pets[e.pet]
-		out.append("%s %s: %s" % [pd.ic, I18n.t(pd.n), I18n.t(pd.d)])
-	if not e.get("ult", {}).is_empty():
-		var u: Dictionary = e.ult
-		out.append("⭐ %s %s (%d ⚡): %s" % [u.ic, I18n.t(u.n), int(u.need), I18n.t(u.d)])
-	return out
 
 
 static func foe_icon(name: String) -> String:

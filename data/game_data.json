@@ -526,7 +526,7 @@
  "_difficulties": "Enemy HP and damage multipliers per mode, applied on top of the curve. elite: chance an extra Elite/Ambush road appears.",
  "difficulties": [
   {"id": "normal", "n": "Normal",    "ic": "🙂", "d": "Plain monsters. Only bosses have a skill.", "hp": 1.0,  "dps": 1.0,  "elite": 0.0, "skills": {"boss": 1}},
-  {"id": "hard",   "n": "Veteran",   "ic": "😠", "d": "Monsters bring a pet. Elites and bosses have a skill.", "hp": 1.0, "dps": 1.0, "elite": 0.12, "pet": true, "skills": {"elite": 1, "boss": 1}},
+  {"id": "hard",   "n": "Veteran",   "ic": "😠", "d": "Monsters bring a pet. Elites and bosses have a skill.", "hp": 1.04, "dps": 1.04, "elite": 0.12, "pet": true, "skills": {"elite": 1, "boss": 1}},
   {"id": "vhard",  "n": "Nightmare", "ic": "😈", "d": "Pets, monster Ultimates, every monster has a skill (bosses 2).", "hp": 1.05,  "dps": 1.05,  "elite": 0.22, "pet": true, "ult": true, "skills": {"easy": 1, "normal": 1, "tough": 1, "elite": [1, 2], "boss": 2}},
   {"id": "abyss",  "n": "Abyss",     "ic": "🕳️", "d": "Pets, Ultimates, 2+ skills on every monster (bosses 3+).", "hp": 1.15, "dps": 1.15, "elite": 0.3, "early_ease": [0.55, 0.69, 0.83, 0.92], "extras_from": 3, "pet": true, "ult": true, "skills": {"easy": 2, "normal": 2, "tough": 2, "elite": [2, 3], "boss": [3, 4]}}
  ],

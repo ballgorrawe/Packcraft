@@ -104,7 +104,7 @@ func _run() -> void:
 		await process_frame
 		tap += (Time.get_ticks_usec() - t8) / 1000.0
 	print("one tap without reuse: %.1f ms" % (tap / 10.0))
-	for part in ["_hud", "_ribbon", "_storage_panel"]:
+	for part in ["_hud", "_storage_section"]:
 		if main.has_method(part):
 			print("  %s: %.1f ms" % [part, _ms(func(): main.call(part).free(), 10)])
 	print("  _shop_panel: %.1f ms" % _ms(func(): main._shop_panel(false).free(), 10))
@@ -153,7 +153,7 @@ func _run() -> void:
 		main.grid.set_process(true)
 	# what each part of the shop screen costs once it is on screen (build + add + first frame)
 	main.screen.visible = false
-	for part in ["_hud", "_ribbon", "_shop_panel", "_run_screen"]:
+	for part in ["_hud", "_shop_panel", "_run_screen"]:
 		if not main.has_method(part):
 			continue
 		var tot := 0.0

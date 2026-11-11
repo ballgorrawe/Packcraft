@@ -655,6 +655,12 @@ func _step_nav(back_cb: Callable, next_text: String, next_cb: Callable, kind := 
 	return h
 
 
+## Max HP and damage / shield / healing per second (from bench_rates) as [text, colour] pairs.
+func _rate_texts(b: Dictionary) -> Array:
+	var per := func(v: float) -> String: return "%s/%s" % [GameData._num(snappedf(v, 0.1)), tr("s")]
+	return [["❤️ %d" % roundi(b.hp), Color("#ffb4b4")], ["⚔️ " + per.call(b.dps), Color("#ffd27a")], ["🛡️ " + per.call(b.sps), Color("#7dd3fc")], ["💚 " + per.call(b.hps), Color("#4ade80")]]
+
+
 ## The starting kit of a class on the training dummy (cached): Max HP and damage / shield / heal per second.
 func _class_bench(k: String) -> Dictionary:
 	if not _bench_cache.has(k):
@@ -762,10 +768,8 @@ func _hero_screen() -> Control:
 	nums.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fs := 19 if _wide else 15
 	nums.add_child(UI.plbl(tr("At start:"), fs, Color("#cdbfa2"), true))
-	nums.add_child(UI.plbl("❤️ %d" % roundi(b.hp), fs, Color("#ffb4b4"), true))
-	nums.add_child(UI.plbl("⚔️ %s/%s" % [GameData._num(snappedf(b.dps, 0.1)), tr("s")], fs, Color("#ffd27a"), true))
-	nums.add_child(UI.plbl("🛡️ %s/%s" % [GameData._num(snappedf(b.sps, 0.1)), tr("s")], fs, Color("#7dd3fc"), true))
-	nums.add_child(UI.plbl("💚 %s/%s" % [GameData._num(snappedf(b.hps, 0.1)), tr("s")], fs, Color("#4ade80"), true))
+	for rt in _rate_texts(b):
+		nums.add_child(UI.plbl(rt[0], fs, rt[1], true))
 	cv.add_child(nums)
 	var cap := UI.wrap_lbl(tr("Bars: average over the whole run (pro bot, 15 runs). Numbers: the starting items on a training dummy."), 15 if _wide else 12, Color(1, 1, 1, 0.5))
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if _wide else HORIZONTAL_ALIGNMENT_CENTER
@@ -1084,10 +1088,8 @@ func _end_pack_panel(room: Vector2) -> Control:
 	var nums := HFlowContainer.new()
 	nums.alignment = FlowContainer.ALIGNMENT_CENTER
 	nums.add_theme_constant_override("h_separation", 6)
-	nums.add_child(_chip("❤️ %d" % roundi(b.hp), Color("#fca5a5")))
-	nums.add_child(_chip("⚔️ %s/%s" % [GameData._num(snappedf(b.dps, 0.1)), tr("s")], Color("#ff9b5e")))
-	nums.add_child(_chip("🛡️ %s/%s" % [GameData._num(snappedf(b.sps, 0.1)), tr("s")], Color("#7dd3fc")))
-	nums.add_child(_chip("💚 %s/%s" % [GameData._num(snappedf(b.hps, 0.1)), tr("s")], Color("#4ade80")))
+	for rt in _rate_texts(b):
+		nums.add_child(_chip(rt[0], rt[1]))
 	nums.add_child(_chip("🧩 %d" % g.size(), UI.MU))
 	cv.add_child(nums)
 	return card
@@ -1181,6 +1183,22 @@ func _run_screen(fresh: bool) -> Control:
 		book_item = ""
 		render(), false, 22, "purple")
 	book.custom_minimum_size = Vector2(60, 56)
+	if run.phase == "morning" and run.grid_items().size() >= 2:
+		# 🪄 auto-arrange: the pack's items into their best spots (never loses an item, never weaker)
+		var wand := UI.btn("🪄", func():
+			if drag_item != null:
+				return
+			var before := run.pack_rates()
+			if run.auto_arrange():
+				var after := run.pack_rates()
+				_clear_sel()
+				toast("🪄 " + tr("Arranged: damage %+.1f/s · shield %+.1f/s") % [after.x - before.x, after.y - before.y], UI.GOOD)
+			else:
+				toast("🪄 " + tr("Already the best layout I can find."), UI.MU)
+			render(), false, 22, "blue")
+		wand.custom_minimum_size = Vector2(60, 56)
+		wand.tooltip_text = tr("Auto-arrange the pack")
+		gh.add_child(wand)
 	gh.add_child(book)
 	gv.add_child(gh)
 	grid = BackpackGrid.new().setup(self, cell_px)
@@ -1309,6 +1327,7 @@ func _storage_section() -> Control:
 		scr.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scr.custom_minimum_size.y = 112
 	storage_scroll = scr
+	scr.set_meta("scrolls", true)   # storage is meant to scroll (the fit test allows it)
 	sp.set_meta("scroll", scr)
 	var keep_x := _storage_x
 	scr.ready.connect(func(): scr.set_deferred("scroll_horizontal", keep_x))
@@ -1322,8 +1341,8 @@ func _storage_section() -> Control:
 		row = fl
 	scr.add_child(row)
 	sv.add_child(scr)
-	# phone: cards narrow so up to ~8 fit in the row without scrolling
-	var sw := (112.0 if items.size() <= 8 else 80.0) if _wide else 112.0 if items.size() < 2 else clampf(floorf((minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 46.0, 112.0)
+	# cards keep their normal size; the row scrolls when there are many (shrinking made items hard to find)
+	var sw := 112.0
 	for it in items:
 		row.add_child(_storage_card(it, sw))
 	if items.is_empty():
@@ -1343,10 +1362,6 @@ func _storage_key() -> String:
 	owned.sort()
 	var st := run.storage_items().map(func(i): return "%d:%s:%d" % [i.uid, i.id, i.rot])
 	return _memo_base() + "|%s|%s|%s|%s|%s" % [run.phase, selected.uid if selected != null else -1, ",".join(st), ",".join(owned), run.grid_items().is_empty()]
-
-
-func _ribbon_key() -> String:
-	return _memo_base() + "|%s|%s|%s|%s" % [run.hz.get("id", ""), run.path, run.diff, run.mod.get("id", "")]
 
 
 func _shop_key() -> String:
@@ -1548,48 +1563,6 @@ func _effects_overlay() -> Control:
 	return o[0]
 
 
-func _ribbon() -> Control:
-	var sc := ScrollContainer.new()
-	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sc.custom_minimum_size.y = 46
-	var h := UI.hbox(8)
-	sc.add_child(h)
-	var pills := []
-	for bd in range(run.day, run.day + 4):
-		var b = run.boss_on(bd)
-		if b == null:
-			continue
-		var bi := GameData.foe_icon(b.n) + " "
-		pills.append([(bi + tr("Boss in %d days") % (b.d - run.day)) if b.d > run.day + 1 else (bi + tr("Boss tomorrow!")) if b.d == run.day + 1 else (bi + tr("Boss today!")), UI.BAD, tr("Day %d boss: %s (resists %s, weak to %s)") % [b.d, tr(b.n), tr(b.imm) if b.imm != "" else "-", tr(b.weak)], true])
-	if not run.hz.is_empty():
-		pills.append([run.hz.ic + " " + tr(run.hz.n), Color("#ffb020"), tr(run.hz.d)])
-	if run.diff != "normal":
-		var dd := run.diff_def()
-		pills.append([dd.ic + " " + tr(dd.n), UI.BAD, tr(dd.d)])
-	if run.pet != "":
-		pills.append([run.pet_def().ic + " " + tr(run.pet_def().n), UI.GOOD, tr(run.pet_def().d)])
-	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
-	if run.path != "":
-		pills.append([run.path_def().ic + " " + tr(run.path_def().n), UI.GOLD, tr(run.path_def().d)])
-	# too many to fit in one row: every pill but the boss one shrinks to its icon (tap still explains it)
-	var est := 0.0
-	for pl in pills:
-		est += String(pl[0]).length() * 8.5 + 34.0
-	var room := (WIDE_W if _wide else minf(get_viewport_rect().size.x, COLUMN_W)) - 2.0 * _side_pad() - 40.0
-	var compact := est > room
-	for pl in pills:
-		var info: String = pl[2]
-		var p := UI.panel(Color(pl[1], 0.18), pl[1], 2, 99, 8)
-		var txt: String = pl[0]
-		if compact and pl.size() < 4:
-			txt = txt.get_slice(" ", 0)
-			info = String(pl[0]) + ": " + info
-		p.add_child(UI.plbl(txt, 15, Color.WHITE, true))
-		UI.on_tap(p, func(): toast(info, UI.MU))
-		h.add_child(p)
-	return sc
-
-
 func _held_text() -> String:
 	if drag_item != null:
 		var t := ("" + tr("Right-click, scroll or R to rotate")) if _landscape else ("✌️ " + tr("Tap with a second finger to rotate"))
@@ -1616,7 +1589,7 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	var d := it.def()
 	var c: Color = GameData.tier_colors[d.tier]
 	var on := selected == it
-	var p := UI.item_card(c.darkened(0.55), Color.WHITE if on else c, 16, 6)
+	var p := UI.item_card(Color.WHITE if on else c)
 	p.custom_minimum_size = Vector2(w, 104)
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1631,7 +1604,7 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(ShapeView.new().setup(it.id, it.rot, (6 if w < 56.0 else 8) if narrow else 11))
 	top.add_child(cc)
-	v.add_child(UI.slot(top, 54, Color.WHITE if on else c))
+	v.add_child(UI.slot(top, 54))
 	var nm := UI.plbl(tr(d.n), 14, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size.x = w - 16.0
@@ -1721,7 +1694,7 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	var d: Dictionary = GameData.items[e.id]
 	var col: Color = GameData.tier_colors[d.tier]
 	var on := inspect_idx == i
-	var p := UI.item_card(col.darkened(0.5), Color.WHITE if on else col, 16, 6)
+	var p := UI.item_card(Color.WHITE if on else col)
 	p.custom_minimum_size = Vector2(0, 180)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1755,7 +1728,7 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	shc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shc.custom_minimum_size.y = 84
 	shc.add_child(shv)
-	v.add_child(UI.slot(shc, 88, Color.WHITE if on else col))
+	v.add_child(UI.slot(shc, 88))
 	var nm := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size = Vector2(80, 34)
@@ -3330,8 +3303,10 @@ func _begin_drag() -> void:
 			pass
 		elif drag_item.starter:
 			sell_lbl.text = "🛒 " + tr("Starter items can't be sold")
+			UI.heading_font(sell_lbl)
 		else:
 			sell_lbl.text = "🛒 " + tr("Sell: +%d🪙") % run.sell_price(drag_item)
+			UI.heading_font(sell_lbl)
 			sell_zone.self_modulate = Color(1.4, 1.25, 0.9)
 	if storage_panel and drag_src != "storage":
 		storage_panel.self_modulate = Color(1.15, 1.3, 1.5)

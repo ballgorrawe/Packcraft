@@ -6,7 +6,6 @@ extends RefCounted
 const RESIST := 0.2          # damage multiplier when the foe resists that element (80% less)
 const MAX_HEARTS := 3
 const ENDLESS_HEARTS := 5
-const MIN_MAX_HP := 30.0       # the Cursed Altar can never take Max HP below this
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
 const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
@@ -1430,12 +1429,6 @@ func _brew_high(top: int) -> String:
 	return roll_tiered(4, 3)
 
 
-## Cursed altar: a Legendary item for a Heart.
-## Paying with Max HP is only allowed while it stays at or above the floor.
-func altar_hp_ok() -> bool:
-	return mhp - 10 >= MIN_MAX_HP
-
-
 func ev_altar(i: int, pay: String) -> bool:
 	if event.get("done", false) or i < 0 or i >= event.offer.size():
 		return false
@@ -1931,3 +1924,109 @@ func preview(h: PItem, x: int, y: int) -> Dictionary:
 		d = after - before
 		calc()
 	return {"ok": ok, "d": d, "lk": lk, "bf": bf}
+
+
+# ---------------------------------------------------------------- auto-arrange
+# The 🪄 button: re-places the items already in the pack into the best spots (the bot's own placement
+# rule). Never loses an item and never makes the pack weaker: if the new layout is not better, or not
+# every item finds room, the old layout stays.
+
+## How good the pack is right now: damage/s + 0.7 x shield/s, plus 4 per Golden Link.
+func arrange_score() -> float:
+	var pr := pack_rates()
+	var links_n := 0
+	for l in links():
+		if not off.has(l.key):
+			links_n += 1
+	return pr.x + 0.7 * pr.y + 4.0 * links_n
+
+
+## Re-places every pack item. Returns true when the pack changed (it only changes for the better).
+func auto_arrange() -> bool:
+	var its := grid_items()
+	if its.size() < 2:
+		return false
+	var old := its.map(func(i): return [i, i.x, i.y, i.rot])
+	var best_score := arrange_score()
+	var best: Array = []
+	# two placing orders: biggest first (room for awkward shapes) and most valuable first
+	var orders := [
+		func(a: PItem, b: PItem) -> bool: return a.cells().size() * 10 + a.def().tier > b.cells().size() * 10 + b.def().tier,
+		func(a: PItem, b: PItem) -> bool: return a.def().tier * 10 + a.cells().size() > b.def().tier * 10 + b.cells().size(),
+	]
+	for order in orders:
+		for it in its:
+			it.loc = "held"
+		var todo := its.duplicate()
+		todo.sort_custom(order)
+		var ok := true
+		for it in todo:
+			var s := _arrange_spot(it)
+			if s.is_empty():
+				ok = false
+				break
+			it.loc = "grid"
+			it.x = s.x
+			it.y = s.y
+			it.rot = s.rot
+		if ok:
+			var sc := arrange_score()
+			if sc > best_score + 0.01:
+				best_score = sc
+				best = its.map(func(i): return [i, i.x, i.y, i.rot])
+	# keep the best layout found, or put the old one back
+	var use: Array = best if not best.is_empty() else old
+	for it in its:
+		it.loc = "held"
+	for e in use:
+		var it: PItem = e[0]
+		it.loc = "grid"
+		it.x = e[1]
+		it.y = e[2]
+		it.rot = e[3]
+	calc()
+	return not best.is_empty()
+
+
+## Best free spot for a held item: the most damage + shield it adds there, plus a bonus for a Golden
+## Link it completes and for sitting next to another piece of the same Masterwork.
+func _arrange_spot(it: PItem) -> Dictionary:
+	var best := {}
+	var base_pr := pack_rates()
+	var base := base_pr.x + 0.7 * base_pr.y
+	var partner := recipe_partner_owned(it.id, true)
+	var mw_parts := {}
+	for rc in GameData.recipes:
+		if str(rc.get("c", "")) != "" and recipe_ok(rc) and [rc.a, rc.b, rc.c].has(it.id):
+			for q in [rc.a, rc.b, rc.c]:
+				if q != it.id:
+					mw_parts[q] = true
+	var keep_rot := it.rot
+	var seen_shapes := {}
+	for rot in 4:
+		var key := str(GameData.shape(it.id, rot).c)
+		if seen_shapes.has(key):
+			continue
+		seen_shapes[key] = true
+		it.rot = rot
+		for y in GameData.H:
+			for x in GameData.W:
+				if not fits(it, x, y):
+					continue
+				it.loc = "grid"
+				it.x = x
+				it.y = y
+				var pr := pack_rates()
+				var g := pr.x + 0.7 * pr.y - base
+				if partner and links().any(func(l): return l.a == it or l.b == it or l.get("c") == it):
+					g += 4.0
+				if not mw_parts.is_empty():
+					for nb in neighbours(it):
+						if mw_parts.has(nb.id):
+							g += 2.0
+				it.loc = "held"
+				if best.is_empty() or g > best.g:
+					best = {"x": x, "y": y, "rot": rot, "g": g}
+	it.rot = keep_rot
+	calc()
+	return best

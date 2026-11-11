@@ -20,8 +20,6 @@ func _initialize() -> void:
 			out = a.substr(6)
 		if a.begins_with("--lang="):
 			lang = a.substr(7)
-		if a.begins_with("--item_style="):
-			UI.item_style = a.substr(13)
 		if a.begins_with("--only="):
 			only = a.substr(7)
 	_run()
@@ -292,7 +290,7 @@ func _walk(n: Node, vr: Rect2, found: Array) -> void:
 			if over and not _clipped(c, vr):
 				found.append("OFF-SCREEN %s %s rect=%s view=%s" % [c.get_class(), _desc(c), _r(g), _r(vr)])
 				return   # report the outermost control only
-		if c is ScrollContainer:
+		if c is ScrollContainer and not c.has_meta("scrolls"):
 			var sc := c as ScrollContainer
 			if sc.get_child_count() > 0 and sc.get_child(0) is Control:
 				var inner := (sc.get_child(0) as Control).get_combined_minimum_size()

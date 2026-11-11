@@ -4,7 +4,6 @@ extends RefCounted
 ## outlined headings, an animated background, and little bits of juice on every press).
 
 # Dungeon look: dark stone, iron and bronze edges, torch-lit gold, parchment text.
-const BG := Color("#0e0c0a")
 const BG_TOP := Color("#2a241e")
 const BG_BOT := Color("#0c0a08")
 const PN := Color("#1e1712")
@@ -18,8 +17,6 @@ const GOOD := Color("#3ee07a")
 const BAD := Color("#ff4d5e")
 const STAR := Color("#f0b44c")
 const INK := Color("#14100c")
-const IRON := Color("#15110d")   # dark iron rim on stone buttons and cards
-
 ## Button colours: [face, lip (the 3D bottom edge), text]
 const KINDS := {
 	"green": [Color("#4e8b3a"), Color("#24401b"), Color.WHITE],
@@ -35,7 +32,6 @@ static var bold: Font
 static var display: Font   # headings: Pixelify Sans (Latin pixel font) with Sriracha (Thai)
 const PX := 3              # one art pixel of the pixel frames = 3 screen pixels
 static var _px_cache := {}
-static var _surf_shader: Shader
 static var _bg_shader: Shader
 static var _spark: Texture2D
 
@@ -122,28 +118,6 @@ static func build_theme() -> Theme:
 	return t
 
 
-## Chunky 3D button: coloured face, darker lip underneath, soft drop shadow.
-static func btn_box(face: Color, lip: Color, pressed: bool) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = face
-	s.border_color = lip.darkened(0.25)
-	s.border_width_left = 2
-	s.border_width_right = 2
-	s.border_width_top = 2
-	s.border_width_bottom = 3 if pressed else 8
-	s.set_corner_radius_all(9)
-	s.corner_detail = 1   # 45-degree cut corners: hewn stone, not rounded plastic
-	s.content_margin_left = 20
-	s.content_margin_right = 20
-	s.content_margin_top = 12 + (6 if pressed else 0)
-	s.content_margin_bottom = 10
-	s.shadow_color = Color(0, 0, 0, 0.55)
-	s.shadow_size = 0 if pressed else 6
-	s.shadow_offset = Vector2(0, 4)
-	s.anti_aliasing = true
-	return s
-
-
 static func box(bg: Color, border := BD, bw := 2, radius := 16, pad := 12, shadow := 0) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
@@ -176,44 +150,10 @@ static func card(bg: Color, edge: Color, radius := 18, pad := 10) -> PanelContai
 	return p
 
 
-## Card for items (shop, storage). item_style picks the look:
-##   "iron"  - every card the same dark iron; rarity is only the thin rim
-##   "frame" - the game's pixel frame art, the frame itself in the rarity colour (plain iron studs)
-##   "shelf" - no card at all: the item stands on a plinth with a rarity-coloured light under it
-##   "tint"  - dark card tinted by rarity with a rarity glow (the earlier look)
-static var item_style := "frame"
-
-
-static func item_card(_bg: Color, edge: Color, radius := 14, pad := 6) -> PanelContainer:
-	if item_style == "frame":
-		var pf := PanelContainer.new()
-		pf.add_theme_stylebox_override("panel", px_frame(Color("#1a1410"), edge.darkened(0.1), 1, pad, true, Color("#6b5a48")))
-		return pf
-	var s := StyleBoxFlat.new()
-	match item_style:
-		"iron":
-			s.bg_color = Color("#1a1410")
-			s.border_color = edge.darkened(0.25)
-			s.set_border_width_all(2)
-			s.border_width_bottom = 4
-			s.shadow_color = Color(0, 0, 0, 0.55)
-			s.shadow_size = 5
-			s.shadow_offset = Vector2(0, 3)
-		"shelf":
-			s.bg_color = Color(0, 0, 0, 0)
-		_:
-			s.bg_color = Color("#17110d").lerp(edge, 0.13)
-			s.border_color = edge.darkened(0.1)
-			s.set_border_width_all(2)
-			s.border_width_bottom = 5
-			s.shadow_color = Color(edge, 0.28)
-			s.shadow_size = 7
-			s.shadow_offset = Vector2(0, 2)
-	s.set_corner_radius_all(radius)
-	s.set_content_margin_all(pad)
-	s.anti_aliasing = true
+## Card for items (shop, storage): the game's pixel frame art, the frame itself in the rarity colour.
+static func item_card(edge: Color, pad := 6) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", s)
+	p.add_theme_stylebox_override("panel", px_frame(Color("#1a1410"), edge.darkened(0.1), 1, pad, true, Color("#6b5a48")))
 	return p
 
 
@@ -309,77 +249,6 @@ static func px_button(face: Color, lip: Color, pressed: bool) -> StyleBoxTexture
 	return s
 
 
-## Gives a panel a material look on top of its colours: 0 rough stone, 1 wooden planks,
-## 2 stitched leather. Rivets go in the corners. Only the panel itself is affected: its
-## children keep their own (default) material, so text stays crisp.
-static func surface(c: Control, kind := 0, rivets := true) -> void:
-	if _surf_shader == null:
-		_surf_shader = Shader.new()
-		_surf_shader.code = """
-shader_type canvas_item;
-uniform int kind = 0;
-uniform vec2 size = vec2(100.0, 100.0);
-uniform float rivets = 1.0;
-varying vec2 lp;
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
-void vertex() { lp = VERTEX; }
-void fragment() {
-	vec4 c = COLOR;
-	vec2 p = FRAGCOORD.xy;
-	float g = 1.0;
-	if (kind == 0) {
-		g = 0.84 + 0.2 * noise(p * 0.05) + 0.1 * noise(p * 0.32);
-		float crack = smoothstep(0.012, 0.0, abs(noise(p * 0.018 + 3.0) - 0.5));
-		g -= 0.05 * crack;
-	} else if (kind == 1) {
-		float plank = floor(lp.y / 30.0);
-		float grain = noise(vec2(lp.x * 0.012 + plank * 17.0, lp.y * 0.45));
-		g = 0.74 + 0.36 * grain + 0.06 * sin(lp.x * 0.05 + grain * 9.0);
-		float seam = smoothstep(2.0, 0.0, abs(mod(lp.y, 30.0)));
-		g -= 0.35 * seam * step(14.0, lp.y) * step(lp.y, size.y - 14.0);
-	} else {
-		g = 0.88 + 0.16 * noise(p * 0.45) + 0.06 * noise(p * 0.08);
-		float in_x = min(abs(lp.x - 9.0), abs(lp.x - (size.x - 9.0)));
-		float in_y = min(abs(lp.y - 9.0), abs(lp.y - (size.y - 9.0)));
-		bool on_v = in_x < 1.0 && lp.y > 9.0 && lp.y < size.y - 9.0;
-		bool on_h = in_y < 1.0 && lp.x > 9.0 && lp.x < size.x - 9.0;
-		float dash = step(fract((on_v ? lp.y : lp.x) / 11.0), 0.55);
-		if ((on_v || on_h) && dash > 0.5) {
-			c.rgb = mix(c.rgb, vec3(0.78, 0.63, 0.42), 0.75);
-			g = 1.0;
-		}
-	}
-	c.rgb *= g;
-	if (rivets > 0.5 && size.x > 60.0 && size.y > 44.0) {
-		vec2 corners[4] = vec2[](vec2(10.0, 10.0), vec2(size.x - 10.0, 10.0), vec2(10.0, size.y - 13.0), vec2(size.x - 10.0, size.y - 13.0));
-		for (int i = 0; i < 4; i++) {
-			vec2 d = lp - corners[i];
-			float r = length(d);
-			if (r < 4.2) {
-				float lit = clamp(0.75 - d.y * 0.16 - d.x * 0.06, 0.25, 1.1);
-				c.rgb = vec3(0.52, 0.47, 0.42) * lit;
-			} else if (r < 5.4) {
-				c.rgb *= 0.45;
-			}
-		}
-	}
-	COLOR = c;
-}
-"""
-	var m := ShaderMaterial.new()
-	m.shader = _surf_shader
-	m.set_shader_parameter("kind", kind)
-	m.set_shader_parameter("rivets", 1.0 if rivets else 0.0)
-	c.material = m
-	c.resized.connect(func(): m.set_shader_parameter("size", c.size))
-
-
 ## Slow light rolling through a red liquid (the HP vial). Only reddish pixels shimmer.
 static var _liquid_shader: Shader
 
@@ -404,23 +273,9 @@ void fragment() {
 	c.material = m
 
 
-## A recessed slot for an item icon: a dark hollow with a shadowed top edge.
-static func slot(child: Control, min_h := 60.0, glow := Color(0, 0, 0, 0)) -> PanelContainer:
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0, 0, 0, 0)   # the item picture sits right on the card
-	s.set_corner_radius_all(10)
-	s.set_content_margin_all(4)
-	if item_style == "shelf" and glow.a > 0.0:
-		# a stone plinth with the rarity light spilling out under it
-		s.bg_color = Color("#211a14")
-		s.border_color = Color("#4a3c2c")
-		s.border_width_top = 2
-		s.border_width_bottom = 6
-		s.shadow_color = Color(glow, 0.55)
-		s.shadow_size = 10
-		s.shadow_offset = Vector2(0, 6)
-	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", s)
+## Holds an item picture at a fixed height on a card.
+static func slot(child: Control, min_h := 60.0) -> Control:
+	var p := CenterContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.custom_minimum_size.y = min_h
 	p.add_child(child)
@@ -438,10 +293,26 @@ static func lbl(text: String, size := 18, col := TX, is_bold := false) -> Label:
 
 
 ## Heading with a dark outline, like mobile game titles.
+## Headings use the pixel display font, except when they show numbers: digits stay in the plain
+## bold font, which reads much better at a glance. Call again after changing a heading's text.
+static func heading_font(l: Control) -> void:
+	var t: String = l.text
+	if display != null and not has_digit(t):
+		l.add_theme_font_override("font", display)
+	else:
+		l.add_theme_font_override("font", bold)
+
+
+static func has_digit(t: String) -> bool:
+	for ch in t:
+		if ch >= "0" and ch <= "9":
+			return true
+	return false
+
+
 static func title(text: String, size := 30, col := Color.WHITE, outline := Color("#120c06")) -> Label:
 	var l := lbl(text, size, col, true)
-	if display != null:
-		l.add_theme_font_override("font", display)
+	heading_font(l)
 	l.add_theme_color_override("font_outline_color", outline)
 	l.add_theme_constant_override("outline_size", maxi(6, size / 4))
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
@@ -484,7 +355,7 @@ static func btn(text: String, cb: Callable, primary := false, size := 18, kind :
 static func big_btn(text: String, cb: Callable, kind := "green", size := 28) -> Button:
 	var b := btn(text, cb, false, size, kind)
 	b.custom_minimum_size = Vector2(260, 84)
-	if display != null:
+	if display != null and not has_digit(text):
 		b.add_theme_font_override("font", display)
 	return b
 
@@ -777,6 +648,7 @@ static func burst(parent: Node, pos: Vector2, col: Color, amount := 18, speed :=
 
 ## Rolls a label's number from `from` to `to` (gold, HP...).
 static func count_to(l: Label, from: int, to: int, fmt := "%d") -> void:
+	l.add_theme_font_override("font", bold)   # numbers read best in the plain bold font
 	if from == to:
 		l.text = fmt % to
 		return
