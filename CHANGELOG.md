@@ -4,6 +4,14 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.9.7
+- ⚖️ ปรับสมดุลทั้งเกมด้วยบอตที่เก่งขึ้น (ลองไฟต์จำลองกับทุกไอเทมก่อนซื้อ): Normal ชนะ ~43%, Hard ~27%, Very Hard ~6%, Abyss ~0%
+- 🔥 Ember: Heat +4% ต่อหน่วย (เดิม 5%) สูงสุด 35% (เดิม 60%) — เคยชนะมากกว่าคลาสอื่นเกือบเท่าตัวในทุกโหมด
+- 🌊 Corsair เลือดเริ่มต้น +10
+- 💀 บอสเลือด +9% ตีแรงขึ้น 5%, มอนธรรมดาแข็งขึ้น 3%
+- 🕳️ Abyss: มอนแรงขึ้นอีกนิด (x1.1)
+- 📊 แท่งค่าในหน้าเลือกฮีโร่อัปเดตตามสมดุลใหม่
+
 ## v0.9.6
 - 📊 หน้าเลือกฮีโร่บอกค่าจริงตอนเริ่ม: เลือด, ดาเมจ/วิ, โล่/วิ, ฮีล/วิ (วัดจากการตีหุ่นฝึกด้วยของเริ่มต้น)
 - 📈 แท่ง ดาเมจ / ป้องกัน / ฟื้นฟู / ความยาก คำนวณจากบอตที่เล่นจริงทั้งเกม ไม่ได้ใส่ด้วยมือแล้ว
