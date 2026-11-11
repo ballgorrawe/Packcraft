@@ -1,0 +1,43 @@
+# Posts the release notes of the version that just went live to the Discord #update channel.
+# Runs when GitHub Pages finishes a build (a deploy to gh-pages). The notes come from CHANGELOG.md
+# (the "## vX.Y.Z" section matching project.godot's config/version). Each version is posted once:
+# a "posted/vX.Y.Z" tag marks it. Run it by hand from the Actions tab with "Run workflow".
+name: Discord patch notes
+
+on:
+  page_build:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Post the live version's notes
+        env:
+          WEBHOOK: ${{ secrets.PACKCRAFT_WEBHOOK }}
+        run: |
+          set -e
+          VER=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
+          TAG="posted/v$VER"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "v$VER was already posted."
+            exit 0
+          fi
+          NOTES=$(awk -v v="## v$VER" '$0 == v {f = 1; next} /^## v/ {f = 0} f' CHANGELOG.md | sed '/^[[:space:]]*$/d')
+          if [ -z "$NOTES" ]; then
+            echo "No notes for v$VER in CHANGELOG.md, nothing posted."
+            exit 0
+          fi
+          MSG=$(printf '🎮 **PackCraft v%s** อัปเดตแล้ว!\n%s\n\n▶️ เล่นเลย: https://ballgorrawe.github.io/Packcraft/\n(ถ้ายังเห็นเวอร์ชันเก่า ให้รีเฟรชหน้า หรือกด Ctrl+Shift+R บนคอม)' "$VER" "$NOTES")
+          jq -n --arg c "${MSG:0:1990}" '{content: $c, allowed_mentions: {parse: []}}' > payload.json
+          curl -sSf -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Posted v$VER."
