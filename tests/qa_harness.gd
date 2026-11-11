@@ -21,6 +21,11 @@ var count := 10
 var runs := 20
 var violations: Array = []
 var repro_seed := 0
+# --mode=trace: one recorded pro run per class (every decision with its numbers) -> --out JSON
+var tr_on := false
+var tr_day := {}
+var tr_days: Array = []
+var tr_out := "user://bot_trace.json"
 
 
 func _init() -> void:
@@ -40,6 +45,7 @@ func _init() -> void:
 			"runs": runs = int(v)
 			"seed": repro_seed = int(v)
 			"boss": force_boss = v
+			"out": tr_out = v
 			"cfg":
 				for pair in v.split(",", false):
 					pro_cfg[pair.get_slice(":", 0)] = float(pair.get_slice(":", 1))
@@ -47,6 +53,7 @@ func _init() -> void:
 		"edge": _edge_cases()
 		"inv": _invariant_runs()
 		"mc": _monte_carlo()
+		"trace": _trace_runs()
 		"repro": _repro()
 	quit(1 if violations.size() > 0 and mode != "mc" else 0)
 
@@ -373,6 +380,8 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 				r.go_night(n, cs.won, cs)
 		elif checks:
 			check_state(r, seed_v, "node %s" % n.k)
+		if tr_on:
+			_tr_end_day(r, n, cs)
 		r.next_day()
 	var grid_ids := r.grid_items().map(func(i): return i.id)
 	return {
@@ -801,6 +810,8 @@ func _pro_contrib(r: RunState, it: PItem) -> float:
 
 func _pro_morning(r: RunState) -> void:
 	var benches := _pro_benches(r)
+	if tr_on:
+		tr_day = {"day": r.day, "gold0": r.gold, "hp0": snappedf(r.hp, 0.1), "mhp0": snappedf(r.mhp, 0.1), "lv": r.lv, "hearts": r.res, "steps": [], "bench": benches.map(func(e): return e.n)}
 	# path: try both, keep the stronger pack
 	if r.needs_path():
 		var best_p := ""
@@ -815,10 +826,14 @@ func _pro_morning(r: RunState) -> void:
 			var v := _pro_value(r, benches)
 			r.items.erase(relic)
 			r.path = ""
+			if tr_on:
+				tr_day["path_opts"] = tr_day.get("path_opts", []) + [{"p": p, "v": snappedf(v, 0.01)}]
 			if v > best_v:
 				best_v = v
 				best_p = p
 		r.choose_path(best_p)
+		if tr_on:
+			tr_day["path"] = best_p
 	# level-up bonuses: try each of the 3, keep the best
 	while not r.picks.is_empty():
 		var best_i := 0
@@ -832,9 +847,13 @@ func _pro_morning(r: RunState) -> void:
 			r.lvl_bonus[pd.k] -= float(pd.v)
 			r.sync_hp()
 			r.hp = hp0
+			if tr_on:
+				tr_day["lv_opts"] = tr_day.get("lv_opts", []) + [{"id": pd.id, "v": snappedf(v, 0.01)}]
 			if v > best_v:
 				best_v = v
 				best_i = i
+		if tr_on:
+			tr_day["lv_pick"] = r.picks[0][best_i]
 		r.pick_level(best_i)
 	# bags: when the pack is nearly full, or when gold is piling up (up to 2 a day)
 	for _b in 2:
@@ -843,6 +862,8 @@ func _pro_morning(r: RunState) -> void:
 		var bought := false
 		for i in r.shop.size():
 			if r.shop[i].has("bag") and r.shop[i].price + 4 <= r.gold:
+				if tr_on:
+					tr_day["steps"].append({"a": "bag", "n": r.shop[i].n, "price": r.shop[i].price})
 				r.buy_bag(i)
 				bought = true
 				break
@@ -912,7 +933,7 @@ func _pro_morning(r: RunState) -> void:
 			gain += _pro_build_bonus(r, e.id, build)
 			if s.is_empty() and gain < 2.0:
 				continue
-			cands.append({"i": i, "s": s, "out": out, "gain": gain, "price": float(e.price), "id": e.id})
+			cands.append({"i": i, "s": s, "out": out, "gain": gain, "h": snappedf(gain, 0.01), "price": float(e.price), "id": e.id})
 		cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
 		cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
 		# fight-check the best few: value gained in a no-dice fight, per gold
@@ -931,9 +952,17 @@ func _pro_morning(r: RunState) -> void:
 					c.out.loc = "grid"
 				r.items.erase(tmp2)
 				c.gain += float(pro_cfg.get("sim_w", 25.0)) * dv
+				c["dv"] = snappedf(dv, 0.001)
 			r.calc()
 			cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
 		var pick: Dictionary = cands[0] if not cands.is_empty() and cands[0].gain > 0.3 else {}
+		if tr_on:
+			var step := {"a": "look", "gold": r.gold, "shop": r.shop.filter(func(e): return not e.has("bag")).map(func(e): return {"id": e.id, "price": e.price}),
+				"cands": cands.slice(0, 5).map(func(c): return {"id": c.id, "price": c.price, "h": c.h, "dv": c.get("dv", null), "score": snappedf(c.gain / maxf(1.0, c.price), 0.001), "out": c.out.id if c.out != null else ""})}
+			if not pick.is_empty():
+				step["buy"] = pick.id
+				step["swap"] = pick.out.id if pick.out != null else ""
+			tr_day["steps"].append(step)
 		if not pick.is_empty():
 			if pick.out != null:
 				pick.out.loc = "storage"
@@ -946,6 +975,8 @@ func _pro_morning(r: RunState) -> void:
 				it.loc = "storage"
 			continue
 		if rerolls < int(pro_cfg.get("rr", 3)) and r.gold >= r.reroll_cost() + 4:
+			if tr_on:
+				tr_day["steps"].append({"a": "reroll", "cost": r.reroll_cost()})
 			r.reroll()
 			rerolls += 1
 			continue
@@ -955,8 +986,15 @@ func _pro_morning(r: RunState) -> void:
 		if it.def().relic or it.starter:
 			continue
 		if it.def().tags.has("Treasure") or not r.recipe_partner_owned(it.id, true):
+			if tr_on:
+				tr_day["sold"] = tr_day.get("sold", []) + [it.id]
 			r.sell(it)
 	r.calc()
+	if tr_on:
+		tr_day["pack"] = _tr_pack(r)
+		tr_day["rates"] = [snappedf(r.pack_rates().x, 0.1), snappedf(r.pack_rates().y, 0.1)]
+		tr_day["gold1"] = r.gold
+		tr_day["storage"] = r.storage_items().map(func(i): return i.id)
 
 
 ## Road: forecast every fight; take Elites when they look safe, rest when hurt, avoid losing fights.
@@ -971,6 +1009,8 @@ func _pro_node(r: RunState) -> int:
 			var cs := CombatSim.new(r, {"k": "preview", "e": r.with_hazard(n.e)}, true)
 			cs.skip_to_end()
 			var lost := maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp)
+			if tr_on:
+				tr_day["fc"] = tr_day.get("fc", []) + [{"i": i, "won": cs.won, "lost": snappedf(lost, 0.01), "left": snappedf(maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp), 0.01), "secs": cs.tk / 10.0}]
 			if cs.won:
 				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss"] else 2.2) - 1.5 * lost
 			else:
@@ -985,9 +1025,19 @@ func _pro_node(r: RunState) -> int:
 				"cauldron": s = 1.0
 				"altar": s = 0.6
 				_: s = 0.8
+		if tr_on:
+			var o := {"k": n.k, "score": snappedf(s, 0.01)}
+			if n.has("e"):
+				o["foe"] = n.e.n
+				o["tr"] = n.e.get("tr", "")
+				o["pet"] = n.e.get("pet", "")
+				o["mech"] = n.e.get("mech", {}).get("n", "")
+			tr_day["road"] = tr_day.get("road", []) + [o]
 		if s > best_s:
 			best_s = s
 			best = i
+	if tr_on:
+		tr_day["pick"] = best
 	return best
 
 
@@ -1050,3 +1100,65 @@ func _pro_mw_parts(r: RunState) -> Dictionary:
 			out[rc.b] = true
 			out[rc.c] = true
 	return out
+
+
+# =============================================================== trace (--mode=trace)
+
+func _tr_pack(r: RunState) -> Dictionary:
+	var its := []
+	for it in r.grid_items():
+		var d: Dictionary = it.def()
+		its.append({"id": it.id, "n": d.n, "ic": d.ic, "t": d.tier, "cells": it.cells().map(func(c): return [c.x, c.y]), "gc": it.gc, "pd": snappedf(it.pd, 0.1), "mw": d.tier >= 6})
+	return {"tiles": (r.tiles.keys() if r.tiles is Dictionary else r.tiles).map(func(c): return [c.x, c.y]), "items": its}
+
+
+func _tr_end_day(r: RunState, n: Dictionary, cs) -> void:
+	tr_day["node"] = n.k
+	if n.has("e"):
+		tr_day["foe"] = n.e.n
+	if cs != null:
+		tr_day["won"] = cs.won
+		tr_day["secs"] = cs.tk / 10.0
+		tr_day["dealt"] = roundi(cs.e.hp - maxf(0.0, cs.ehp))
+		tr_day["foe_hp"] = roundi(cs.e.hp)
+		var top := []
+		for x in cs.items:
+			top.append({"id": x.d.n, "ic": x.d.ic, "dmg": roundi(x.st.dmg + x.st.dot.values().reduce(func(a, b): return a + b, 0.0)), "sh": roundi(x.st.shield), "heal": roundi(x.st.heal)})
+		top.sort_custom(func(a, b): return a.dmg + a.sh + a.heal > b.dmg + b.sh + b.heal)
+		tr_day["top"] = top.slice(0, 4)
+		tr_day["ults"] = cs.ults
+	tr_day["hp1"] = snappedf(r.hp, 0.1)
+	tr_day["mhp1"] = snappedf(r.mhp, 0.1)
+	tr_day["hearts1"] = r.res
+	tr_day["rew"] = r.result.get("rew", []).map(func(w):
+		var o := {"k": w.k}
+		for key in ["v", "id", "r", "a", "b", "c", "mw", "evo"]:
+			if w.has(key):
+				o[key] = w[key]
+		return o)
+	tr_days.append(tr_day)
+	tr_day = {}
+
+
+## One recorded run per class: the first winning seed (or the last tried), every decision kept.
+func _trace_runs() -> void:
+	tr_on = true
+	var out := []
+	var classes: Array = [cls_filter] if cls_filter != "" else GameData.class_keys
+	for cls in classes:
+		var best := {}
+		for k in 6:
+			var s: int = 777 + k * 131 + GameData.class_keys.find(cls) * 17
+			var pet: String = GameData.pet_keys[(k + GameData.class_keys.find(cls)) % GameData.pet_keys.size()]
+			tr_days = []
+			tr_day = {}
+			var res := play_run(cls, pet, "pro", s, false)
+			best = {"cls": cls, "pet": pet, "seed": s, "diff": diff, "win": res.win, "path": res.path, "lv": res.lv, "days": tr_days.duplicate(true)}
+			print("trace %s seed %d win=%s days=%d" % [cls, s, res.win, tr_days.size()])
+			if res.win:
+				break
+		out.append(best)
+	var f := FileAccess.open(tr_out, FileAccess.WRITE)
+	f.store_string(JSON.stringify(out))
+	f.close()
+	print("TRACE DONE: %d runs -> %s" % [out.size(), tr_out])
