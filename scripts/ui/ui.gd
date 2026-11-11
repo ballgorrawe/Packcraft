@@ -590,7 +590,7 @@ static func unknown_chip() -> PanelContainer:
 
 
 ## Animated gradient background with slowly drifting light blobs.
-static func background() -> ColorRect:
+static func background() -> Control:
 	if _bg_shader == null:
 		_bg_shader = Shader.new()
 		_bg_shader.code = """
@@ -619,9 +619,8 @@ vec3 flame(vec2 q, vec2 c, float w, float t) {
 	return vec3(1.0, 0.45, 0.12) * body * 1.4 + vec3(1.0, 0.85, 0.5) * core;
 }
 void fragment() {
-	vec2 res = 1.0 / SCREEN_PIXEL_SIZE;
-	// pixel art: work on 4x4 blocks
-	vec2 p = floor(FRAGCOORD.xy / 4.0) * 4.0 + 2.0;
+	vec2 res = 4.0 / SCREEN_PIXEL_SIZE;    // the screen size (this runs in a quarter-size viewport)
+	vec2 p = FRAGCOORD.xy * 4.0;           // each fragment is one 4x4 pixel-art block
 	vec2 uv = p / res;
 	float aspect = res.x / res.y;
 	vec2 q = uv * vec2(aspect, 1.0);
@@ -681,21 +680,50 @@ void fragment() {
 	COLOR = vec4(col, 1.0);
 }
 """
+	# Drawn into a quarter-size viewport and blown up with nearest filtering: it is pixel art anyway,
+	# and this is 16x less shader work per frame (phones feel it most). It updates at 30 fps.
+	var holder := Control.new()
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vp := SubViewport.new()
+	vp.disable_3d = true
+	vp.transparent_bg = false
+	vp.size = Vector2i(180, 320)
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	var r := ColorRect.new()
 	var m := ShaderMaterial.new()
 	m.shader = _bg_shader
 	m.set_shader_parameter("top", BG_TOP)
 	m.set_shader_parameter("bottom", BG_BOT)
 	r.material = m
-	r.set_anchors_preset(Control.PRESET_FULL_RECT)
-	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return r
+	r.size = Vector2(vp.size)
+	vp.add_child(r)
+	holder.add_child(vp)
+	var tr := TextureRect.new()
+	tr.texture = vp.get_texture()
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(tr)
+	holder.set_meta("mat", m)
+	holder.resized.connect(func():
+		vp.size = Vector2i(ceili(holder.size.x / 4.0), ceili(holder.size.y / 4.0))
+		r.size = Vector2(vp.size))
+	var frame := [0]
+	holder.tree_entered.connect(func():
+		holder.get_tree().process_frame.connect(func():
+			frame[0] += 1
+			if frame[0] % 2 == 0 and is_instance_valid(vp):
+				vp.render_target_update_mode = SubViewport.UPDATE_ONCE))
+	return holder
 
 
 ## Deeper floors look darker and colder (0 = top, 1 = the last floor).
 static func set_depth(bg: Control, d: float) -> void:
-	if bg != null and bg.material is ShaderMaterial:
-		(bg.material as ShaderMaterial).set_shader_parameter("depth", clampf(d, 0.0, 1.0))
+	if bg != null and bg.has_meta("mat"):
+		(bg.get_meta("mat") as ShaderMaterial).set_shader_parameter("depth", clampf(d, 0.0, 1.0))
 
 
 ## One-shot sparkle burst at a position inside `parent`.

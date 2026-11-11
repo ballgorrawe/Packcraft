@@ -107,6 +107,24 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	for k in pops:
 		pops[k] += delta
+	# debounced autosave: one write per burst of actions, never in the middle of a drag
+	if _save_dirty and drag_item == null and Time.get_ticks_msec() - _save_at >= SAVE_DELAY_MS:
+		_save_dirty = false
+		if not _dev and run != null:
+			SaveGame.save_run(run)
+
+
+## Marks the run as changed. Saving writes the whole run (with its play log) to storage, which is slow
+## in a browser, so it happens once the player pauses (or right away when the phase or the run ends).
+func _save_soon() -> void:
+	var ph: String = run.phase + run.end_state
+	if ph != _saved_phase:
+		_saved_phase = ph
+		_save_dirty = false
+		_autosave()
+		return
+	_save_dirty = true
+	_save_at = Time.get_ticks_msec()
 
 
 func _autosave() -> void:
@@ -182,6 +200,10 @@ const WIDE_H := 1000
 var _landscape := false   # anything wider than a phone (mouse hints, centred column)
 var _end_tab := 0         # end screen on phones: 0 pack, 1 buffs
 var _bg: Control                # the dungeon wall behind everything (darker on deeper floors)
+const SAVE_DELAY_MS := 1500
+var _save_dirty := false        # a save is waiting (see _save_soon)
+var _save_at := 0
+var _saved_phase := ""
 var _bench_cache := {}    # class -> starting-kit numbers for the hero picker
 var _wide := false        # landscape wide enough for the two-column morning screen
 var _render_queued := false
@@ -302,7 +324,7 @@ func render() -> void:
 	ver.z_index = 50
 	screen.add_child(ver)
 	if run != null:
-		_autosave()   # every state change is saved; finished runs clear the save
+		_save_soon()   # saved shortly after (not on every tap); finished runs clear the save
 		if run.msg != "":
 			toast(run.msg)
 			run.msg = ""

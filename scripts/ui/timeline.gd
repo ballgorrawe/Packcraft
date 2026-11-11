@@ -5,6 +5,7 @@ extends Control
 
 var run: RunState
 var _t := 0.0
+var _idle := 0.0
 
 
 func setup(r: RunState) -> Timeline:
@@ -16,7 +17,10 @@ func setup(r: RunState) -> Timeline:
 
 func _process(delta: float) -> void:
 	_t += delta
-	queue_redraw()
+	_idle += delta
+	if _idle >= 1.0 / 15.0:   # the torchlight flicker only needs ~15 redraws a second
+		_idle = 0.0
+		queue_redraw()
 
 
 func _draw() -> void:

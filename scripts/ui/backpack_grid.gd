@@ -8,6 +8,7 @@ signal cell_pressed(cell: Vector2i)
 var main: Node
 var cell := 48.0
 var _t := 0.0
+var _idle := 0.0
 
 
 func setup(m: Node, cell_px: float) -> BackpackGrid:
@@ -31,7 +32,13 @@ func _process(delta: float) -> void:
 				main.anim.erase(it.uid)
 			else:
 				main.anim[it.uid] = cur
-	queue_redraw()
+	# redraw every frame only while something moves (items sliding, a drag, a squash); otherwise the
+	# glows and pulses look the same at ~15 redraws a second, which saves most of the pack's cost
+	var busy: bool = not main.anim.is_empty() or main.drag_item != null or main.pops.values().any(func(p): return p < 0.4)
+	_idle += delta
+	if busy or _idle >= 1.0 / 15.0:
+		_idle = 0.0
+		queue_redraw()
 
 
 func cell_at(global_pos: Vector2) -> Vector2i:
