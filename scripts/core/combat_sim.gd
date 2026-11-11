@@ -50,6 +50,16 @@ var dmg_mag := 0.0
 var _last_cat := -1         # 0 Physical, 1 Magic: the kind of your last hit (Equilibrium)
 var _tick_toggle := false   # alternates for "every other" path effects (Tempest, Void Caller)
 var _void_toggle := false
+# v0.9 path relics
+var _revived := false       # Phoenix: rose again this fight
+var _shock_n := 0           # Voltmaster: Shock hits toward the next chain lightning
+var _chaining := false
+var _spell_n := 0           # Starcaller: Spells toward the next echo
+var _echoing := false
+var _templar_bank := 0.0    # Templar: bonus for the next weapon hit
+var _ranged_n := 0          # Cannoneer: Ranged hits toward the next broadside
+var _first_crit := true     # Assassin: the first weapon hit always crits
+var beasts_n := 0           # Packlord: Beasts in the pack
 var stat_dmg := {}          # status id -> damage dealt
 var dot_src := {}           # status id -> {item uid: stacks it applied}, to credit DoT damage to items
 var _by_uid := {}           # item uid -> combat item dict
@@ -132,6 +142,9 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 	for i in g:
 		used += i.cells().size()
 	empty_tiles = maxi(0, r.tiles.size() - used)
+	for x0 in items:
+		if x0.d.tags.has("Beast") and x0.d.cd > 0:
+			beasts_n += 1
 	if sp.has("empty_evasion"):
 		evade = minf(0.35, 0.10 + empty_tiles * 0.03)
 	hero_dmg = 1.0 + r.pv("dmg")
@@ -319,6 +332,10 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 		if rd.eff == "crit_tag" and x.d.tags.has(rd.etag):
 			crit += minf(float(rd.get("cap", 0.45)), rd.v * resv)
 			critx += minf(0.8, float(rd.get("v2", 0.0)) * resv)   # at most +80% crit damage
+		if sp.has("assassin") and _first_crit and x.d.tags.has("Weapon"):
+			_first_crit = false
+			crit = 1.0
+			critx = maxf(critx, 2.5)
 		if next_crit and x.d.tags.has("Weapon"):
 			next_crit = false
 			shadow = true
@@ -341,8 +358,10 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 			v *= 1.7   # Inferno: every Fire hit 70% harder
 		if sp.has("empty_evasion") and x.d.tags.has("Ranged"):
 			v *= 1.0 + 0.05 * empty_tiles
-		if x.d.sp == "execute" and ehp < e.hp * 0.3:
+		if _isp(x.d, "execute") and ehp < e.hp * 0.3:
 			v *= 2.0
+		if sp.has("assassin") and x.d.tags.has("Weapon") and ehp < e.hp * 0.35:
+			v *= 1.6
 	v *= _defense_mult(is_mag, _pierce(x))
 	v = maxf(1.0, roundf(v))
 	if fshield > 0:
@@ -372,9 +391,19 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 		if spiders > 0:
 			spiders -= 1   # every item hit also squashes a spiderling
 			_num("foe", "🕷️✖", Color("#d9f99d"))
+		if sp.has("quake") and x.d.tags.has("Melee") and _rng.randf() < 0.12:
+			freeze_t = maxi(freeze_t, 10)   # Earthshaker: the monster's items are stunned 1s
+			_num("foe", "💫 " + I18n.t("STUN"), Color("#fde68a"), true)
 		if has_tr("spiked"):
 			# Spiked: every item hit cuts you for 8% of its damage (Shield blocks it)
 			_hit_hero(maxf(1.0, roundf(v * 0.08)), -1, "🦔", false)
+	# Voltmaster: every 8th Shock hit releases chain lightning
+	if sp.has("volt_chain") and el == "Shock" and not _chaining:
+		_shock_n += 1
+		if _shock_n % 8 == 0:
+			_chaining = true
+			damage(null, 25.0, "Shock", 0, 2, "⚡")
+			_chaining = false
 	var is_crit := cm > 1.0 and not preview
 	_ev({"t": "hit", "uid": uid, "v": v, "el": el, "m": m, "crit": is_crit, "melee": x != null and x.d.tags.has("Melee"), "icon": x.d.ic if x != null else src})
 	var who: String = (x.d.ic + " " + I18n.t(x.d.n)) if x != null else src
@@ -420,6 +449,8 @@ func gain_shield(v: float, uid := -1) -> void:
 	var before := shield
 	shield = minf(_shield_cap(), shield + v)
 	_gain_res("shield_gained", v)
+	if sp.has("templar"):
+		_templar_bank += v * 0.5   # Templar: the next weapon hit carries half of it
 	_num("hero", "🛡+" + GameData._num(shield - before if shield - before > 0 else v), Color("#7dd3fc"), false, uid, "shield")
 
 
@@ -452,14 +483,28 @@ func fire(idx: int) -> void:
 		x.ramp += 1.0
 	if f.ramp > 0:
 		x.ramp += f.ramp
-	if d.sp == "shield_dmg":
+	if _isp(d, "shield_dmg"):
 		dmg += shield * 0.25
-	if d.sp == "gold_shot":
+	if _isp(d, "gold_shot"):
 		dmg += floorf(run.gold / 6.0)
-	if d.sp == "hp_strike_big":
+	if _isp(d, "hp_strike_big"):
 		dmg += mhp * 0.10
+	if sp.has("templar") and d.tags.has("Weapon") and _templar_bank > 0:
+		dmg += _templar_bank
+		_templar_bank = 0.0
+	if sp.has("pack_whistle") and d.tags.has("Beast"):
+		dmg *= 1.0 + 0.06 * maxi(0, beasts_n - 1)
+	var broadside := false
+	if sp.has("powder_keg") and d.tags.has("Ranged") and d.tags.has("Weapon"):
+		dmg += 2.0
+		_ranged_n += 1
+		broadside = _ranged_n % 4 == 0
 	if dmg > 0:
 		damage(x, dmg, f.el if f.el != "" else "Physical", f.crit, f.critx)
+	if broadside:
+		damage(null, 15.0, "Physical", 0, 2, "💥")   # Cannoneer: every 4th Ranged hit
+	if sp.has("bomb_fuse") and d.tags.has("Bomb"):
+		add_status("burn", 3, x.i.uid)
 	if x.get("bonus", 0.0) > 0:
 		# Equilibrium: a Magic item next to this weapon charged it with bonus Magic damage
 		damage(x, x["bonus"], "Arcane", 0, 2, "", 1)
@@ -486,7 +531,7 @@ func fire(idx: int) -> void:
 				_charge(b, 0.15)
 	if sp.has("perpetual"):
 		for c in items.size():
-			if items[c].d.sp == "perpetual" and c != idx:
+			if _isp(items[c].d, "perpetual") and c != idx:
 				for b in items[c].nb:
 					if b != idx:
 						_charge(b, items[b].cd * 0.2)
@@ -497,11 +542,26 @@ func fire(idx: int) -> void:
 	if ult >= ult_need:
 		ult = 0.0
 		fire_ult()
+	# Starcaller: every 3rd Spell is cast again
+	if sp.has("star_echo") and d.tags.has("Spell") and not _echoing:
+		_spell_n += 1
+		if _spell_n % 3 == 0:
+			_echoing = true
+			_num("hero", "🌠 " + I18n.t("ECHO"), Color("#c4b5fd"), true, x.i.uid)
+			fire(idx)
+			_echoing = false
+
+
+## True if an item carries special k (Masterworks carry several, comma-separated).
+func _isp(d: Dictionary, k: String) -> bool:
+	return str(d.get("sp", "")).split(",").has(k)
 
 
 ## Class and path effects that react to one of your items firing.
 func _class_trigger(idx: int, x: Dictionary) -> void:
 	var d: Dictionary = x.d
+	if sp.has("phoenix") and d.tags.has("Fire"):
+		heal(1.0, x.i.uid)
 	var mag: bool = GameData.is_magic(x.f.el)
 	if sp.has("void_mana") and d.tags.has("Spell"):
 		_void_toggle = not _void_toggle
@@ -528,6 +588,8 @@ func _item_speed(x: Dictionary) -> float:
 		s += minf(float(rd.get("cap", 0.4)), rd.v * resv)
 	if sp.has("frenzy") and x.d.tags.has("Sea") and fs.get("bleed", 0.0) > 0:
 		s += 0.25
+	if sp.has("bomb_fuse") and x.d.tags.has("Bomb"):
+		s += 0.3
 	return s
 
 
@@ -547,7 +609,7 @@ func fire_ult() -> void:
 	var dmg: float = on.dmg + on.dmg_per_res * resv
 	match u.sp:
 		"shield_slam":
-			dmg += shield * 2.0
+			dmg += shield * 3.0
 		"double_poison":
 			if fs.get("poison", 0.0) > 0:
 				add_status("poison", fs.poison * 0.5)
@@ -719,6 +781,12 @@ func step() -> void:
 		ehp -= fd
 		_ev({"t": "fatigue"})
 		_log(I18n.t("☠️ Fatigue: %d true damage to both") % roundi(fd))
+	if php <= 0 and ehp > 0 and sp.has("phoenix") and not _revived:
+		# Phoenix: once per fight, rise again
+		_revived = true
+		php = roundf(mhp * 0.35)
+		_ev({"t": "ult", "n": "Rebirth", "ic": "🪶"})
+		_log(I18n.t("🪶 Rebirth! You rise again."))
 	if ehp <= 0:
 		_finish(true)
 	elif php <= 0:

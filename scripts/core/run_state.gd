@@ -44,6 +44,7 @@ var lv := 1                      # hero level (fights give EXP)
 var xp := 0                      # EXP toward the next level
 var lvl_bonus := {}              # buffs chosen at level-up picks: key -> total (same keys as pets)
 var picks: Array = []            # level-up offers waiting for a choice: each is 3 pick ids
+var mw_done := false             # a Masterwork was made this run (only one per run)
 var boss_pick := {}              # boss day -> the boss met this run (one of that day's pool)
 
 
@@ -467,9 +468,11 @@ func eff(i: PItem) -> Dictionary:
 		for k in GameData.statuses:
 			if i.b.get(k, 0.0) > 0:
 				st[k] = st.get(k, 0.0) + i.b[k]
+	for k in i.gst:
+		st[k] = st.get(k, 0.0) + i.gst[k]
 	return {
 		"dmg": snappedf(dmg, 0.1), "cd": maxf(0.3, cd), "crit": minf(1.0, on.crit + i.b.crit + (pv("crit") if on.dmg > 0 else 0.0)), "critx": on.critx,
-		"shield": on.shield + (i.b.shield if on.shield > 0 else 0.0), "heal": on.heal + (i.b.heal if on.heal > 0 else 0.0),
+		"shield": on.shield + (i.b.shield if on.shield > 0 else 0.0) + i.gs, "heal": on.heal + (i.b.heal if on.heal > 0 else 0.0) + i.gh,
 		"st": st, "charge": on.charge, "haste": on.haste, "ramp": on.ramp,
 		# a Fire gem next to a weapon turns its hits into Fire (Magic) damage
 		"el": "Fire" if (i.b.get("to_fire", 0.0) > 0 and on.dmg > 0 and has_sp("fire_convert")) else on.el,
@@ -478,6 +481,8 @@ func eff(i: PItem) -> Dictionary:
 
 
 func recipe_ok(r: Dictionary) -> bool:
+	if r.get("mw", false) and mw_done:
+		return false   # only one Masterwork per run
 	return r.path == "" or r.path == path
 
 
@@ -495,10 +500,24 @@ func links() -> Array:
 			for b in g:
 				if b == a or b.id != r.b or used.has(b.uid) or used.has(a.uid):
 					continue
-				if adj(a, b):
+				if not adj(a, b):
+					continue
+				if r.get("c", "") == "":
 					used[a.uid] = true
 					used[b.uid] = true
 					out.append({"a": a, "b": b, "r": r.r, "evo": r.evo, "key": "%d-%d" % [mini(a.uid, b.uid), maxi(a.uid, b.uid)]})
+					continue
+				# Masterwork: the third piece must touch one of the other two
+				for c in g:
+					if c == a or c == b or c.id != r.c or used.has(c.uid) or used.has(a.uid):
+						continue
+					if adj(c, a) or adj(c, b):
+						used[a.uid] = true
+						used[b.uid] = true
+						used[c.uid] = true
+						var ks := [a.uid, b.uid, c.uid]
+						ks.sort()
+						out.append({"a": a, "b": b, "c": c, "r": r.r, "evo": false, "mw": true, "key": "%d-%d-%d" % ks})
 	return out
 
 
@@ -506,7 +525,7 @@ func links() -> Array:
 func fuse_place(l: Dictionary):
 	var o := {}
 	for i in grid_items():
-		if i == l.a or i == l.b:
+		if i == l.a or i == l.b or i == l.get("c"):
 			continue
 		for c in i.cells():
 			o[c] = true
@@ -539,6 +558,11 @@ func recipe_partner_owned(id: String, owned_self := false) -> bool:
 		if r.evo:
 			if r.a == id and count_owned(id) >= (2 if owned_self else 1):
 				return true
+		elif r.get("c", "") != "":
+			# Masterwork: one of the three, and you own at least one of the others
+			var parts := [r.a, r.b, r.c]
+			if parts.has(id) and parts.any(func(q): return q != id and owns(q)):
+				return true
 		elif (r.a == id and owns(r.b)) or (r.b == id and owns(r.a)):
 			return true
 	return false
@@ -546,7 +570,7 @@ func recipe_partner_owned(id: String, owned_self := false) -> bool:
 
 ## Recipes relevant to an item (as ingredient or result), for the inspector.
 func recipes_for(id: String) -> Array:
-	return GameData.recipes.filter(func(r): return (r.a == id or r.b == id or r.r == id) and (r.path == "" or r.path == path or path == ""))
+	return GameData.recipes.filter(func(r): return (r.a == id or r.b == id or r.get("c", "") == id or r.r == id) and (r.path == "" or r.path == path or path == ""))
 
 
 # ---------------------------------------------------------------- economy
@@ -1278,7 +1302,7 @@ func to_dict() -> Dictionary:
 		var loc: String = i.loc
 		if loc == "held":
 			loc = "storage"
-		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc, "paid": i.paid})
+		its.append({"uid": i.uid, "id": i.id, "loc": loc, "x": i.x, "y": i.y, "rot": i.rot, "starter": i.starter, "pd": i.pd, "pc": i.pc, "paid": i.paid, "gs": i.gs, "gh": i.gh, "gst": i.gst, "gc": i.gc})
 	var res_d := {}
 	if not result.is_empty():
 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
@@ -1289,7 +1313,7 @@ func to_dict() -> Dictionary:
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
-		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks,
+		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks, "mw_done": mw_done,
 		"boss_pick": boss_pick,
 	}
 
@@ -1311,6 +1335,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.path = str(d.get("path", ""))
 	r.mhp_mod = float(d.get("mhp_mod", 0.0))
 	r.lv = int(d.get("lv", 1))
+	r.mw_done = bool(d.get("mw_done", false))
 	r.xp = int(d.get("xp", 0))
 	r.lvl_bonus = d.get("lvl_bonus", {})
 	r.picks = d.get("picks", [])
@@ -1350,6 +1375,10 @@ static func from_dict(d: Dictionary) -> RunState:
 		it.rot = int(s.rot)
 		it.starter = bool(s.starter)
 		it.pd = float(s.pd)
+		it.gs = float(s.get("gs", 0.0))
+		it.gh = float(s.get("gh", 0.0))
+		it.gst = s.get("gst", {})
+		it.gc = int(s.get("gc", 0))
 		it.pc = float(s.pc)
 		it.paid = int(s.get("paid", -1))
 		it.b = r._zero_b()
@@ -1478,6 +1507,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					r.lines.append(I18n.t("🎒 Spoils: +1 pack tile."))
 					r.rew.append({"k": "tiles", "v": 1})
 				gain_xp(int(GameData.leveling.get("xp", {}).get(n.k, 0)), r.rew, r.lines)
+				_grow_items(r.lines)
 				var id := loot_for(n.k, n.get("e", {}))
 				if id != "":
 					items.append(make_item(id, "storage"))
@@ -1500,21 +1530,30 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 		var pl = fuse_place(l)
 		items.erase(l.a)
 		items.erase(l.b)
+		var lc: PItem = l.get("c")
+		if lc != null:
+			items.erase(lc)
+			mw_done = true
 		var f := make_item(l.r, "grid" if pl != null else "storage")
 		if pl != null:
 			f.x = pl.x
 			f.y = pl.y
 			f.rot = pl.rot
-		f.pd = l.a.pd + l.b.pd
+		# growth carries over into what they fuse into
+		var parts := [l.a, l.b] + ([lc] if lc != null else [])
+		for q in parts:
+			f.absorb(q)
 		f.pc = maxf(l.a.pc, l.b.pc)
 		f.starter = l.a.starter and l.b.starter
 		items.append(f)
 		var a: Dictionary = GameData.items[l.a.id]
 		var rd: Dictionary = GameData.items[l.r]
 		var tail := "" if pl != null else I18n.t(" (sent to storage — no room in pack)")
-		r.rew.append({"k": "fusion", "a": l.a.id, "b": l.b.id, "r": l.r, "evo": l.evo, "stored": pl == null})
+		r.rew.append({"k": "fusion", "a": l.a.id, "b": l.b.id, "c": lc.id if lc != null else "", "r": l.r, "evo": l.evo, "mw": lc != null, "stored": pl == null})
 		r.fused.append(f.uid)
-		if l.evo:
+		if lc != null:
+			r.lines.append(I18n.t("👑 Masterwork! %s + %s + %s ➡️ %s %s!") % [a.ic, GameData.items[l.b.id].ic, GameData.items[lc.id].ic, rd.ic, I18n.t(rd.n)] + tail)
+		elif l.evo:
 			r.lines.append(I18n.t("✨ Evolution! Two %s %s became %s %s!") % [a.ic, I18n.t(a.n), rd.ic, I18n.t(rd.n)] + tail)
 		else:
 			r.lines.append(I18n.t("✨ Fusion! %s + %s ➡️ %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
@@ -1522,6 +1561,35 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 		r.over = true
 	elif n.k == "boss" and win and day == GameData.days:
 		r.victory = true
+
+
+## ⭐ growth after a won fight: growing items in the pack get one step (up to their max);
+## aura growers give the step to every item touching them. One summary line for the night.
+func _grow_items(lines: Array) -> void:
+	var parts := []
+	for it in grid_items():
+		var gr: Dictionary = it.def().get("grow", {})
+		if gr.is_empty() or it.gc >= int(gr.get("max", 12)):
+			continue
+		it.gc += 1
+		var v := float(gr.get("v", 1.0))
+		if gr.get("adj", false):
+			for nb in neighbours(it):
+				if nb.def().cd > 0:
+					nb.grow_main(v)
+			parts.append("%s %d/%d" % [it.def().ic, it.gc, int(gr.get("max", 12))])
+		else:
+			var k := str(gr.get("k", ""))
+			var icon := ""
+			match k:
+				"dmg": it.pd += v
+				"shield": it.gs += v
+				"heal": it.gh += v
+				"": icon = it.grow_main(v)
+				_: it.gst[k] = it.gst.get(k, 0.0) + v
+			parts.append("%s %d/%d" % [it.def().ic, it.gc, int(gr.get("max", 12))])
+	if not parts.is_empty():
+		lines.append("🌱 " + I18n.t("Grew: %s") % ", ".join(parts))
 
 
 func next_day() -> void:

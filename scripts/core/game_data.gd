@@ -96,10 +96,11 @@ static func ensure_loaded() -> void:
 	for k in d.get("boss_drops", {}):
 		boss_drops[k] = d.boss_drops[k].map(func(e): return [str(e[0]), float(e[1])])
 	for r in d.recipes:
-		recipes.append({"a": str(r.a), "b": str(r.b), "r": str(r.r), "path": str(r.get("path", "")), "evo": false})
+		# c: third ingredient (Masterworks: path relic + two top items; only one Masterwork per run)
+		recipes.append({"a": str(r.a), "b": str(r.b), "c": str(r.get("c", "")), "r": str(r.r), "path": str(r.get("path", "")), "evo": false, "mw": str(r.get("c", "")) != ""})
 	for k in items:
 		if items[k].evo != "":
-			recipes.append({"a": k, "b": k, "r": items[k].evo, "path": "", "evo": true})
+			recipes.append({"a": k, "b": k, "c": "", "r": items[k].evo, "path": "", "evo": true, "mw": false})
 	for k in d.classes:
 		var c: Dictionary = d.classes[k]
 		var st := []
@@ -190,6 +191,7 @@ static func _norm_item(src: Dictionary) -> Dictionary:
 			"shield": float(ps.get("shield", 0.0)), "income": int(ps.get("income", 0)),
 		},
 		"sp": str(src.get("sp", "")), "evo": str(src.get("evo", "")), "d": str(src.get("d", "")),
+		"grow": src.get("grow", {}),   # ⭐ grows each won fight: {k: dmg|shield|heal|<status>, v, max} or {adj: true, v, max}
 	}
 
 

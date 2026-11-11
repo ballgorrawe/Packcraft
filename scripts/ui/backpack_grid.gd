@@ -93,15 +93,14 @@ func _draw() -> void:
 		for rc in GameData.recipes:
 			if not run.recipe_ok(rc):
 				continue
-			var q := ""
-			if h.id == rc.a:
-				q = rc.b
-			elif h.id == rc.b:
-				q = rc.a
-			if q != "":
-				for i in run.grid_items():
-					if i.id == q and i != h:
-						partners[i.uid] = true
+			var parts := [rc.a, rc.b] + ([rc.c] if rc.get("c", "") != "" else [])
+			if not parts.has(h.id):
+				continue
+			var others := parts.duplicate()
+			others.erase(h.id)
+			for i in run.grid_items():
+				if others.has(i.id) and i != h:
+					partners[i.uid] = true
 		var hc: Vector2i = main.hover_cell
 		if hc.x >= 0:
 			var a := run.anchor_for(h, hc)
@@ -129,6 +128,8 @@ func _draw() -> void:
 		if not run.off.has(l.key):
 			linked[l.a.uid] = true
 			linked[l.b.uid] = true
+			if l.get("c") != null:
+				linked[l.c.uid] = true
 
 	# who sits on which cell (for the aura arrows)
 	var occ := {}

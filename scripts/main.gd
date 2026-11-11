@@ -1009,7 +1009,7 @@ func _run_screen(fresh: bool) -> Control:
 	scr.add_child(row)
 	sv.add_child(scr)
 	# phone: cards narrow so up to ~8 fit in the row without scrolling
-	var sw := (112.0 if items.size() <= 8 else 80.0) if _wide else 112.0 if items.size() < 2 else clampf(floorf((minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 60.0, 112.0)
+	var sw := (112.0 if items.size() <= 8 else 80.0) if _wide else 112.0 if items.size() < 2 else clampf(floorf((minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 46.0, 112.0)
 	for it in items:
 		row.add_child(_storage_card(it, sw))
 	if items.is_empty():
@@ -1259,10 +1259,10 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.custom_minimum_size.y = 50
-	top.add_child(UI.plbl(d.ic, 28 if narrow else 36))
+	top.add_child(UI.plbl(d.ic, (24 if w < 56.0 else 28) if narrow else 36))
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cc.add_child(ShapeView.new().setup(it.id, it.rot, 8 if narrow else 11))
+	cc.add_child(ShapeView.new().setup(it.id, it.rot, (6 if w < 56.0 else 8) if narrow else 11))
 	top.add_child(cc)
 	v.add_child(top)
 	var nm := UI.plbl(tr(d.n), 14, UI.TX, true, true)
@@ -1695,6 +1695,9 @@ func _recipe_row(r: Dictionary) -> Control:
 	h.add_child(UI.item_chip(r.a, run.owns(r.a)))
 	h.add_child(UI.lbl("+", 20, UI.MU, true))
 	h.add_child(UI.item_chip(r.b, run.owns(r.b) and (r.a != r.b or run.count_owned(r.a) >= 2)))
+	if r.get("c", "") != "":
+		h.add_child(UI.lbl("+", 20, UI.MU, true))
+		h.add_child(UI.item_chip(r.c, run.owns(r.c)))
 	h.add_child(UI.lbl("➡️", 18))
 	var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 	if known:
@@ -1715,9 +1718,13 @@ func _recipe_row(r: Dictionary) -> Control:
 # --------------------------------------------------------------- overlays
 
 func _path_choice_overlay() -> Control:
-	var o := _overlay(tr("CHOOSE YOUR PATH"))
+	var o := _overlay(tr("CHOOSE YOUR PATH"), Callable(), _wide)
 	var v: VBoxContainer = o[1]
-	var s := UI.wrap_lbl(tr("This choice lasts the whole run. Your path relic goes to storage, and it unlocks that path's Capstone recipe."), 18, Color("#e9e4ff"))
+	var list: BoxContainer = v
+	if _wide:
+		# PC: the three paths side by side
+		list = UI.hbox(18)
+	var s := UI.wrap_lbl(tr("This choice lasts the whole run. Your path relic goes to storage, and it unlocks that path's Masterwork recipe."), 18, Color("#e9e4ff"))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	var k := 0
@@ -1744,13 +1751,18 @@ func _path_choice_overlay() -> Control:
 		pv.add_child(rh)
 		for r in GameData.recipes:
 			if r.path == pid:
-				pv.add_child(UI.wrap_lbl("👑 " + tr("Capstone: %s = %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n)], 16, UI.AC))
+				pv.add_child(UI.wrap_lbl("👑 " + tr("Masterwork: %s = %s + %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n), tr(GameData.items[r.c].n)] if r.c != "" else "👑 " + tr("Masterwork: %s = %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n)], 16, UI.AC))
+		if _wide:
+			pv.add_child(UI.spacer(false))   # buttons line up along the bottom
+			p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pv.add_child(UI.big_btn(tr("Choose %s") % tr(pd.n), func():
 			run.choose_path(pp)
 			render(), "gold", 24))
-		v.add_child(p)
+		list.add_child(p)
 		UI.pop_in(p, 0.15 + 0.12 * k, 40)
 		k += 1
+	if _wide:
+		v.add_child(list)
 	return o[0]
 
 
@@ -2222,7 +2234,8 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 	var p := UI.card(Color("#3d2f10"), UI.GOLD, 22, 12)
 	var vb := UI.vbox(4)
 	p.add_child(vb)
-	var t := UI.title(("✨ " + tr("EVOLUTION!")) if w.evo else ("🔗 " + tr("FUSION!")), 26, UI.GOLD)
+	var three: bool = str(w.get("c", "")) != ""   # a Masterwork: three pieces fly together
+	var t := UI.title(("👑 " + tr("MASTERWORK!")) if three else (("✨ " + tr("EVOLUTION!")) if w.evo else ("🔗 " + tr("FUSION!"))), 26, UI.GOLD)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
 	var stage := Control.new()
@@ -2239,9 +2252,12 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 		return l
 	var la: Label = mk.call(GameData.items[w.a].ic)
 	var lb: Label = mk.call(GameData.items[w.b].ic)
+	var lc: Label = mk.call(GameData.items[w.c].ic if three else "")
+	lc.visible = three
 	var lr: Label = mk.call(rd.ic)
 	lr.scale = Vector2.ZERO
-	var cap := UI.wrap_lbl("%s + %s ➡️ %s" % [tr(GameData.items[w.a].n), tr(GameData.items[w.b].n), tr(rd.n)] + (("  (" + tr("in storage") + ")") if w.get("stored", false) else ""), 18, Color("#fff3c4"))
+	var parts_txt := "%s + %s" % [tr(GameData.items[w.a].n), tr(GameData.items[w.b].n)] + ((" + " + tr(GameData.items[w.c].n)) if three else "")
+	var cap := UI.wrap_lbl("%s ➡️ %s" % [parts_txt, tr(rd.n)] + (("  (" + tr("in storage") + ")") if w.get("stored", false) else ""), 18, Color("#fff3c4"))
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.modulate.a = 0
 	vb.add_child(cap)
@@ -2251,6 +2267,7 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 		if lr.scale == Vector2.ZERO and la.visible:
 			la.position = Vector2(cx - 170, 12)
 			lb.position = Vector2(cx + 170, 12)
+			lc.position = Vector2(cx, -40)
 		lr.position = Vector2(cx, 12))
 	var tw := p.create_tween()
 	tw.tween_interval(delay)
@@ -2261,9 +2278,12 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 		t2.parallel().tween_property(lb, "position:x", cx + 34, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		t2.parallel().tween_property(la, "rotation", -0.4, 0.45)
 		t2.parallel().tween_property(lb, "rotation", 0.4, 0.45)
+		if three:
+			t2.parallel().tween_property(lc, "position:y", 0.0, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		t2.tween_callback(func():
 			la.visible = false
 			lb.visible = false
+			lc.visible = false
 			UI.burst(stage, Vector2(stage.size.x / 2, 60), UI.GOLD, 40, 420, 10)
 			UI.burst(stage, Vector2(stage.size.x / 2, 60), col, 24, 300, 8))
 		t2.tween_property(lr, "scale", Vector2(1.5, 1.5), 0.2).set_trans(Tween.TRANS_BACK)
@@ -2541,7 +2561,7 @@ func _ev_chest(v: VBoxContainer) -> void:
 const BOOK_PER_PAGE := 4
 
 
-## Every entry the book can show, in page order: evolution chains, then recipes, then Capstones.
+## Every entry the book can show, in page order: evolution chains, then recipes, then Masterworks.
 func _book_entries() -> Array:
 	var out := []
 	for id in GameData.items:
@@ -2572,7 +2592,7 @@ func _book_overlay() -> Control:
 	book_page = clampi(book_page, 0, pages - 1)
 	var slice := entries.slice(book_page * BOOK_PER_PAGE, (book_page + 1) * BOOK_PER_PAGE)
 	var sec: String = slice[0].sec if not slice.is_empty() else "evo"
-	var titles := {"evo": "✨ " + tr("Evolutions"), "recipe": "🔗 " + tr("Recipes"), "cap": "👑 " + tr("Capstones")}
+	var titles := {"evo": "✨ " + tr("Evolutions"), "recipe": "🔗 " + tr("Recipes"), "cap": "👑 " + tr("Masterworks")}
 	var hints := {
 		"evo": tr("Two copies of the same item, touching, evolve at night."),
 		"recipe": tr("Two different items, touching, fuse at night."),
@@ -2631,6 +2651,9 @@ func _book_entry(e: Dictionary) -> Control:
 		h.add_child(_book_chip(r.a, true, ""))
 		h.add_child(UI.title("+", 28, Color("#5a3300"), Color("#f3e6c4")))
 		h.add_child(_book_chip(r.b, true, ""))
+		if r.get("c", "") != "":
+			h.add_child(UI.title("+", 28, Color("#5a3300"), Color("#f3e6c4")))
+			h.add_child(_book_chip(r.c, true, ""))
 		h.add_child(UI.lbl("➡️", 22))
 		var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 		var path_tag := ""

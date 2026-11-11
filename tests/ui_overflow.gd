@@ -75,7 +75,7 @@ func _run() -> void:
 	main.show_book = false
 	# path choice
 	r.path = ""
-	r.day = 4
+	r.day = 6
 	main.render()
 	await _check("path_choice")
 	r.path = "tempest"

@@ -14,6 +14,7 @@ var mode := "edge"
 var style := "smart"
 var cls_filter := ""
 var diff := "normal"
+var pro_cfg := {}      # --cfg=key:val,key:val  pro bot weights (aff, cap, fuse, verify, sim_w, rr, min_gain, elite)
 var force_boss := ""   # --boss=Name: every run meets this boss on its day (balance checks)
 var start := 0
 var count := 10
@@ -39,6 +40,9 @@ func _init() -> void:
 			"runs": runs = int(v)
 			"seed": repro_seed = int(v)
 			"boss": force_boss = v
+			"cfg":
+				for pair in v.split(",", false):
+					pro_cfg[pair.get_slice(":", 0)] = float(pair.get_slice(":", 1))
 	match mode:
 		"edge": _edge_cases()
 		"inv": _invariant_runs()
@@ -131,7 +135,7 @@ func checked_night(r: RunState, n: Dictionary, win: bool, cs: CombatSim, seed_v:
 	var links := 0
 	for l in r.links():
 		if not r.off.has(l.key):
-			links += 1
+			links += 2 if l.get("c") != null else 1   # a Masterwork uses up three items
 	for ui in used_items:
 		r.items.append(ui)
 	r.go_night(n, win, cs)
@@ -224,7 +228,7 @@ func bot_morning(r: RunState, st: String) -> void:
 	while not r.picks.is_empty():
 		r.pick_level(0)
 	if r.needs_path():
-		r.choose_path(r.cls_def().paths[randi() % 2])
+		r.choose_path(r.cls_def().paths.pick_random())
 	if st != "random" and _free_tiles(r) < 4:
 		for i in r.shop.size():
 			if r.shop[i].has("bag") and r.shop[i].price <= r.gold:
@@ -862,15 +866,20 @@ func _pro_morning(r: RunState) -> void:
 			it.rot = orot
 		else:
 			_pro_put(it, s)
-	# shopping: best value per gold; swap out the weakest item when full; a few rerolls
+	# shopping, build-aware: every affordable card is tried in its best spot (swapping out the weakest
+	# item when the pack is full), scored by the damage/shield it adds plus build bonuses (class
+	# resource tags, the path's Masterwork ingredients, fusion partners); the top few are then checked
+	# with a real fight simulation before buying.
 	var rerolls := 0
+	var build := _pro_build_tags(r)
 	for _step in 12:
-		var pick := {}
+		var cands := []
 		for i in r.shop.size():
 			var e: Dictionary = r.shop[i]
 			if e.has("bag") or e.price > r.gold:
 				continue
 			var tmp := r.make_item(e.id, "held")
+			r.items.append(tmp)
 			var s := _pro_spot(r, tmp)
 			var gain: float = s.g if not s.is_empty() else -99.0
 			var out: PItem = null
@@ -879,7 +888,7 @@ func _pro_morning(r: RunState) -> void:
 				var weak: PItem = null
 				var wv := 99.0
 				for g in r.grid_items():
-					if g.def().relic:
+					if g.def().relic or g == tmp:
 						continue
 					var c := _pro_contrib(r, g)
 					if c < wv:
@@ -889,16 +898,37 @@ func _pro_morning(r: RunState) -> void:
 					weak.loc = "storage"
 					var s2 := _pro_spot(r, tmp)
 					weak.loc = "grid"
-					r.calc()
 					if not s2.is_empty() and s2.g - wv > gain:
 						gain = s2.g - wv
 						s = s2
 						out = weak
-			if r.recipe_partner_owned(e.id):
-				gain += 2.0
-			var val := gain / maxf(1.0, e.price)
-			if gain > 0.3 and (pick.is_empty() or val > pick.val):
-				pick = {"i": i, "s": s, "out": out, "val": val}
+			r.items.erase(tmp)
+			r.calc()
+			gain += _pro_build_bonus(r, e.id, build)
+			if s.is_empty() and gain < 2.0:
+				continue
+			cands.append({"i": i, "s": s, "out": out, "gain": gain, "price": float(e.price), "id": e.id})
+		cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
+		cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
+		# fight-check the best few: value gained in a no-dice fight, per gold
+		var n_check := int(pro_cfg.get("verify", 3))
+		if n_check > 0 and cands.size() > 1:
+			var v0 := _pro_value(r, benches)
+			for c in cands.slice(0, n_check):
+				var tmp2 := r.make_item(c.id, "held")
+				r.items.append(tmp2)
+				if c.out != null:
+					c.out.loc = "storage"
+				if not c.s.is_empty():
+					_pro_put(tmp2, c.s)
+				var dv := _pro_value(r, benches) - v0
+				if c.out != null:
+					c.out.loc = "grid"
+				r.items.erase(tmp2)
+				c.gain += float(pro_cfg.get("sim_w", 25.0)) * dv
+			r.calc()
+			cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
+		var pick: Dictionary = cands[0] if not cands.is_empty() and cands[0].gain > 0.3 else {}
 		if not pick.is_empty():
 			if pick.out != null:
 				pick.out.loc = "storage"
@@ -910,7 +940,7 @@ func _pro_morning(r: RunState) -> void:
 			else:
 				it.loc = "storage"
 			continue
-		if rerolls < 3 and r.gold >= r.reroll_cost() + 4:
+		if rerolls < int(pro_cfg.get("rr", 3)) and r.gold >= r.reroll_cost() + 4:
 			r.reroll()
 			rerolls += 1
 			continue
@@ -937,7 +967,7 @@ func _pro_node(r: RunState) -> int:
 			cs.skip_to_end()
 			var lost := maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp)
 			if cs.won:
-				s = (3.0 if n.k in ["elite", "ambush", "boss"] else 2.2) - 1.5 * lost
+				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss"] else 2.2) - 1.5 * lost
 			else:
 				s = -5.0 + (1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp))
 		else:
@@ -954,3 +984,44 @@ func _pro_node(r: RunState) -> int:
 			best_s = s
 			best = i
 	return best
+
+
+## Tags the build cares about: the class resource's tags and every tag of the path's Masterwork recipe.
+func _pro_build_tags(r: RunState) -> Dictionary:
+	var tags := {}
+	var rd: Dictionary = r.cls_def().res
+	for k in ["tag", "etag"]:
+		if str(rd.get(k, "")) != "":
+			tags[str(rd[k])] = true
+	var parts := {}
+	for rc in GameData.recipes:
+		if r.path != "" and str(rc.get("path", "")) == r.path:
+			parts[rc.a] = true
+			parts[rc.b] = true
+	# ingredients of those ingredients (e.g. Dire Wolf <- Wolf Pup + Raw Meat)
+	for rc in GameData.recipes:
+		if parts.has(rc.r):
+			parts[rc.a] = true
+			parts[rc.b] = true
+	for id in parts:
+		if GameData.items.has(id):
+			for t in GameData.items[id].tags:
+				if t != "Weapon":
+					tags[t] = true
+	return {"tags": tags, "parts": parts}
+
+
+## Future value of an item for this build (on top of what it adds today).
+func _pro_build_bonus(r: RunState, id: String, build: Dictionary) -> float:
+	var d: Dictionary = GameData.items[id]
+	var b := 0.0
+	var w := float(pro_cfg.get("aff", 1.5))
+	for t in d.tags:
+		if build.tags.has(t):
+			b += w
+			break
+	if build.parts.has(id):
+		b += float(pro_cfg.get("cap", 3.0))
+	if r.recipe_partner_owned(id):
+		b += float(pro_cfg.get("fuse", 3.0))
+	return b
