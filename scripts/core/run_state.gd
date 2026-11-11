@@ -5,6 +5,7 @@ extends RefCounted
 
 const RESIST := 0.2          # damage multiplier when the foe resists that element (80% less)
 const MAX_HEARTS := 3
+const ENDLESS_HEARTS := 5
 const MIN_MAX_HP := 30.0       # the Cursed Altar can never take Max HP below this
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
@@ -37,6 +38,7 @@ var nodes: Array = []
 var result: Dictionary = {}     # night result
 var cur_node := -1              # index of the node chosen this afternoon
 var end_state := ""             # "", "win", "over"
+var endless := false             # kept playing after the day-15 boss: bosses every 5 days, up to 5 Hearts
 var msg := ""
 var seen := {}                  # item ids the player has owned (unlocks recipe book entries)
 var event := {}                 # the event being played this afternoon (see start_event)
@@ -747,7 +749,7 @@ func foe_dps(d: int) -> float:
 
 func foe_base(elite: bool) -> Dictionary:
 	var fam: String = GameData.FOE_NAMES.pick_random()
-	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp)), "dps": foe_dps(day) * diff_def().dps, "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
+	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.06))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.04), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
 	if elite:
 		e.n = "Elite " + fam
 		e.hp = float(roundi(e.hp * 1.5))
@@ -942,7 +944,46 @@ func pick_bosses() -> void:
 		boss_pick[d] = pools[d].pick_random()
 
 
+## Most Hearts you can hold (5 in Endless).
+func max_hearts() -> int:
+	return ENDLESS_HEARTS if endless else MAX_HEARTS
+
+
+## Endless: beat the day-15 boss and keep going. +2 Hearts (max 5) and a new boss every 5 days.
+func go_endless() -> void:
+	if endless:
+		return
+	endless = true
+	res = mini(ENDLESS_HEARTS, res + 2)
+	result.victory = false
+	msg = I18n.t("♾️ Endless! +2 Hearts. A boss waits every 5 days.")
+
+
+## How much harder Endless gets per day past day 15.
+func endless_mult(d: int, per_day: float) -> float:
+	return 1.0 + maxf(0.0, d - GameData.days) * per_day
+
+
 func boss_on(d: int):
+	if d > GameData.days:
+		if not endless or d % 5 != 0:
+			return null
+		# Endless bosses: every boss in turn, all with day-15 strength that grows each round
+		var order: Array = GameData.bosses.map(func(x): return x.n)
+		var first := GameData.bosses.filter(func(x): return x.d == GameData.days)
+		var base: Dictionary = first[0] if not first.is_empty() else GameData.bosses[0]
+		var pick_n: String = order[(d / 5 + str(boss_pick.get(GameData.days, "")).length()) % order.size()]
+		var src: Dictionary = GameData.bosses.filter(func(x): return x.n == pick_n)[0]
+		var b := src.duplicate()
+		b.d = d
+		var avg_hp := 0.0
+		var avg_atk := 0.0
+		for x in first:
+			avg_hp += x.hp / first.size()
+			avg_atk += x.atk / x.cd * src.cd / first.size()
+		b.hp = roundf(avg_hp * endless_mult(d, 0.06))
+		b.atk = snappedf(avg_atk * endless_mult(d, 0.04), 0.1)
+		return b
 	var want: String = boss_pick.get(d, "")
 	var first = null
 	for b in GameData.bosses:
@@ -1325,7 +1366,7 @@ func to_dict() -> Dictionary:
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
-		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks, "mw_done": mw_done,
+		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks, "mw_done": mw_done, "endless": endless,
 		"boss_pick": boss_pick,
 	}
 
@@ -1348,6 +1389,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	r.mhp_mod = float(d.get("mhp_mod", 0.0))
 	r.lv = int(d.get("lv", 1))
 	r.mw_done = bool(d.get("mw_done", false))
+	r.endless = bool(d.get("endless", false))
 	r.xp = int(d.get("xp", 0))
 	r.lvl_bonus = d.get("lvl_bonus", {})
 	r.picks = d.get("picks", [])
@@ -1506,7 +1548,8 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 				gold += g
 				r.lines.append(I18n.t("🏆 Victory! +%d gold.") % g)
 				r.rew.append({"k": "gold", "v": g})
-				if n.k == "boss" and res < MAX_HEARTS:
+				# bosses give a Heart back; Endless bosses only half the time
+				if n.k == "boss" and res < max_hearts() and (day <= GameData.days or randf() < 0.5):
 					res += 1
 					r.lines.append(I18n.t("❤️ Boss reward: +1 Heart."))
 					r.rew.append({"k": "heart", "v": 1})

@@ -4,6 +4,12 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.9.3
+- ♾️ โหมด Endless: ชนะบอสวันที่ 15 แล้วเลือก "เล่นต่อ (Endless)" ได้ รับหัวใจ +2 และหัวใจสูงสุดเพิ่มเป็น 5 ดวง
+- 💀 บอสโผล่ทุก 5 วัน (20, 25, 30...) สลับกันทุกตัว แข็งแกร่งขึ้นทุกรอบ มอนธรรมดาก็โหดขึ้นทุกวัน
+- ❤️ ชนะบอส Endless มีโอกาสได้หัวใจคืน 1 ดวง
+- 🏅 จบเกมแล้วจะบอกว่าไปได้ถึงวันไหน พร้อมสถิติสูงสุดของแต่ละความยาก
+
 ## v0.9.2
 - ⚖️ ปรับสมดุลใหม่ทั้งเกมด้วยบอตที่เล่นเก่งขึ้น (เลือกของตามบิลด์ จัดกระเป๋า เลือกเส้นทางเอง): Normal ชนะประมาณ 46%
 - 🔥 Ember: Heat มีเพดาน +60%, Inferno ไฟแรงขึ้น 50% (เดิม 70%), ไอเทมใหม่ของ Ember เบาลง, ฟีนิกซ์คืนชีพ 20% และฮีล 0.5

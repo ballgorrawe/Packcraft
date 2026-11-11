@@ -889,14 +889,25 @@ func _end_screen() -> Control:
 	var v := UI.vbox(18)
 	cc.add_child(v)
 	var w := run.end_state == "win"
-	var t := UI.title(tr("VICTORY") if w else tr("DEFEATED"), 64, UI.GOLD if w else UI.BAD)
+	var t := UI.title(("♾️ " + tr("ENDLESS")) if run.endless else (tr("VICTORY") if w else tr("DEFEATED")), 64, UI.GOLD if w or run.endless else UI.BAD)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var i := UI.lbl("🏆" if w else "💀", 130)
+	var i := UI.lbl("🏆" if w or run.endless else "💀", 130)
 	i.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(i)
 	UI.breathe(i, 0.06)
-	var s := UI.wrap_lbl((tr("%s falls. Your build held.") % tr(run.boss_on(GameData.days).n if run.boss_on(GameData.days) != null else "")) if w else tr("You fell on day %d of %d.") % [run.day, GameData.days], 22)
+	var line := (tr("%s falls. Your build held.") % tr(run.boss_on(GameData.days).n if run.boss_on(GameData.days) != null else "")) if w else tr("You fell on day %d of %d.") % [run.day, GameData.days]
+	if run.endless:
+		# Endless: how far you got, and the best on this difficulty
+		var key := "endless_best_" + run.diff
+		if not run.has_meta("best_before"):
+			run.set_meta("best_before", int(SaveGame.get_setting(key, 0)))
+		var best: int = run.get_meta("best_before")
+		if run.day > int(SaveGame.get_setting(key, 0)):
+			SaveGame.set_setting(key, run.day)
+		line = tr("Endless: you reached day %d.") % run.day + "
+" + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
+	var s := UI.wrap_lbl(line, 22)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	var path_txt := ""
@@ -1114,10 +1125,10 @@ func _hud() -> Control:
 	_shown_hp = hp_now
 	hv.add_child(bar)
 	var hr := UI.hbox(6)
-	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(RunState.MAX_HEARTS - run.res), 18))
+	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(maxi(0, run.max_hearts() - run.res)), 18))
 	hr.add_child(_level_badge())
 	hr.add_child(UI.spacer())
-	var dl := UI.lbl(tr("Day %d/%d") % [run.day, GameData.days], 16, UI.GOLD, true)
+	var dl := UI.lbl(("♾️ " + tr("Day %d") % run.day) if run.endless else tr("Day %d/%d") % [run.day, GameData.days], 16, UI.GOLD, true)
 	hr.add_child(dl)
 	hv.add_child(hr)
 	h.add_child(hv)
@@ -1797,7 +1808,7 @@ const EV := {
 func _road_overlay() -> Control:
 	var o := _overlay(tr("CHOOSE YOUR ROAD"), Callable(), _wide)
 	var v: VBoxContainer = o[1]
-	var s := UI.lbl(tr("Day %d · HP %d/%d · Hearts %d/%d") % [run.day, roundi(run.hp), roundi(run.mhp), run.res, RunState.MAX_HEARTS], 18, UI.MU, true)
+	var s := UI.lbl(tr("Day %d · HP %d/%d · Hearts %d/%d") % [run.day, roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts()], 18, UI.MU, true)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	var list: BoxContainer = v
@@ -2032,8 +2043,30 @@ func _night_overlay() -> Control:
 		_clear_sel()
 		render(), "green", 28)
 	nb.disabled = choosing
-	v.add_child(nb)
-	UI.pop_in(nb, 0.3 + 0.15 * k, 30)
+	if r.victory:
+		# beat the day-15 boss: claim the win, or keep going in Endless (+2 Hearts, max 5)
+		var eb := UI.big_btn("♾️ " + tr("Keep going (Endless)") + "  +2 ❤️", func():
+			_fused_flash = fused.duplicate()
+			_fusion_queue = rew.filter(func(w): return w.k == "fusion")
+			_fusion_seen = 0
+			_all_stats_cs = null
+			run.go_endless()
+			run.next_day()
+			_clear_sel()
+			render(), "purple", 24)
+		eb.disabled = choosing
+		var hb := UI.hbox(12)
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		eb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.custom_minimum_size.x = 0
+		eb.custom_minimum_size.x = 0
+		hb.add_child(nb)
+		hb.add_child(eb)
+		v.add_child(hb)
+		UI.pop_in(hb, 0.3 + 0.15 * k, 30)
+	else:
+		v.add_child(nb)
+		UI.pop_in(nb, 0.3 + 0.15 * k, 30)
 	return o[0]
 
 

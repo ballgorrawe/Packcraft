@@ -698,6 +698,13 @@
   "STUN": "มึน",
   "ECHO": "สะท้อน",
   "Rebirth": "คืนชีพ",
-  "🪶 Rebirth! You rise again.": "🪶 คืนชีพ! คุณลุกขึ้นอีกครั้ง"
+  "🪶 Rebirth! You rise again.": "🪶 คืนชีพ! คุณลุกขึ้นอีกครั้ง",
+  "Keep going (Endless)": "เล่นต่อ (Endless)",
+  "♾️ Endless! +2 Hearts. A boss waits every 5 days.": "♾️ Endless! ได้หัวใจ +2 บอสรออยู่ทุก 5 วัน",
+  "Day %d": "วัน %d",
+  "Endless: you reached day %d.": "Endless: ไปได้ถึงวันที่ %d",
+  "New best!": "สถิติใหม่!",
+  "Best on this difficulty: day %d": "สถิติสูงสุดของความยากนี้: วันที่ %d",
+  "ENDLESS": "ENDLESS"
  }
 }

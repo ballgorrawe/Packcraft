@@ -180,6 +180,33 @@ func _run() -> void:
 	r.go_night(r.nodes[0], false, cs2)
 	main.render()
 	await _check("night_loss")
+	# Endless: the day-15 victory night (Claim / Keep going), then an Endless morning and road
+	r.phase = "afternoon"
+	r.day = GameData.days
+	r.picks.clear()
+	r.nodes = [{"k": "boss", "e": r.boss_foe(r.boss_on(GameData.days))}]
+	var cs3 := r.choose(0)
+	cs3.skip_to_end()
+	cs3.won = true
+	cs3.php = maxf(cs3.php, 10)
+	r.go_night(r.nodes[0], true, cs3)
+	r.result.victory = true
+	main.render()
+	await _check("night_victory")
+	r.go_endless()
+	r.next_day()
+	r.day = 19
+	main.render()
+	await _check("morning_endless")
+	r.phase = "afternoon"
+	r.day = 20
+	r.nodes = [{"k": "boss", "e": r.boss_foe(r.boss_on(20))}]
+	main.render()
+	await _check("road_endless_boss")
+	r.end_state = "over"
+	main.render()
+	await _check("end_endless")
+	r.endless = false
 	# end screens
 	r.end_state = "win"
 	main.render()

@@ -23,6 +23,10 @@ func _draw() -> void:
 	if run == null:
 		return
 	var n := GameData.days
+	# Endless: the track slides along so today stays in view (15 days shown)
+	var first := 1
+	if run.endless:
+		first = maxi(1, run.day - 9)
 	var w := size.x
 	var pad := 22.0
 	var step := (w - pad * 2) / float(n - 1)
@@ -30,11 +34,11 @@ func _draw() -> void:
 	var f: Font = UI.font if UI.font else get_theme_default_font()
 	# the path
 	draw_line(Vector2(pad, y), Vector2(w - pad, y), Color(1, 1, 1, 0.12), 6.0, true)
-	var done_x := pad + step * (run.day - 1)
+	var done_x := pad + step * (run.day - first)
 	draw_line(Vector2(pad, y), Vector2(done_x, y), Color(UI.GOLD, 0.8), 6.0, true)
 	var phases := {"morning": "☀️", "afternoon": "🗺️", "evening": "⚔️", "night": "🌙"}
-	for d in range(1, n + 1):
-		var x := pad + step * (d - 1)
+	for d in range(first, first + n):
+		var x := pad + step * (d - first)
 		var boss: bool = run.boss_on(d) != null
 		var fork: bool = d == GameData.path_day
 		var cur := d == run.day
@@ -72,7 +76,7 @@ func _draw() -> void:
 			lcol = UI.MU
 		_center(f, label, Vector2(x, y), fs, lcol)
 		# day number under the important nodes
-		if cur or boss or d == 1 or d == n:
+		if cur or boss or d == first or d == first + n - 1:
 			_center(f, str(d), Vector2(x, y + 30), 13 if not cur else 15, UI.GOLD if cur else UI.MU)
 
 
