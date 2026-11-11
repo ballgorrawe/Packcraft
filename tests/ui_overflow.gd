@@ -89,6 +89,14 @@ func _run() -> void:
 	main.render()
 	await _check("road_details")
 	main.foe_info_e = {}
+	# every event card on the road (long event lines must wrap)
+	var evs := ["smith", "merchant", "roulette", "cauldron", "altar", "chest", "camp"]
+	for j in range(0, evs.size(), 2):
+		r.nodes = [{"k": "combat", "e": r.foe(false)}]
+		for k2 in evs.slice(j, j + 2):
+			r.nodes.append({"k": k2})
+		main.render()
+		await _check("road_events%d" % j)
 	r.day = 10
 	r.nodes = [{"k": "boss", "e": r.boss_foe(r.boss_on(10))}]
 	main.render()
@@ -100,7 +108,25 @@ func _run() -> void:
 		r.nodes = [{"k": k}]
 		main._choose(0)
 		await _check("event_" + k)
-	# a fight (boss: move bar), then the night with rewards and a level-up pick
+	# a big pack (long fight stats list), then a boss fight (move bar) and the night
+	for _u in 40:
+		r.expand += 1
+		r.unlock(Vector2i(randi() % GameData.W, randi() % GameData.H))
+	for id in ["iron_sword", "wooden_shield", "rune_sword", "storm_rune", "blessed_blade", "mana_crystal", "iron_sword", "wooden_shield", "spark_rune", "whetstone", "health_potion", "iron_sword"]:
+		if not GameData.items.has(id):
+			continue
+		var it := r.make_item(id, "held")
+		r.items.append(it)
+		var placed := false
+		for y in GameData.H:
+			for x in GameData.W:
+				if not placed and r.fits(it, x, y):
+					it.loc = "grid"
+					it.x = x
+					it.y = y
+					placed = true
+		if not placed:
+			it.loc = "storage"
 	r.phase = "afternoon"
 	r.day = 10
 	r.nodes = [{"k": "boss", "e": r.boss_foe(r.boss_on(10))}]
@@ -122,8 +148,26 @@ func _run() -> void:
 	r.go_night(r.nodes[0], true, cs)
 	r.result.rew.push_front({"k": "tiles", "v": 4})
 	r.result.rew.push_front({"k": "heart", "v": 1})
+	r.result.rew.append({"k": "level", "v": r.lv + 1})
+	r.result.rew.append({"k": "loot", "id": "iron_sword"})
+	for fx in 3:
+		r.result.rew.append({"k": "fusion", "a": "wooden_shield", "b": "leather_vest", "r": "brigandine", "evo": false, "stored": false})
 	main.render()
 	await _check("night_win")
+	main._all_stats_cs = r.result.cs
+	main.render()
+	await _check("night_all_stats")
+	main._all_stats_cs = null
+	# the next morning opens with the fusions, one at a time
+	var rew_fx: Array = r.result.rew.filter(func(w): return w.k == "fusion")
+	main._fusion_queue = rew_fx
+	main._fusion_seen = 0
+	r.picks.clear()
+	r.next_day()
+	main.render()
+	await _check("morning_fusion")
+	main._fusion_seen = 3
+	r.phase = "afternoon"
 	# defeat night
 	r.phase = "afternoon"
 	r.day = 9
@@ -146,7 +190,7 @@ func _run() -> void:
 
 ## Waits for layout, saves a screenshot and reports anything that does not fit.
 func _check(name: String) -> void:
-	await create_timer(0.9).timeout
+	await create_timer(2.6 if name.begins_with("night") else 0.9).timeout
 	if only != "" and not name.contains(only):
 		return
 	screens += 1

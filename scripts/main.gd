@@ -38,6 +38,9 @@ var _shown_hp := -1
 var _shop_anim := false
 var _last_shop_tap_idx := -1   # for double-tap to lock
 var _last_shop_tap_ms := 0
+var _fusion_queue: Array = []  # fusions / evolutions from last night, shown one by one when the day opens
+var _fusion_seen := 0
+var _all_stats_cs: CombatSim   # the night's full item list, while its popup is open
 var _fused_flash: Array = []   # uids created at night: they pop and sparkle when the new day opens
 
 # widgets of the current screen
@@ -292,10 +295,18 @@ func render() -> void:
 		ov = _event_overlay()
 	elif run.phase == "night":
 		ov = _night_overlay()
+	elif run.phase == "morning" and _fusion_seen < _fusion_queue.size():
+		ov = _fusion_overlay()
 	elif show_book:
 		ov = _book_overlay()
 	if ov != null and not foe_info_e.is_empty():
 		ov.add_child(_foe_info_overlay())
+	if ov != null and _all_stats_cs != null and run.phase == "night":
+		var so := _overlay("", func():
+			_all_stats_cs = null
+			render(), _wide)
+		so[1].add_child(_summary_rows(_all_stats_cs))
+		ov.add_child(so[0])
 	if ov != null:
 		screen.add_child(ov)
 		if fresh:
@@ -304,6 +315,28 @@ func render() -> void:
 	elif drag_item == null and not _landscape and (selected != null or inspect_id != ""):
 		popup = _inspector_popup()
 		screen.add_child(popup)
+
+
+## Morning: last night's fusions / evolutions, one card at a time (tap Next), with Skip all.
+func _fusion_overlay() -> Control:
+	var o := _overlay("")
+	var v: VBoxContainer = o[1]
+	var n := _fusion_queue.size()
+	if n > 1:
+		var c := UI.lbl("%d / %d" % [_fusion_seen + 1, n], 20, UI.MU, true)
+		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(c)
+	v.add_child(_fusion_card(_fusion_queue[_fusion_seen], 0.2))
+	var last := _fusion_seen >= n - 1
+	var nb := UI.big_btn((tr("Next") + " ▶️") if not last else (tr("Continue") + " ▶️"), func():
+		_fusion_seen += 1
+		render(), "green", 26)
+	v.add_child(_center(nb))
+	if n > 1 and not last:
+		v.add_child(_center(UI.btn(tr("Skip all") + " ⏭️", func():
+			_fusion_seen = n
+			render(), false, 18, "gray")))
+	return o[0]
 
 
 ## Full-screen dim with the monster Details panel; a tap anywhere closes it.
@@ -341,6 +374,8 @@ func _key() -> String:
 		k += "path"
 	if show_book:
 		k += "book"
+	if run.phase == "morning" and _fusion_seen < _fusion_queue.size():
+		k += "fx%d" % _fusion_seen
 	return k
 
 
@@ -967,7 +1002,7 @@ func _run_screen(fresh: bool) -> Control:
 	scr.add_child(row)
 	sv.add_child(scr)
 	# phone: cards narrow so up to ~8 fit in the row without scrolling
-	var sw := 112.0 if _wide or items.size() < 2 else clampf(floorf((get_viewport_rect().size.x - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 74.0, 112.0)
+	var sw := (112.0 if items.size() <= 8 else 80.0) if _wide else 112.0 if items.size() < 2 else clampf(floorf((minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 70.0 - 10.0 * (items.size() - 1)) / items.size()), 60.0, 112.0)
 	for it in items:
 		row.add_child(_storage_card(it, sw))
 	if items.is_empty():
@@ -1118,7 +1153,7 @@ func _level_pick_card(delay: float) -> Control:
 			run.pick_level(ii)
 			SaveGame.save_run(run)
 			render(), false, 16, "gold")
-		b.custom_minimum_size = Vector2(190, 130)
+		b.custom_minimum_size = Vector2(190, 130 if _wide else 100)
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(b)
 	cv.add_child(row)
@@ -1212,22 +1247,24 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(v)
-	var top := UI.hbox(6)
+	var narrow := w < 84.0
+	var top: BoxContainer = UI.vbox(2) if narrow else UI.hbox(6)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.custom_minimum_size.y = 50
-	top.add_child(UI.plbl(d.ic, 36))
+	top.add_child(UI.plbl(d.ic, 28 if narrow else 36))
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cc.add_child(ShapeView.new().setup(it.id, it.rot, 11))
+	cc.add_child(ShapeView.new().setup(it.id, it.rot, 8 if narrow else 11))
 	top.add_child(cc)
 	v.add_child(top)
 	var nm := UI.plbl(tr(d.n), 14, UI.TX, true, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nm.custom_minimum_size.x = w - 16.0
+	nm.visible = w >= 84.0   # many items: icon + shape only, so the row still fits
 	v.add_child(nm)
 	if run.recipe_partner_owned(it.id, true):
-		v.add_child(UI.plbl("🔗 " + tr("match!"), 13, UI.GOLD, true, true))
+		v.add_child(UI.plbl("🔗" if narrow else "🔗 " + tr("match!"), 13, UI.GOLD, true, true))
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
@@ -1801,7 +1838,9 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tv.add_child(ttl)
 	if sub != "":
-		var sl := UI.wrap_lbl(sub, 19, sub_col) if _wide else UI.lbl(sub, 18, sub_col, true)
+		# wraps on every screen: a long event line (Russian Roulette) must not push the card wider
+		var sl := UI.wrap_lbl(sub, 19 if _wide else 16, sub_col)
+		sl.custom_minimum_size.x = 200
 		if _wide:
 			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tv.add_child(sl)
@@ -1905,6 +1944,9 @@ func _night_overlay() -> Control:
 	# rewards as big tiles
 	var tiles := []
 	for w in rew:
+		if w.k == "level":
+			# several level-ups in one night show as one tile (the newest level)
+			tiles = tiles.filter(func(x): return x.k != "level")
 		if w.k != "fusion":
 			tiles.append(w)
 	if not tiles.is_empty():
@@ -1924,17 +1966,18 @@ func _night_overlay() -> Control:
 		v.add_child(fp)
 		UI.pop_in(fp, 0.2 + 0.12 * k, 30)
 		k += 1
-	# evolutions and fusions, animated one after another
-	for w in rew:
-		if w.k == "fusion":
-			v.add_child(_fusion_card(w, 0.4 + 0.5 * k))
-			k += 1
+	# evolutions and fusions are shown when the next day opens (one at a time), so this screen stays short
+	var n_fx := rew.filter(func(w): return w.k == "fusion").size()
+	if n_fx > 0:
+		var fl := UI.lbl("✨ " + tr("%d fusion(s) tonight — see them in the morning!") % n_fx, 17, UI.GOLD, true)
+		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(fl)
 	var cs: CombatSim = r.cs
 	if cs != null:
 		var tp := UI.card(Color(UI.INK, 0.85), UI.BD, 18, 14)
 		var tv := UI.vbox(6)
 		tp.add_child(tv)
-		tv.add_child(_summary_rows(cs))
+		tv.add_child(_summary_rows(cs, 9 if _wide else 6))
 		var extra := []
 		for kk in cs.stat_dmg:
 			if cs.stat_dmg[kk] > 0:
@@ -1953,6 +1996,9 @@ func _night_overlay() -> Control:
 	var fused: Array = r.get("fused", [])
 	var nb := UI.big_btn(label, func():
 		_fused_flash = fused.duplicate()
+		_fusion_queue = rew.filter(func(w): return w.k == "fusion")
+		_fusion_seen = 0
+		_all_stats_cs = null
 		run.next_day()
 		_clear_sel()
 		render(), "green", 28)
@@ -1970,8 +2016,8 @@ const SUM_COLS := {
 
 ## Fight summary: per item a stacked bar (hit damage by element, Burn, Poison, Shield, Heal)
 ## and the numbers for each part, so you can see what every item actually did.
-func _summary_rows(cs: CombatSim) -> Control:
-	var v := UI.vbox(10)
+func _summary_rows(cs: CombatSim, max_rows := 99) -> Control:
+	var v := UI.vbox(6)
 	v.add_child(UI.title("📊 " + tr("What each item did"), 20))
 	# legend
 	var lg := UI.flow(10)
@@ -2002,27 +2048,24 @@ func _summary_rows(cs: CombatSim) -> Control:
 		rows.append([x, parts, tot])
 		top = maxf(top, tot)
 	rows.sort_custom(func(a, b): return a[2] > b[2])
-	for row in rows.slice(0, 10):
+	# one thin line per item (name · bar · numbers), strongest first; as many as fit, the rest behind See all
+	var shown := rows.slice(0, mini(rows.size(), max_rows if rows.size() > max_rows else rows.size()))
+	if rows.size() > max_rows:
+		shown = rows.slice(0, max_rows - 1)
+	for row in shown:
 		var x: Dictionary = row[0]
 		var parts: Array = row[1]
 		var tot: float = row[2]
-		var rv := UI.vbox(3)
-		var head := UI.hbox(8)
-		var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 16, UI.TX, true)
+		var line := UI.hbox(8)
+		var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 15, UI.TX, true)
 		nl.clip_text = true
-		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		head.add_child(nl)
-		for p in parts:
-			var chip := UI.lbl("%s %d" % [p[3], roundi(p[1])], 15, p[2], true)
-			chip.add_theme_color_override("font_outline_color", Color.BLACK)
-			chip.add_theme_constant_override("outline_size", 4)
-			head.add_child(chip)
-		if parts.is_empty():
-			head.add_child(UI.lbl("-", 15, UI.MU))
-		rv.add_child(head)
+		nl.custom_minimum_size.x = 170 if not _wide else 210
+		line.add_child(nl)
 		# stacked bar, grows in
 		var track := UI.panel(Color(0, 0, 0, 0.45), Color(0, 0, 0, 0), 0, 99, 0)
-		track.custom_minimum_size.y = 16
+		track.custom_minimum_size.y = 12
+		track.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var bar := UI.hbox(0)
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		track.add_child(bar)
@@ -2038,8 +2081,24 @@ func _summary_rows(cs: CombatSim) -> Control:
 		bar.add_child(empty)
 		bar.scale.x = 0.0
 		bar.create_tween().tween_property(bar, "scale:x", 1.0, 0.6).set_delay(0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		rv.add_child(track)
-		v.add_child(rv)
+		line.add_child(track)
+		var nums := UI.hbox(6)
+		nums.custom_minimum_size.x = 120 if not _wide else 150
+		nums.alignment = BoxContainer.ALIGNMENT_END
+		for p in parts:
+			var chip := UI.lbl("%s%d" % [p[3], roundi(p[1])], 14, p[2], true)
+			chip.add_theme_color_override("font_outline_color", Color.BLACK)
+			chip.add_theme_constant_override("outline_size", 4)
+			nums.add_child(chip)
+		if parts.is_empty():
+			nums.add_child(UI.lbl("-", 14, UI.MU))
+		line.add_child(nums)
+		v.add_child(line)
+	if rows.size() > shown.size():
+		var more := rows.size() - shown.size()
+		v.add_child(_center(UI.btn("+%d · " % more + tr("See all"), func():
+			_all_stats_cs = cs
+			render(), false, 15, "blue")))
 	return v
 
 
@@ -2052,7 +2111,7 @@ func _reward_row(list: Array, delay0: float) -> Control:
 	row.add_theme_constant_override("h_separation", 10)
 	row.add_theme_constant_override("v_separation", 10)
 	var n := list.size()
-	var w := clampf(floorf((640.0 - 10.0 * (n - 1)) / maxf(1.0, n)), 116.0, 148.0)
+	var w := clampf(floorf((650.0 - 10.0 * (n - 1)) / maxf(1.0, n)), 70.0, 148.0)
 	for i in n:
 		row.add_child(_reward_tile(list[i], delay0 + 0.15 * i, w))
 	return row
@@ -2118,10 +2177,11 @@ func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 			cap = tr(d.n)
 			fmt = ""
 	var p := UI.card(col.darkened(0.55), col, 20, 10)
-	p.custom_minimum_size = Vector2(tw, 168)
+	var small := not _wide and tw < 110.0   # phone with many rewards: a smaller tile so they stay in one row
+	p.custom_minimum_size = Vector2(tw, 168 if _wide else (116 if small else 148))
 	var vb := UI.vbox(2)
 	p.add_child(vb)
-	var il := UI.lbl(icon, 56)
+	var il := UI.lbl(icon, 38 if small else 56)
 	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(il)
 	if w.k in ["loot", "forge"]:
@@ -2129,7 +2189,7 @@ func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 		tag.add_child(UI.plbl(tr("NEW!") if w.k == "loot" else "+3 ⚔️", 14, Color.WHITE, true, true))
 		vb.add_child(tag)
 	else:
-		var nl := UI.title("", 30, col.lightened(0.3))
+		var nl := UI.title("", 22 if small else 30, col.lightened(0.3))
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vb.add_child(nl)
 		nl.text = fmt % 0

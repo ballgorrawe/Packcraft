@@ -217,6 +217,12 @@ func _free_tiles(r: RunState) -> int:
 
 
 func bot_morning(r: RunState, st: String) -> void:
+	if st == "pro":
+		_pro_morning(r)
+		return
+	# the simple bots take the first level-up bonus offered
+	while not r.picks.is_empty():
+		r.pick_level(0)
 	if r.needs_path():
 		r.choose_path(r.cls_def().paths[randi() % 2])
 	if st != "random" and _free_tiles(r) < 4:
@@ -278,6 +284,8 @@ func bot_morning(r: RunState, st: String) -> void:
 
 
 func pick_node(r: RunState, st: String) -> int:
+	if st == "pro":
+		return _pro_node(r)
 	var best := 0
 	match st:
 		"random":
@@ -390,7 +398,7 @@ func _monte_carlo() -> void:
 	for cls in classes:
 		for i in range(start, start + count):
 			var pet: String = GameData.pet_keys[i % GameData.pet_keys.size()]
-			var s: int = i * 1009 + GameData.class_keys.find(cls) * 7 + {"random": 1, "greedy": 2, "smart": 3}.get(style, 0) * 1000003
+			var s: int = i * 1009 + GameData.class_keys.find(cls) * 7 + {"random": 1, "greedy": 2, "smart": 3, "pro": 3}.get(style, 0) * 1000003
 			var res := play_run(cls, pet, style, s, false)
 			var inf: Dictionary = res.info
 			print("RUN|%s|%s|%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s" % [
@@ -696,3 +704,253 @@ func _edge_cases() -> void:
 	_edge("E15 three in a row: one evolution + one left over", gems == 1 and blaze == 1, "fire=%d blaze=%d" % [gems, blaze])
 
 	print("EDGE DONE: %d failing checks" % violations.size())
+
+
+# =============================================================== pro bot
+# Plays like a careful human: it uses the game's own forecasts (the drag preview's damage/shield
+# delta and a no-dice fight simulation) to pick its path, level-up bonuses, buys, placement and
+# road, rearranges the pack, sells what it cannot use and rerolls a few times.
+
+## How strong the pack is: a no-dice fight against today's monster and the next boss.
+## Win: 2 - share of HP lost (faster is a hair better). Loss: share of the monster's HP removed.
+func _pro_value(r: RunState, benches: Array) -> float:
+	r.calc()
+	var s := 0.0
+	for e in benches:
+		var cs := CombatSim.new(r, {"k": "preview", "e": e}, true)
+		cs.skip_to_end()
+		if cs.won:
+			s += 2.0 - maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp) - cs.tk / 6000.0
+		else:
+			s += 1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp)
+	return s
+
+
+func _pro_benches(r: RunState) -> Array:
+	var out := [r.with_hazard(r.foe(false))]
+	for d in range(r.day, GameData.days + 1):
+		var b = r.boss_on(d)
+		if b != null:
+			out.append(r.boss_foe(b))
+			break
+	return out
+
+
+func _pro_rate(rates: Vector2) -> float:
+	return rates.x + 0.7 * rates.y
+
+
+## Best spot for a held item by the drag preview: damage + shield gained, plus fusion links.
+func _pro_spot(r: RunState, it: PItem) -> Dictionary:
+	var best := {}
+	var base := _pro_rate(r.pack_rates())
+	var seen_shapes := {}
+	var keep_rot := it.rot
+	var keep_loc := it.loc
+	for rot in 4:
+		var key := str(GameData.shape(it.id, rot).c)
+		if seen_shapes.has(key):
+			continue
+		seen_shapes[key] = true
+		it.rot = rot
+		for y in GameData.H:
+			for x in GameData.W:
+				if not r.fits(it, x, y):
+					continue
+				it.loc = "grid"
+				it.x = x
+				it.y = y
+				var g := _pro_rate(r.pack_rates()) - base
+				if r.links().any(func(l): return l.a == it or l.b == it):
+					g += 4.0
+				it.loc = keep_loc
+				if best.is_empty() or g > best.g:
+					best = {"x": x, "y": y, "rot": rot, "g": g}
+	it.rot = keep_rot
+	it.loc = keep_loc
+	r.calc()
+	return best
+
+
+func _pro_put(it: PItem, s: Dictionary) -> void:
+	it.loc = "grid"
+	it.x = s.x
+	it.y = s.y
+	it.rot = s.rot
+
+
+## What one pack item adds (rates with it minus without it).
+func _pro_contrib(r: RunState, it: PItem) -> float:
+	var with_it := _pro_rate(r.pack_rates())
+	var prev := it.loc
+	it.loc = "storage"
+	var without := _pro_rate(r.pack_rates())
+	it.loc = prev
+	r.calc()
+	return with_it - without
+
+
+func _pro_morning(r: RunState) -> void:
+	var benches := _pro_benches(r)
+	# path: try both, keep the stronger pack
+	if r.needs_path():
+		var best_p := ""
+		var best_v := -1.0
+		for p in r.cls_def().paths:
+			r.choose_path(p)
+			var relic: PItem = r.items[r.items.size() - 1]
+			relic.loc = "held"
+			var s := _pro_spot(r, relic)
+			if not s.is_empty():
+				_pro_put(relic, s)
+			var v := _pro_value(r, benches)
+			r.items.erase(relic)
+			r.path = ""
+			if v > best_v:
+				best_v = v
+				best_p = p
+		r.choose_path(best_p)
+	# level-up bonuses: try each of the 3, keep the best
+	while not r.picks.is_empty():
+		var best_i := 0
+		var best_v := -1.0
+		var hp0 := r.hp
+		for i in r.picks[0].size():
+			var pd := r.pick_def(r.picks[0][i])
+			r.lvl_bonus[pd.k] = r.lvl_bonus.get(pd.k, 0.0) + float(pd.v)
+			r.sync_hp()
+			var v := _pro_value(r, benches)
+			r.lvl_bonus[pd.k] -= float(pd.v)
+			r.sync_hp()
+			r.hp = hp0
+			if v > best_v:
+				best_v = v
+				best_i = i
+		r.pick_level(best_i)
+	# bags: when the pack is nearly full, or when gold is piling up (up to 2 a day)
+	for _b in 2:
+		if not (_free_tiles(r) < 4 or r.gold > 22):
+			break
+		var bought := false
+		for i in r.shop.size():
+			if r.shop[i].has("bag") and r.shop[i].price + 4 <= r.gold:
+				r.buy_bag(i)
+				bought = true
+				break
+		if not bought:
+			break
+	_unlock_all(r)
+	# relics and storage items into their best spots
+	for it in r.storage_items():
+		it.loc = "held"
+		var s := _pro_spot(r, it)
+		if not s.is_empty() and (s.g > 0.05 or it.def().relic):
+			_pro_put(it, s)
+		else:
+			it.loc = "storage"
+	# rearrange: every pack item moves to its best spot
+	for it in r.grid_items():
+		var ox: int = it.x
+		var oy: int = it.y
+		var orot: int = it.rot
+		it.loc = "held"
+		var s := _pro_spot(r, it)
+		if s.is_empty():
+			it.loc = "grid"
+			it.x = ox
+			it.y = oy
+			it.rot = orot
+		else:
+			_pro_put(it, s)
+	# shopping: best value per gold; swap out the weakest item when full; a few rerolls
+	var rerolls := 0
+	for _step in 12:
+		var pick := {}
+		for i in r.shop.size():
+			var e: Dictionary = r.shop[i]
+			if e.has("bag") or e.price > r.gold:
+				continue
+			var tmp := r.make_item(e.id, "held")
+			var s := _pro_spot(r, tmp)
+			var gain: float = s.g if not s.is_empty() else -99.0
+			var out: PItem = null
+			if s.is_empty() or gain < 0.2:
+				# full pack: would it beat the weakest item?
+				var weak: PItem = null
+				var wv := 99.0
+				for g in r.grid_items():
+					if g.def().relic:
+						continue
+					var c := _pro_contrib(r, g)
+					if c < wv:
+						wv = c
+						weak = g
+				if weak != null:
+					weak.loc = "storage"
+					var s2 := _pro_spot(r, tmp)
+					weak.loc = "grid"
+					r.calc()
+					if not s2.is_empty() and s2.g - wv > gain:
+						gain = s2.g - wv
+						s = s2
+						out = weak
+			if r.recipe_partner_owned(e.id):
+				gain += 2.0
+			var val := gain / maxf(1.0, e.price)
+			if gain > 0.3 and (pick.is_empty() or val > pick.val):
+				pick = {"i": i, "s": s, "out": out, "val": val}
+		if not pick.is_empty():
+			if pick.out != null:
+				pick.out.loc = "storage"
+			var it := r.buy_item(pick.i)
+			if it == null:
+				break
+			if not pick.s.is_empty() and r.fits(it, pick.s.x, pick.s.y, pick.s.rot):
+				_pro_put(it, pick.s)
+			else:
+				it.loc = "storage"
+			continue
+		if rerolls < 3 and r.gold >= r.reroll_cost() + 4:
+			r.reroll()
+			rerolls += 1
+			continue
+		break
+	# storage: sell what cannot help (keep fusion partners, starters and relics)
+	for it in r.storage_items():
+		if it.def().relic or it.starter:
+			continue
+		if it.def().tags.has("Treasure") or not r.recipe_partner_owned(it.id, true):
+			r.sell(it)
+	r.calc()
+
+
+## Road: forecast every fight; take Elites when they look safe, rest when hurt, avoid losing fights.
+func _pro_node(r: RunState) -> int:
+	var best := 0
+	var best_s := -99.0
+	for i in r.nodes.size():
+		var n: Dictionary = r.nodes[i]
+		var s := 0.0
+		if n.has("e"):
+			r.calc()
+			var cs := CombatSim.new(r, {"k": "preview", "e": r.with_hazard(n.e)}, true)
+			cs.skip_to_end()
+			var lost := maxf(0.0, r.hp - cs.php) / maxf(1.0, r.mhp)
+			if cs.won:
+				s = (3.0 if n.k in ["elite", "ambush", "boss"] else 2.2) - 1.5 * lost
+			else:
+				s = -5.0 + (1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp))
+		else:
+			match n.k:
+				"camp": s = 2.6 if r.hp < r.mhp * 0.55 else 0.4
+				"smith": s = 1.6
+				"chest": s = 1.5
+				"merchant": s = 1.2
+				"roulette": s = 1.0
+				"cauldron": s = 1.0
+				"altar": s = 0.6
+				_: s = 0.8
+		if s > best_s:
+			best_s = s
+			best = i
+	return best

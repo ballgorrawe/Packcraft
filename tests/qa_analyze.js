@@ -33,7 +33,7 @@ for (const [st, rs] of Object.entries(by(runs, (r) => r.style))) {
   line(`- ${st} [n=${rs.length}] overall ${pct(rs.filter((r) => r.win).length, rs.length)} :: ${parts.join(" | ")}`);
 }
 
-const smart = runs.filter((r) => r.style === "smart");
+const smart = runs.filter((r) => r.style === (runs.some((x) => x.style === "pro") ? "pro" : "smart"));
 if (smart.length) { const av = (xs) => (xs.reduce((a, r) => a + r.lv, 0) / Math.max(1, xs.length)).toFixed(1); { const bw = {}; for (const r of smart) for (const b of r.bosses) { const [n, w] = b.split(":"); bw[n] = bw[n] || [0, 0]; bw[n][0] += +w; bw[n][1]++; } line("- Boss fights won: " + Object.entries(bw).map(([n, [w, t]]) => `${n} ${(100 * w / t).toFixed(0)}% (${t})`).join(" | ")); }
   line(`- Final level: all ${av(smart)} | wins ${av(smart.filter((r) => r.win))}`); }
 line("\n## Win rate by pet (smart bot, all classes)");

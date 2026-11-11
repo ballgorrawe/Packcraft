@@ -638,6 +638,9 @@
   "Tap the monster to see what it does.": "แตะที่มอนเพื่อดูว่ามันทำอะไรได้",
   "its items charge 30% faster, but hit a bit softer": "ไอเทมชาร์จเร็วขึ้น 30% แต่ตีเบาลงนิดหน่อย",
   "+40% HP and +40% damage, but slower": "HP +40% และดาเมจ +40% แต่ช้าลง",
-  "heals 1.5% of its Max HP every second": "ฟื้นเลือด 1.5% ของ Max HP ทุกวินาที"
+  "heals 1.5% of its Max HP every second": "ฟื้นเลือด 1.5% ของ Max HP ทุกวินาที",
+  "%d fusion(s) tonight — see them in the morning!": "คืนนี้ผสมของได้ %d อย่าง — ดูได้ตอนเช้า!",
+  "Skip all": "ข้ามทั้งหมด",
+  "See all": "ดูทั้งหมด"
  }
 }
