@@ -4,6 +4,11 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.9.6
+- 📊 หน้าเลือกฮีโร่บอกค่าจริงตอนเริ่ม: เลือด, ดาเมจ/วิ, โล่/วิ, ฮีล/วิ (วัดจากการตีหุ่นฝึกด้วยของเริ่มต้น)
+- 📈 แท่ง ดาเมจ / ป้องกัน / ฟื้นฟู / ความยาก คำนวณจากบอตที่เล่นจริงทั้งเกม ไม่ได้ใส่ด้วยมือแล้ว
+- ❤️ เลือดเริ่มต้นเพิ่มให้คลาสที่ต้นเกมอ่อน: Beast +8, Tinker +10, Weaver +6, Venom +4
+
 ## v0.9.4
 - 📊 การ์ดไอเทมที่อยู่ในกระเป๋ามีกล่อง "ในกระเป๋าตอนนี้" บอกค่าจริงหลังโดนบัฟ เช่น คริ 20% → 30% (+10%)
 - 🔎 บอกว่าบัฟแต่ละอันมาจากไหน (ไอเทมที่ติดกัน, ทั้งกระเป๋า, ของโตถาวร, โบนัสเลเวล/สัตว์เลี้ยง, ม็อดประจำเกม)

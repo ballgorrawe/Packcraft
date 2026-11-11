@@ -116,7 +116,7 @@ static func ensure_loaded() -> void:
 				"cap": float(res.get("cap", 99.0)), "d": res.d, "v2": float(res.get("v2", 0.0)),
 			},
 			"ult": {"n": c.ult.n, "ic": c.ult.ic, "need": int(c.ult.need), "on": _norm_on(c.ult.get("on", {})), "sp": str(c.ult.get("sp", "")), "d": c.ult.d},
-			"paths": c.paths, "sp": str(c.get("sp", "")),
+			"paths": c.paths, "sp": str(c.get("sp", "")), "hp": float(c.get("hp", 0)),
 		}
 		class_keys.append(k)
 	for k in d.paths:

@@ -55,6 +55,9 @@ func _initialize() -> void:
 	var size := JSON.stringify({"run": r.plog_payload()}).length()
 	print("payload for %d days: %d KB" % [r.plog.size(), size / 1024])
 	_check(size < 400 * 1024, "payload stays small")
+	# class starting HP bonus (Beast +20)
+	var bh := RunState.new("beast", "", "hard")
+	_check(GameData.classes.beast.hp > 0.0 and is_equal_approx(bh.mhp, GameData.base_hp + GameData.classes.beast.hp), "Beast starts with its class Max HP bonus (%d)" % bh.mhp)
 	# bots record nothing
 	var b := RunState.new("rogue", "cat", "hard")
 	b.reroll()

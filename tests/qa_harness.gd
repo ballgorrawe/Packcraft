@@ -23,6 +23,8 @@ var violations: Array = []
 var repro_seed := 0
 # --mode=trace: one recorded pro run per class (every decision with its numbers) -> --out JSON
 var tr_on := false
+var cs_on := false        # --mode=cstats: measure the pack on the training dummy on days 5, 10, 15
+var cs_marks := {}
 var tr_day := {}
 var tr_days: Array = []
 var tr_out := "user://bot_trace.json"
@@ -55,6 +57,7 @@ func _init() -> void:
 		"mc": _monte_carlo()
 		"trace": _trace_runs()
 		"repro": _repro()
+		"cstats": _class_stats()
 	quit(1 if violations.size() > 0 and mode != "mc" else 0)
 
 
@@ -328,6 +331,8 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 	while r.end_state == "" and guard < 60:
 		guard += 1
 		bot_morning(r, st)
+		if cs_on and r.day in [5, 10, 15] and not cs_marks.has(r.day):
+			cs_marks[r.day] = r.bench_rates(12.0)
 		if checks:
 			check_state(r, seed_v, "morning d%d" % r.day)
 		info.gold.append(r.gold)
@@ -976,7 +981,7 @@ func _pro_shop(r: RunState, benches: Array) -> void:
 			cands.append({"i": i, "s": s, "out": out, "gain": gain, "h": snappedf(gain, 0.01), "fv": snappedf(fv, 0.01), "price": float(e.price), "id": e.id})
 		cands.sort_custom(func(a, b): return a.gain / maxf(1.0, a.price) > b.gain / maxf(1.0, b.price))
 		# simall: every affordable card goes to the fight check (heals and Max HP do not show in damage/shield rates)
-		var simall := float(pro_cfg.get("simall", 0.0)) > 0.0
+		var simall := float(pro_cfg.get("simall", 1.0)) > 0.0
 		if not simall:
 			cands = cands.filter(func(c): return c.gain > float(pro_cfg.get("min_gain", 0.3)))
 		# fight-check the best few: value gained in a no-dice fight, per gold
@@ -1226,6 +1231,34 @@ func _pro_mw_parts(r: RunState) -> Dictionary:
 			out[rc.b] = true
 			out[rc.c] = true
 	return out
+
+
+# =============================================================== class stats (--mode=cstats)
+# Real numbers behind the class picker: the starting kit on the training dummy, and the pro bot's pack
+# on days 5 / 10 / 15 (its damage, shield and healing per second, Max HP) plus its win rate.
+# Writes one JSON line per class: CSTATS|{...}
+
+func _class_stats() -> void:
+	cs_on = true
+	var classes: Array = [cls_filter] if cls_filter != "" else GameData.class_keys
+	for cls in classes:
+		var r0 := RunState.new(cls, "", diff)
+		r0.mod = {"id": "", "n": "", "d": ""}
+		var out := {"cls": cls, "start": r0.bench_rates(12.0), "days": {}, "wins": 0, "n": 0}
+		for k in count:
+			cs_marks = {}
+			var pet: String = GameData.pet_keys[k % GameData.pet_keys.size()]
+			var res := play_run(cls, pet, "pro", 5000000 + k * 7919 + GameData.class_keys.find(cls) * 131, false)
+			out.n += 1
+			if res.win:
+				out.wins += 1
+			for d in cs_marks:
+				var acc: Dictionary = out.days.get(str(d), {"dps": 0.0, "sps": 0.0, "hps": 0.0, "hp": 0.0, "n": 0})
+				for key in ["dps", "sps", "hps", "hp"]:
+					acc[key] += cs_marks[d][key]
+				acc.n += 1
+				out.days[str(d)] = acc
+		print("CSTATS|" + JSON.stringify(out))
 
 
 # =============================================================== trace (--mode=trace)

@@ -178,6 +178,7 @@ const COLUMN_W := 760.0
 const WIDE_W := 1720.0
 const WIDE_H := 1000
 var _landscape := false   # anything wider than a phone (mouse hints, centred column)
+var _bench_cache := {}    # class -> starting-kit numbers for the hero picker
 var _wide := false        # landscape wide enough for the two-column morning screen
 var _render_queued := false
 
@@ -622,6 +623,15 @@ func _step_nav(back_cb: Callable, next_text: String, next_cb: Callable, kind := 
 	return h
 
 
+## The starting kit of a class on the training dummy (cached): Max HP and damage / shield / heal per second.
+func _class_bench(k: String) -> Dictionary:
+	if not _bench_cache.has(k):
+		var r := RunState.new(k, "", "normal")
+		r.mod = {"id": "", "n": "", "d": ""}
+		_bench_cache[k] = r.bench_rates(12.0)
+	return _bench_cache[k]
+
+
 func _hero_screen() -> Control:
 	var v := UI.vbox(12)
 	v.add_child(_step_head(1, tr("Choose your hero")))
@@ -712,6 +722,22 @@ func _hero_screen() -> Control:
 			pips.add_child(pip)
 		sg.add_child(pips)
 	cv.add_child(sg)
+	# the starting kit's real numbers, measured on a training dummy
+	var b := _class_bench(sel_cls)
+	var nums := UI.hbox(14)
+	nums.alignment = BoxContainer.ALIGNMENT_BEGIN if _wide else BoxContainer.ALIGNMENT_CENTER
+	nums.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fs := 19 if _wide else 15
+	nums.add_child(UI.plbl(tr("At start:"), fs, Color("#c9c2e8"), true))
+	nums.add_child(UI.plbl("❤️ %d" % roundi(b.hp), fs, Color("#ffb4b4"), true))
+	nums.add_child(UI.plbl("⚔️ %s/%s" % [GameData._num(snappedf(b.dps, 0.1)), tr("s")], fs, Color("#ffd27a"), true))
+	nums.add_child(UI.plbl("🛡️ %s/%s" % [GameData._num(snappedf(b.sps, 0.1)), tr("s")], fs, Color("#7dd3fc"), true))
+	nums.add_child(UI.plbl("💚 %s/%s" % [GameData._num(snappedf(b.hps, 0.1)), tr("s")], fs, Color("#4ade80"), true))
+	cv.add_child(nums)
+	var cap := UI.wrap_lbl(tr("Bars: average over the whole run (pro bot, 15 runs). Numbers: the starting items on a training dummy."), 15 if _wide else 12, Color(1, 1, 1, 0.5))
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if _wide else HORIZONTAL_ALIGNMENT_CENTER
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cv.add_child(cap)
 	# signature skills
 	var sk := UI.panel(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0, 14, 10)
 	sk.mouse_filter = Control.MOUSE_FILTER_IGNORE

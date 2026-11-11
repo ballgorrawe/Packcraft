@@ -58,7 +58,7 @@ func _init(c: String, p := "", df := "normal") -> void:
 	cls = c
 	pet = p if GameData.pets.has(p) else ""
 	diff = GameData.diff_def(df).id
-	mhp = GameData.base_hp + pv("hp")
+	mhp = GameData.base_hp + float(cls_def().get("hp", 0)) + pv("hp")
 	hp = mhp
 	mod = GameData.mods.pick_random()
 	pick_bosses()
@@ -423,7 +423,7 @@ func calc() -> Array:
 
 
 func max_hp() -> float:
-	var m := GameData.base_hp + mhp_mod + pv("hp")
+	var m := GameData.base_hp + float(cls_def().get("hp", 0)) + mhp_mod + pv("hp")
 	var pct := pv("hp_pct")
 	for i in grid_items():
 		m += i.def().pass.hp
@@ -1829,6 +1829,31 @@ func pack_rates() -> Vector2:
 		d += hit / f.cd
 		b += f.shield / f.cd
 	return Vector2(d, b)
+
+
+## Training-dummy read-out: damage, shield and healing per second over `secs` of a real fight (average
+## crits) against a target that never hits back. HP is held at half and the shield emptied every tick, so
+## every heal and shield counts in full. Used by the class picker and the balance tools.
+func bench_rates(secs := 30.0) -> Dictionary:
+	calc()
+	sync_hp()
+	var e0 := {"n": "Dummy", "fam": "Goblin", "hp": 1.0e7, "dps": 0.0, "items": [], "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
+	var keep_hz := hz
+	hz = {}
+	var cs := CombatSim.new(self, {"k": "preview", "e": e0}, true)
+	hz = keep_hz
+	var half := cs.mhp * 0.5
+	var healed := 0.0
+	var shielded := 0.0
+	for _t in roundi(secs * 10.0):
+		cs.php = half
+		cs.shield = 0.0
+		cs.step()
+		healed += maxf(0.0, cs.php - half)
+		shielded += cs.shield
+		if cs.done:
+			break
+	return {"dps": (1.0e7 - cs.ehp) / secs, "sps": shielded / secs, "hps": healed / secs, "hp": mhp}
 
 
 ## Fight forecast: runs the real combat once with average crits (no dice).
