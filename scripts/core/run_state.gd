@@ -878,6 +878,16 @@ func foe_dps(d: int) -> float:
 func foe_base(elite: bool) -> Dictionary:
 	var fam: String = GameData.FOE_NAMES.pick_random()
 	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.06))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.04), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
+	# monsters follow the player's power curve: weak on the first floors, strong once core items
+	# come together after the first boss (data: foe_curve; a mode may override floors 1-4 with early_ease)
+	var curve: Array = GameData.foe_curve
+	if not curve.is_empty() and day >= 1:
+		var f: float = float(curve[mini(day, curve.size()) - 1])
+		var early: Array = diff_def().get("early_ease", [])
+		if day <= early.size():
+			f = float(early[day - 1])
+		e.hp = float(roundi(e.hp * f))
+		e.dps *= f
 	if elite:
 		e.n = "Elite " + fam
 		e.hp = float(roundi(e.hp * 1.5))
@@ -915,6 +925,8 @@ func foe(elite: bool) -> Dictionary:
 ## Normal: bosses 1 · Hard: Elites and bosses 1 · Very Hard: all 1, bosses 2 · Abyss: all 2+, bosses 3+.
 ## A boss keeps its own skill (e.g. the Titan is Armored) and it counts.
 func _add_skills(e: Dictionary) -> void:
+	if day < int(diff_def().get("extras_from", 5)) and str(e.get("tier", "")) != "boss":
+		return   # no monster skills before the first boss (Abyss: from floor 3)
 	var spec = diff_def().get("skills", {}).get(str(e.get("tier", "normal")), 0)
 	var want: int = randi_range(int(spec[0]), int(spec[1])) if spec is Array else int(spec)
 	var got: Array = str(e.get("tr", "")).split(",", false)
@@ -955,6 +967,8 @@ func _add_skills(e: Dictionary) -> void:
 ## Statuses from pets and Ultimates grow with the day (st_mult).
 func _add_mode_extras(e: Dictionary) -> void:
 	e["st_mult"] = 1.0 + day * 0.1
+	if day < int(diff_def().get("extras_from", 5)) and str(e.get("tier", "")) != "boss":
+		return   # no monster pets or Ultimates before the first boss (Abyss: from floor 3)
 	if diff_def().get("pet", false) and not GameData.foe_pets.is_empty():
 		var pid: String = GameData.foe_pets.keys().pick_random()
 		e["pet"] = pid
@@ -1028,6 +1042,10 @@ func boss_foe(b: Dictionary) -> Dictionary:
 	e["fam"] = b.n
 	e["dps"] = b.atk / b.cd * (1.0 + maxf(0.0, b.d - 8) * GameData.late_ramp) * diff_def().dps
 	e["hp"] = float(roundi(b.hp * diff_def().hp))
+	if int(b.d) == 5 and not endless:
+		# the first boss is a little gentler (data: first_boss)
+		e.hp = float(roundi(e.hp * float(GameData.first_boss.get("hp", 1.0))))
+		e.dps *= float(GameData.first_boss.get("dps", 1.0))
 	e["dmg_mult"] = 1.0
 	e["cd_mult"] = 1.0
 	e["gw"] = bp.get("w", 4)
@@ -1188,8 +1206,17 @@ func begin_day() -> void:
 	# harder modes throw an extra Elite road at you more often
 	if randf() < diff_def().elite and day >= ELITE_FROM_DAY and nodes.size() < 3:
 		nodes.append({"k": "elite", "e": foe(true)})
-	if hp < mhp * 0.4 and not nodes.any(func(n): return n.k == "camp"):
-		nodes[nodes.size() - 1] = {"k": "camp"}
+	# under half HP there is always a campfire: it takes the place of an event (never of every fight)
+	if hp < mhp * 0.5 and not nodes.any(func(n): return n.k == "camp"):
+		var slot := -1
+		for i in range(nodes.size() - 1, -1, -1):
+			if EVENTS.has(nodes[i].k):
+				slot = i
+				break
+		if slot < 0:
+			slot = nodes.size() - 1 if nodes.size() > 1 else -1   # days 1-2: the second fight
+		if slot >= 0:
+			nodes[slot] = {"k": "camp"}
 	_plog_morning()
 
 

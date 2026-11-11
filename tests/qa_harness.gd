@@ -58,6 +58,7 @@ func _init() -> void:
 		"trace": _trace_runs()
 		"repro": _repro()
 		"cstats": _class_stats()
+		"one": _one_run()
 	quit(1 if violations.size() > 0 and mode != "mc" else 0)
 
 
@@ -1231,6 +1232,22 @@ func _pro_mw_parts(r: RunState) -> Dictionary:
 			out[rc.b] = true
 			out[rc.c] = true
 	return out
+
+
+# =============================================================== one traced run (--mode=one --cls=x --seed=n --pet=p)
+func _one_run() -> void:
+	tr_on = true
+	tr_days = []
+	tr_day = {}
+	var pet := "pup"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--pet="):
+			pet = a.substr(6)
+	var res := play_run(cls_filter, pet, "pro", repro_seed, false)
+	for d in tr_days.slice(0, 3):
+		print("day %s node=%s foe=%s won=%s foe_hp=%s hp %s->%s road=%s" % [d.get("day"), d.get("node"), d.get("foe", ""), d.get("won"), d.get("foe_hp"), d.get("hp0"), d.get("hp1"), JSON.stringify(d.get("road", []))])
+		print("   pack: ", d.get("pack", {}).get("items", []).map(func(i): return i.id), " fc=", JSON.stringify(d.get("fc", [])))
+	print("win=", res.win)
 
 
 # =============================================================== class stats (--mode=cstats)
