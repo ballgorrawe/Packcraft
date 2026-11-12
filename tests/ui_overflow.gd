@@ -46,6 +46,20 @@ func _run() -> void:
 		main.sel_pet = "bee"
 		main.render()
 		await _check("title_step%d" % st)
+	# ---- class trials: the picker, a trial morning with its steps, the end screen
+	main.title_step = 10
+	main.render()
+	await _check("trial_pick")
+	main.title_step = 0
+	var tr_run := RunState.new("beast", "", "normal")
+	tr_run.start_trial("packlord")
+	main.run = tr_run
+	main.render()
+	await _check("trial_day1")
+	tr_run.end_state = "win"
+	main.render()
+	await _check("trial_end")
+	main.run = null
 
 	# ---- a run in progress with a full-ish pack
 	seed(3)

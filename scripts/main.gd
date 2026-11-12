@@ -339,6 +339,8 @@ func render() -> void:
 	var body: Control
 	if run == null:
 		body = _title_screen()
+	elif run.end_state != "" and run.mode == "trial":
+		body = _trial_end_screen()
 	elif run.end_state != "":
 		_send_play_log(run, run.end_state)
 		body = _end_screen()
@@ -534,6 +536,7 @@ func _title_screen() -> Control:
 		1: body = _hero_screen()
 		2: body = _pet_screen()
 		3: body = _diff_screen()
+		10: body = _trial_screen()
 		_: body = _start_screen()
 	# scrolls on short screens; spacers inside still centre things on tall ones
 	var sc := ScrollContainer.new()
@@ -617,6 +620,13 @@ func _start_screen() -> Control:
 		play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(play)
 	UI.breathe(play, 0.03)
+	var tb := UI.btn("🎓 " + tr("Class trials"), func():
+		title_step = 10
+		render(), false, 24, "blue")
+	tb.custom_minimum_size = Vector2(640 if _wide else 0, 72)
+	if _wide:
+		tb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(tb)
 	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
 		show_how = not show_how
 		render(), false, 17, "purple")))
@@ -843,7 +853,10 @@ func _goals_panel(cls: String, fs: int) -> Control:
 	var h := UI.hbox(8)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(h)
-	var txt := "🔥 " + tr("Ascension %d/%d") % [best, GameData.ascension.size()]
+	var medals := 0
+	for p_id in GameData.classes[cls].paths:
+		medals += 1 if int(SaveGame.get_setting("trial_" + p_id, 0)) > 0 else 0
+	var txt := "🔥 " + tr("Ascension %d/%d") % [best, GameData.ascension.size()] + "   🎓 %d/%d" % [medals, GameData.classes[cls].paths.size()]
 	if deep > 0:
 		txt += "   ♾️ " + tr("Endless: floor %d") % deep
 	var l := UI.wrap_lbl(txt, fs + 1, Color("#ffb37a"))
@@ -1035,6 +1048,138 @@ func _first_tip(key: String, text: String) -> void:
 		return
 	SaveGame.set_setting("tip_" + key, true)
 	toast(text, Color("#7dd3fc"), 7.0)
+
+
+# ---------------------------------------------------------------- class trials
+
+## The trial picker: every class with its three paths; a path shows the medal earned there.
+func _trial_screen() -> Control:
+	var v := UI.vbox(12)
+	var t := UI.title("🎓 " + tr("Class trials"), 36, UI.GOLD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var sub := UI.wrap_lbl(tr("A short guided run for each path: buy what the steps say, put it together, and build the path's Masterwork before the training boss."), 17, UI.MU)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	var grid := GridContainer.new()
+	grid.columns = 3 if _wide else 1
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	for c in GameData.class_keys:
+		var cd: Dictionary = GameData.classes[c]
+		var card := UI.card(Color(cd.col).darkened(0.65), Color(cd.col), 18, 10)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cv := UI.vbox(6)
+		card.add_child(cv)
+		cv.add_child(UI.lbl(cd.hero + " " + tr(cd.n), 20, Color.WHITE, true))
+		var row := UI.hbox(6)
+		cv.add_child(row)
+		for p_id in cd.paths:
+			var pd: Dictionary = GameData.paths[p_id]
+			var medal := int(SaveGame.get_setting("trial_" + p_id, 0))
+			var cls_id: String = c
+			var path_id: String = p_id
+			var b := UI.btn(pd.ic + " " + tr(pd.n) + ("  🥇" if medal >= 2 else "  🎓" if medal == 1 else ""), func():
+				run = RunState.new(cls_id, "", "normal")
+				run.start_trial(path_id)
+				title_step = 0
+				_clear_sel()
+				anim.clear()
+				render(), false, 15, "gold" if medal > 0 else "gray")
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.custom_minimum_size.y = 48
+			row.add_child(b)
+		grid.add_child(card)
+	var back := UI.btn("◀️ " + tr("Back"), func():
+		title_step = 0
+		render(), false, 20, "gray")
+	back.custom_minimum_size = Vector2(0, 64)
+	v.add_child(back)
+	return v
+
+
+## One trial step as a line of text.
+func _trial_step_text(s: Dictionary) -> String:
+	var nm := func(id: String) -> String: return GameData.items[id].ic + " " + tr(GameData.items[id].n)
+	match s.t:
+		"buy":
+			return "🛒 " + tr("Buy %s") % nm.call(s.id) + (" ×%d" % s.n if s.n > 1 else "")
+		"link":
+			if s.get("evo", false):
+				return "🔗 " + tr("Put two %s together: tonight they evolve into %s") % [nm.call(s.ids[0]), nm.call(s.r)]
+			return "🔗 " + tr("Put %s next to %s: tonight they fuse into %s") % [nm.call(s.ids[0]), nm.call(s.ids[1]), nm.call(s.r)]
+		"mw":
+			return "⭐ " + tr("Put %s, %s and %s together: tonight they become the Masterwork %s") % [nm.call(s.ids[0]), nm.call(s.ids[1]), nm.call(s.ids[2]), nm.call(s.r)]
+		"tip":
+			var mw: String = nm.call(run.trial.mw.r)
+			match s.k:
+				"start":
+					return "👋 " + tr("Follow the steps: the goal is %s before the training boss on floor 5. Tap a Golden Link you don't want to switch it off.") % mw
+				"arrange":
+					return "🎒 " + tr("Arrange %s and the rest so they buff each other (try 🪄).") % mw
+				"boss":
+					return "💀 " + tr("Training boss! Beat it with %s.") % mw
+	return ""
+
+
+## Today's steps still to do (at most 3) under a header that counts the done ones. The day's tip
+## comes as a toast when the day starts (see _run_screen), so the panel stays short on phones.
+func _trial_steps_panel() -> Control:
+	var p := UI.card(Color("#1d2a36", 0.95), Color("#6fa3c8"), 16, 8)
+	var v := UI.vbox(3)
+	p.add_child(v)
+	var todo := run.trial_steps().filter(func(x): return x.step.t != "tip")
+	var open := todo.filter(func(x): return not x.done)
+	v.add_child(UI.lbl("📋 " + tr("Trial · day %d of %d") % [run.day, RunState.TRIAL_DAYS] + "   ✔ %d/%d" % [todo.size() - open.size(), todo.size()], 16, Color("#bfe3ff"), true))
+	for st in open.slice(0, 3):
+		v.add_child(UI.wrap_lbl(_trial_step_text(st.step), 15, Color.WHITE))
+	if open.is_empty():
+		v.add_child(UI.wrap_lbl("✅ " + tr("All done for today: head out!"), 15, UI.GOOD))
+	return p
+
+
+## The end of a trial: the medal (🥇 when no Heart was lost), and where to go next.
+func _trial_end_screen() -> Control:
+	var cc := CenterContainer.new()
+	var v := UI.vbox(14)
+	v.custom_minimum_size.x = 640.0
+	cc.add_child(v)
+	var won := run.end_state == "win"
+	var pd: Dictionary = GameData.paths[run.trial.path]
+	if won and not run.has_meta("medal"):
+		var medal := 2 if run.res >= run.max_hearts() else 1
+		run.set_meta("medal", medal)
+		if not _dev:   # layout tests play trials too: they must not hand out medals
+			SaveGame.set_setting("trial_" + run.trial.path, maxi(medal, int(SaveGame.get_setting("trial_" + run.trial.path, 0))))
+	var t := UI.title(("🎓 " + tr("Trial passed!")) if won else ("💀 " + tr("Trial failed")), 48, UI.GOLD if won else UI.BAD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var line: String = pd.ic + " " + tr(pd.n)
+	if won:
+		line += "\n" + (("🥇 " + tr("Gold medal: no Heart lost.")) if int(run.get_meta("medal")) >= 2 else ("🎓 " + tr("Medal earned. Pass without losing a Heart for gold.")))
+	else:
+		line += "\n" + tr("Follow the steps a little closer and try again.")
+	var l := UI.wrap_lbl(line, 20)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	var path_id: String = run.trial.path
+	var cls_id: String = run.cls
+	var again := UI.big_btn("🔁 " + tr("Try this trial again"), func():
+		run = RunState.new(cls_id, "", "normal")
+		run.start_trial(path_id)
+		_clear_sel()
+		anim.clear()
+		render(), "green", 26)
+	v.add_child(again)
+	var other := UI.btn("🎓 " + tr("Other trials"), func():
+		run = null
+		title_step = 10
+		render(), false, 22, "blue")
+	other.custom_minimum_size.y = 64
+	v.add_child(other)
+	return cc
 
 
 ## Highest Ascension open for a class on a mode (beat level N to open N+1).
@@ -1280,7 +1425,7 @@ func _end_buffs_panel() -> Control:
 func _run_screen(fresh: bool) -> Control:
 	run.sync_hp()
 	# everything else on this screen is ~1000px tall; the pack gets the rest (phones vary a lot)
-	cell_px = clampf(floorf((get_viewport_rect().size.y - 930.0) / GameData.H), 34.0, 82.0)
+	cell_px = clampf(floorf((get_viewport_rect().size.y - (1040.0 if run.mode == "trial" else 930.0)) / GameData.H), 34.0, 82.0)
 	if _wide:
 		# PC: the pack has the whole left half to itself
 		var vp := get_viewport_rect().size
@@ -1288,6 +1433,14 @@ func _run_screen(fresh: bool) -> Control:
 		cell_px = clampf(floorf(minf((vp.y - 276.0) / GameData.H, (left_w - 60.0) / GameData.W)), 40.0, 110.0)
 	var root := UI.vbox(10)
 	root.add_child(_memo("hud", _hud_key(), _hud))
+	var steps: Control = null
+	if run.mode == "trial" and run.phase == "morning":
+		steps = _trial_steps_panel()
+		root.add_child(steps)
+		if fresh:
+			for st in run.trial_steps():
+				if st.step.t == "tip":
+					toast(_trial_step_text(st.step), Color("#7dd3fc"), 6.0)
 
 	# backpack
 	var gp := UI.card(Color("#3a2818", 0.96), Color("#7a5232"), 22, 10)
@@ -1393,10 +1546,12 @@ func _run_screen(fresh: bool) -> Control:
 		cols.add_child(left)
 		cols.add_child(right)
 		gp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		for c in [gp, sp, shop]:
+		for c in [gp, sp, shop, steps]:
 			if c != null:
 				root.remove_child(c)
 		left.add_child(gp)
+		if steps != null:
+			right.add_child(steps)   # PC: the trial's steps above the shop
 		if shop != null:
 			right.add_child(shop)
 		right.add_child(sp)

@@ -7,8 +7,8 @@ const SETTINGS_PATH := "user://settings.cfg"
 
 
 static func save_run(r: RunState) -> void:
-	if r == null:
-		return
+	if r == null or r.mode != "":
+		return   # trials and puzzles are not saved, and never touch the saved run
 	if r.end_state != "":
 		clear_run()
 		return

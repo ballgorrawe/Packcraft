@@ -18,6 +18,8 @@ var path := ""                  # chosen class path id, "" until path day
 var pet := ""                   # companion id (a simple always-on buff), "" for none
 var diff := "normal"            # difficulty mode id
 static var locked := {}         # signature item ids not unlocked yet (the game fills it; bots and tests see all)
+var mode := ""                  # "" a normal run, "trial" a class trial, "puzzle" a puzzle (neither is saved)
+var trial := {}                 # the trial's plan (trial_plan): what the shop sells each day and the day's steps
 var asc := 0                    # Ascension level (0 = off): the first `asc` rules of GameData.ascension
 var day := 1
 var gold := 8
@@ -775,6 +777,10 @@ func bag_price(n: int) -> int:
 
 func fill_shop() -> void:
 	shop = shop.filter(func(e): return not e.has("bag"))
+	if mode == "trial":
+		for id in trial.days.get(day, {}).get("buy", []):
+			if shop.size() < 5:
+				shop.append({"id": id, "price": GameData.items[id].cost})
 	while shop.size() < 5:
 		var id := roll_item()
 		shop.append({"id": id, "price": roundi(GameData.items[id].cost * (1.0 + av("shop_price")))})
@@ -942,10 +948,11 @@ func foe(elite: bool, boost := Vector2.ONE) -> Dictionary:
 ## The floor 3/8/13 mini-boss: an Elite, tougher after the first boss (floor 3 stays fair), that
 ## guarantees a Rare-or-better item.
 func mini_foe() -> Dictionary:
-	var e := foe(true, Vector2(0.5, 0.45) if day < 5 else Vector2(0.7, 0.9))   # stays under the next boss
+	var boost := Vector2(0.5, 0.45) if day < 5 else Vector2(0.7, 0.9)   # stays under the next boss
+	boost.y *= 1.0 + av("boss_dps")   # before the pack is tuned, so its items really hit harder
+	var e := foe(true, boost)
 	if day < 5:
 		e.imm = ""   # floor 3 stays fair: no element it shrugs off
-	e.dps *= 1.0 + av("boss_dps")
 	e.n = "Champion " + e.fam
 	return e
 
@@ -1127,6 +1134,136 @@ func pick_bosses() -> void:
 		boss_pick[d] = pools[d].pick_random()
 
 
+# ---------------------------------------------------------------- class trials
+# A short guided run per path: the shop sells what the path's Masterwork is made of, on the days it
+# has to be bought, and each day lists its steps (buy, put two items together, fuse). Floor 5 is a
+# training boss. The plan is worked out from the recipes, so every path gets one without a script.
+
+const TRIAL_DAYS := 5
+const TRIAL_MW_NIGHT := 3        # the Masterwork fuses this night, so floor 4 and the boss have it
+
+
+## How an item is made from shop items: {id, kids: [...], evo} (no kids = buy it).
+static func _trial_tree(id: String) -> Dictionary:
+	var d: Dictionary = GameData.items[id]
+	if d.shop and d.tier <= 2:
+		return {"id": id, "kids": []}
+	for k in GameData.items:
+		if GameData.items[k].evo == id and GameData.items[k].shop:
+			return {"id": id, "kids": [_trial_tree(k), _trial_tree(k)], "evo": true}
+	for r in GameData.recipes:
+		if r.r == id and str(r.get("c", "")) == "" and not r.evo:
+			return {"id": id, "kids": [_trial_tree(r.a), _trial_tree(r.b)], "evo": false}
+	return {"id": id, "kids": []}
+
+
+## A trial's plan: {path, mw: {r, ids}, days: {day: {buy: [ids], steps: [...]}}}. Steps are
+## {t: "buy", id, n} · {t: "link", ids, r, evo} · {t: "mw", ids, r} · {t: "tip", k}.
+static func trial_plan(path_id: String) -> Dictionary:
+	var mw := {}
+	for r in GameData.recipes:
+		if r.path == path_id and str(r.get("c", "")) != "":
+			mw = r
+	if mw.is_empty():
+		return {}
+	var days := {}
+	for d in range(1, TRIAL_DAYS + 1):
+		days[d] = {"buy": [], "steps": []}
+	# a part made with k more fusions is bought on night (MW night - k), so it is ready in time
+	var walk := func(self_ref: Callable, node: Dictionary, ready: int) -> void:
+		if node.kids.is_empty():
+			days[maxi(1, ready)].buy.append(node.id)
+			return
+		for kid in node.kids:
+			self_ref.call(self_ref, kid, ready - 1)
+		days[maxi(1, ready - 1)].steps.append({"t": "link", "ids": node.kids.map(func(k): return k.id), "r": node.id, "evo": node.get("evo", false)})
+	# the Legendary part is built first (bought day 1), the other part on day 2: one new thing a day
+	walk.call(walk, _trial_tree(mw.a), TRIAL_MW_NIGHT - 1)
+	walk.call(walk, _trial_tree(mw.b), TRIAL_MW_NIGHT)
+	# buy steps first in each day, then the joins; the Masterwork, then tips
+	for d in days:
+		var counts := {}
+		for id in days[d].buy:
+			counts[id] = counts.get(id, 0) + 1
+		var buys := counts.keys().map(func(id): return {"t": "buy", "id": id, "n": counts[id]})
+		days[d].steps = buys + days[d].steps
+	days[TRIAL_MW_NIGHT].steps.append({"t": "mw", "ids": [mw.a, mw.b, mw.c], "r": mw.r})
+	days[1].steps.push_front({"t": "tip", "k": "start"})
+	days[TRIAL_MW_NIGHT + 1].steps.append({"t": "tip", "k": "arrange"})
+	days[TRIAL_DAYS].steps.append({"t": "tip", "k": "boss"})
+	return {"path": path_id, "mw": {"r": mw.r, "ids": [mw.a, mw.b, mw.c]}, "days": days}
+
+
+## Turns this new run into the trial of one of its class's paths.
+func start_trial(path_id: String) -> void:
+	mode = "trial"
+	trial = trial_plan(path_id)
+	choose_path(path_id)   # its relic comes now
+	msg = ""
+	for x in range(2, 7):
+		for y in range(1, 6):
+			tiles[Vector2i(x, y)] = true   # room for the whole build from the start
+	expand = 0
+	shop = []
+	_trial_gold()
+	fill_shop()
+	_trial_day()
+
+
+## Enough gold for the day's planned buys (and a little to try something else).
+func _trial_gold() -> void:
+	var need := 4
+	for id in trial.days.get(day, {}).get("buy", []):
+		need += int(GameData.items[id].cost)
+	gold = maxi(gold, need)
+
+
+func _trial_day() -> void:
+	_trial_gold()
+	if day >= TRIAL_DAYS:
+		boss_pick[5] = "Goblin Warlord"   # no spawns or tricks: the training boss tests the build
+		var b = boss_on(5)
+		var e := boss_foe(b)
+		# a training boss sized to your pack: about 20 s of your damage to beat, about 25 s to beat you
+		var bench := bench_rates(12.0)
+		e.hp = float(roundi(clampf(float(bench.get("dps", 10.0)) * 20.0, 120.0, e.hp * 0.4)))
+		e.dps = minf(e.dps * 0.4, mhp / 25.0)
+		e.items = e.items.slice(0, 1)   # one weapon: a small pack its tuning can scale down that far
+		_tune_pack(e)
+		e.sup_mult = 1.0
+		nodes = [{"k": "boss", "e": e}]
+	else:
+		nodes = [{"k": "combat", "e": foe(false, Vector2(0.7, 0.7))}]   # a gentle road: the trial is about the build
+		if hp < mhp * 0.5:
+			nodes.append({"k": "camp"})
+
+
+## Today's trial steps with whether each is done: [{step, done}].
+func trial_steps() -> Array:
+	var out := []
+	var made := func(r: String) -> bool: return owns(r) or links().any(func(l): return l.r == r and not off.has(l.key))
+	for s in trial.get("days", {}).get(day, {}).get("steps", []):
+		var done := false
+		match s.t:
+			"buy":
+				done = count_owned(s.id) >= s.n or made.call(_trial_parent(s.id))
+			"link", "mw":
+				done = made.call(s.r)
+			"tip":
+				done = true
+		out.append({"step": s, "done": done})
+	return out
+
+
+## The item a bought part goes into (so a part already joined counts as bought).
+func _trial_parent(id: String) -> String:
+	for d in trial.get("days", {}):
+		for s in trial.days[d].steps:
+			if s.t == "link" and s.ids.has(id):
+				return s.r
+	return ""
+
+
 ## Most Hearts you can hold (5 in Endless).
 func max_hearts() -> int:
 	return (ENDLESS_HEARTS if endless else MAX_HEARTS) + int(av("hearts"))
@@ -1219,6 +1356,9 @@ func begin_day() -> void:
 			var e: Dictionary = c.pick_random()
 			e.price = ceili(e.price / 2.0)
 			e.sale = true
+	if mode == "trial":
+		_trial_day()
+		return
 	var b = boss_on(day)
 	if b != null:
 		nodes = [{"k": "boss", "e": boss_foe(b)}]
@@ -1829,7 +1969,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 	_pl({"a": "night", "win": win, "hp": hp, "mhp": mhp, "res": res, "lv": lv, "fused": r.rew.filter(func(w): return w.k == "fusion").map(func(w): return w.r), "loot": r.rew.filter(func(w): return w.k == "loot").map(func(w): return w.id)})
 	if not win and hp <= 0:
 		r.over = true
-	elif n.k == "boss" and win and day == GameData.days:
+	elif n.k == "boss" and win and (day == GameData.days or mode == "trial"):
 		r.victory = true
 
 
@@ -1872,7 +2012,8 @@ func next_day() -> void:
 	if result.victory:
 		end_state = "win"
 		return
-	if not (day == GameData.days and not result.win):
+	# a lost final boss (story) or training boss (trial) is fought again the next morning
+	if not ((day == GameData.days or (mode == "trial" and day == TRIAL_DAYS)) and not result.win):
 		day += 1
 	begin_day()
 
