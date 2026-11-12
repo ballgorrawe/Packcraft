@@ -263,6 +263,8 @@ func _gain_res(kind: String, amount: float) -> void:
 		_ev({"t": "res", "v": resv})
 		if sp.has("tide_soak") and resv % 5 == 0:
 			add_status("soaked", 2)   # High Tide: every 5 Tide soaks the enemy
+			gain_shield(3.0)           # ...and washes over you: Shield and a little healing
+			heal(2.0)
 
 
 func _crit(chance: float, mult: float) -> float:

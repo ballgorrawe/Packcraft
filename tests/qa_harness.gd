@@ -14,6 +14,8 @@ var mode := "edge"
 var style := "smart"
 var cls_filter := ""
 var diff := "normal"
+var asc := 0           # --asc=N: Ascension level for every run
+var endless_on := false   # --endless=1: after the day-15 win, keep going until the run ends
 var pro_cfg := {}      # --cfg=key:val,key:val  pro bot weights (aff, cap, fuse, verify, sim_w, rr, min_gain, elite)
 var force_boss := ""   # --boss=Name: every run meets this boss on its day (balance checks)
 var start := 0
@@ -42,6 +44,8 @@ func _init() -> void:
 			"style": style = v
 			"cls": cls_filter = v
 			"diff": diff = v
+			"asc": asc = int(v)
+			"endless": endless_on = v == "1"
 			"start": start = int(v)
 			"count": count = int(v)
 			"runs": runs = int(v)
@@ -319,19 +323,28 @@ func pick_node(r: RunState, st: String) -> int:
 	return best
 
 
+## A pack as text for the Bot Lab dashboard: day#tiles#items, tiles "x.y" and items "id:x:y:rot" joined by ";".
+func _board(r: RunState) -> String:
+	var t := r.tiles.keys().map(func(c): return "%d.%d" % [c.x, c.y])
+	var it := r.grid_items().map(func(i): return "%s:%d:%d:%d" % [i.id, i.x, i.y, i.rot])
+	return "%d#%s#%s" % [r.day, ";".join(t), ";".join(it)]
+
+
 ## Plays one full run. Returns a summary dictionary.
 func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -> Dictionary:
 	seed(seed_v)
-	var r := RunState.new(cls, pet, diff)
+	var r := RunState.new(cls, pet, diff, asc)
 	if force_boss != "":
 		for b in GameData.bosses:
 			if b.n == force_boss:
 				r.boss_pick[b.d] = b.n
-	var info := {"gold": [], "deaths": [], "kinds": {}, "elite_w": 0, "elite_l": 0, "camp_hp": [], "fights": 0, "losses": 0, "max_gold": 0, "bosses": []}
+	var info := {"gold": [], "deaths": [], "kinds": {}, "elite_w": 0, "elite_l": 0, "camp_hp": [], "fights": 0, "losses": 0, "max_gold": 0, "bosses": [], "boards": []}
 	var guard := 0
-	while r.end_state == "" and guard < 60:
+	while r.end_state == "" and guard < (120 if endless_on else 60):
 		guard += 1
 		bot_morning(r, st)
+		if r.day in [5, 10, 15] or (r.endless and r.day % 10 == 0):
+			info.boards.append(_board(r))   # the pack it takes into each boss fight (Bot Lab shows it)
 		if cs_on and r.day in [5, 10, 15] and not cs_marks.has(r.day):
 			cs_marks[r.day] = r.bench_rates(12.0)
 		if checks:
@@ -391,6 +404,10 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 		if tr_on:
 			_tr_end_day(r, n, cs)
 		r.next_day()
+		if endless_on and r.end_state == "win" and not r.endless:
+			r.end_state = ""
+			r.go_endless()
+			r.next_day()
 	var grid_ids := r.grid_items().map(func(i): return i.id)
 	return {
 		"win": r.end_state == "win", "day": r.day, "pet": pet, "cls": cls, "path": r.path,
@@ -422,13 +439,13 @@ func _monte_carlo() -> void:
 			var s: int = i * 1009 + GameData.class_keys.find(cls) * 7 + {"random": 1, "greedy": 2, "smart": 3, "pro": 3}.get(style, 0) * 1000003
 			var res := play_run(cls, pet, style, s, false)
 			var inf: Dictionary = res.info
-			print("RUN|%s|%s|%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s" % [
+			print("RUN|%s|%s|%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [
 				style, diff, cls, pet, s, 1 if res.win else 0, res.day, res.path,
 				",".join(inf.gold.map(func(g): return str(g))),
 				",".join(inf.deaths.map(func(d): return str(d))),
 				",".join(res.items), inf.fights, inf.losses, inf.elite_w, inf.elite_l, inf.max_gold,
 				JSON.stringify(inf.kinds), ",".join(inf.camp_hp.map(func(h): return str(snappedf(h, 0.01)))),
-				"1" if res.cap else "0", res.lv, ",".join(inf.bosses)])
+				"1" if res.cap else "0", res.lv, ",".join(inf.bosses), "~".join(inf.boards)])
 
 
 ## Replays one seed of --mode=inv (find the seed in a VIOLATION line) and prints each event's effect.

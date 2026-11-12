@@ -757,10 +757,8 @@ func roll_tiered(rk: int, min_tier := 0, partner_bias := 0.0) -> String:
 ## so an early Elite gives a Rare, not a Legendary.
 func loot_for(k: String, e := {}) -> String:
 	match k:
-		"elite", "ambush":
-			return roll_tiered(rank() + 1, 1, LOOT_PARTNER_BIAS)
-		"mini":
-			return roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)
+		"elite", "ambush", "mini":
+			return roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)   # worth the risk: Rare or better
 		"boss":
 			return boss_drop(str(e.get("n", "")))
 		"combat":
@@ -892,7 +890,7 @@ func foe_dps(d: int) -> float:
 
 func foe_base(elite: bool) -> Dictionary:
 	var fam: String = GameData.FOE_NAMES.pick_random()
-	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.06) * (1.0 + av("foe_hp")))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.04) * (1.0 + av("foe_dps")), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
+	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.03) * (1.0 + av("foe_hp")))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.01) * (1.0 + av("foe_dps")), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
 	# monsters follow the player's power curve: weak on the first floors, strong once core items
 	# come together after the first boss (data: foe_curve; a mode may override floors 1-4 with early_ease)
 	var curve: Array = GameData.foe_curve
@@ -944,7 +942,7 @@ func foe(elite: bool, boost := Vector2.ONE) -> Dictionary:
 ## The floor 3/8/13 mini-boss: an Elite, tougher after the first boss (floor 3 stays fair), that
 ## guarantees a Rare-or-better item.
 func mini_foe() -> Dictionary:
-	var e := foe(true, Vector2(0.5, 0.45) if day < 5 else Vector2(1.0, 0.95))
+	var e := foe(true, Vector2(0.5, 0.45) if day < 5 else Vector2(0.7, 0.9))   # stays under the next boss
 	if day < 5:
 		e.imm = ""   # floor 3 stays fair: no element it shrugs off
 	e.dps *= 1.0 + av("boss_dps")
@@ -962,6 +960,8 @@ func _add_skills(e: Dictionary) -> void:
 	var want: int = randi_range(int(spec[0]), int(spec[1])) if spec is Array else int(spec)
 	if str(e.get("tier", "")) == "boss":
 		want += int(av("boss_skill"))
+		if endless and day > GameData.days:
+			want += mini(2, int(maxf(0, day - GameData.days - 5) / 15))   # +1 skill from floor 35, +2 from 50
 	var got: Array = str(e.get("tr", "")).split(",", false)
 	if want <= got.size():
 		return
@@ -1079,6 +1079,10 @@ func boss_foe(b: Dictionary) -> Dictionary:
 		# the first boss is a little gentler (data: first_boss)
 		e.hp = float(roundi(e.hp * float(GameData.first_boss.get("hp", 1.0))))
 		e.dps *= float(GameData.first_boss.get("dps", 1.0))
+	if endless and int(b.d) > GameData.days:
+		var dc: Array = GameData.foe_dps_curve
+		var normal_dps: float = foe_dps(b.d) * diff_def().dps * endless_mult(b.d, 0.01) * (float(dc[dc.size() - 1]) if not dc.is_empty() else 1.0)
+		e.dps = maxf(e.dps, normal_dps * 0.95)
 	e["dmg_mult"] = 1.0
 	e["cd_mult"] = 1.0
 	e["gw"] = bp.get("w", 4)
@@ -1161,8 +1165,12 @@ func boss_on(d: int):
 		for x in first:
 			avg_hp += x.hp / first.size()
 			avg_atk += x.atk / x.cd * src.cd / first.size()
-		b.hp = roundf(avg_hp * endless_mult(d, 0.06))
-		b.atk = snappedf(avg_atk * endless_mult(d, 0.04), 0.1)
+		b.hp = roundf(avg_hp * endless_mult(d, 0.03))
+		# never below 1.1x a normal monster of that floor (their HP keeps climbing with the floor)
+		var curve: Array = GameData.foe_curve
+		var normal_hp: float = enemy_hp(d) * (float(curve[curve.size() - 1]) if not curve.is_empty() else 1.0) * endless_mult(d, 0.03)
+		b.hp = maxf(b.hp, roundf(normal_hp * 1.1))
+		b.atk = snappedf(avg_atk * endless_mult(d, 0.01), 0.1)
 		return b
 	var want: String = boss_pick.get(d, "")
 	var first = null
@@ -1741,7 +1749,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 			pass   # their outcome came from the event screen
 		_:
 			if win:
-				var g := (4 + ceili(day / 2.0)) * (2 if n.k in ["elite", "ambush", "mini"] else 1) + (10 if n.k == "boss" else 0)
+				var g := roundi((4 + ceili(day / 2.0)) * (2.5 if n.k in ["elite", "ambush", "mini"] else 1.0)) + (10 if n.k == "boss" else 0)
 				if mod.id == "guild":
 					g = roundi(g * 1.4)
 				if has_sp("gold_engine"):
@@ -1754,6 +1762,11 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					res += 1
 					r.lines.append(I18n.t("❤️ Boss reward: +1 Heart."))
 					r.rew.append({"k": "heart", "v": 1})
+				if n.k == "boss" and day > GameData.days:
+					var ids: Array = GameData.leveling.get("picks", []).map(func(p): return p.id)
+					ids.shuffle()
+					picks.append(ids.slice(0, 3))
+					r.lines.append(I18n.t("♾️ Endless reward: pick a lasting buff."))
 				if n.k == "boss":
 					expand += 4
 					r.lines.append(I18n.t("🎒 Boss reward: +4 pack tiles."))

@@ -252,7 +252,7 @@ func _safe_margins(col_w := COLUMN_W) -> Vector4:
 
 
 ## Slides a message down from the top, then fades it.
-func toast(text: String, col := UI.AC) -> void:
+func toast(text: String, col := UI.AC, hold := 2.2) -> void:
 	if text == "" or toast_layer == null:
 		return
 	for c in toast_layer.get_children():
@@ -280,7 +280,7 @@ func toast(text: String, col := UI.AC) -> void:
 	var tw := p.create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.18)
 	tw.parallel().tween_property(p, "position:y", 24.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(2.2)
+	tw.tween_interval(hold)
 	tw.tween_property(p, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(p.queue_free)
 
@@ -788,6 +788,7 @@ func _hero_screen() -> Control:
 	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 20 if _wide else 16, Color("#efe4cf")))
 	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 20 if _wide else 16, UI.GOLD))
 	cv.add_child(sk)
+	(pic if _wide else cv).add_child(_goals_panel(sel_cls, 18 if _wide else 15))   # PC: under the portrait, where there is room
 	# how it is usually built
 	var bt := UI.title("🧩 " + tr("How to build it"), 24 if _wide else 20, col.lightened(0.3))
 	bt.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -827,6 +828,40 @@ func _hero_screen() -> Control:
 		tw.parallel().tween_property(card, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_hero_dir = 0
 	return v
+
+
+## What a class has left to earn, in one row: highest Ascension opened, deepest Endless floor and
+## its two signature items (locked ones dimmed; their tooltip says how to unlock them).
+func _goals_panel(cls: String, fs: int) -> Control:
+	var best := 0
+	var deep := 0
+	for df in GameData.difficulties:
+		best = maxi(best, _asc_open(cls, df.id))
+		deep = maxi(deep, int(SaveGame.get_setting("endless_best_%s_%s" % [cls, df.id], 0)))
+	var p := UI.panel(Color(0, 0, 0, 0.3), Color("#c8602c"), 2, 14, 8)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := UI.hbox(8)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(h)
+	var txt := "🔥 " + tr("Ascension %d/%d") % [best, GameData.ascension.size()]
+	if deep > 0:
+		txt += "   ♾️ " + tr("Endless: floor %d") % deep
+	var l := UI.wrap_lbl(txt, fs + 1, Color("#ffb37a"))
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(l)
+	var sigs := GameData.items.keys().filter(func(k): return GameData.items[k].cl == cls and GameData.items[k].sig > 0)
+	sigs.sort_custom(func(x, y): return GameData.items[x].sig < GameData.items[y].sig)
+	for id in sigs:
+		var d: Dictionary = GameData.items[id]
+		var got := not RunState.locked.has(id)
+		var chip := UI.item_chip(id, got)
+		if not got:
+			chip.modulate = Color(1, 1, 1, 0.35)
+		chip.tooltip_text = "🎁 " + tr(d.n) + "
+" + (tr(d.d) if got else (tr("Unlock: win with this class.") if d.sig == 1 else tr("Unlock: open Ascension 5 with this class.")))
+		h.add_child(chip)
+	return p
 
 
 func _hero_step(d: int) -> void:
@@ -994,6 +1029,14 @@ func _refresh_locks() -> Array:
 	return before.keys().filter(func(k): return not RunState.locked.has(k))
 
 
+## A one-time explanation the first time a player meets a system (kept per player in the settings).
+func _first_tip(key: String, text: String) -> void:
+	if _dev or SaveGame.get_setting("tip_" + key, false):
+		return
+	SaveGame.set_setting("tip_" + key, true)
+	toast(text, Color("#7dd3fc"), 7.0)
+
+
 ## Highest Ascension open for a class on a mode (beat level N to open N+1).
 func _asc_open(c: String, d: String) -> int:
 	return int(SaveGame.get_setting("asc_%s_%s" % [c, d], 0))
@@ -1003,6 +1046,8 @@ func _asc_open(c: String, d: String) -> int:
 func _asc_picker() -> Control:
 	var open := _asc_open(sel_cls, sel_diff)
 	sel_asc = clampi(sel_asc, 0, open)
+	if open > 0:
+		_first_tip.call_deferred("asc", "🔥 " + tr("Ascension is open! Pick a level with the arrows: each one adds a rule. Win it to open the next."))
 	var p := UI.card(Color("#2a1a12", 0.95), Color("#c8602c") if sel_asc > 0 else UI.BD, 18, 10)
 	var h := UI.hbox(10)
 	p.add_child(h)
@@ -1054,6 +1099,9 @@ func _end_screen() -> Control:
 		var best: int = run.get_meta("best_before")
 		if run.day > int(SaveGame.get_setting(key, 0)):
 			SaveGame.set_setting(key, run.day)
+		var ck := "endless_best_%s_%s" % [run.cls, run.diff]
+		if run.day > int(SaveGame.get_setting(ck, 0)):
+			SaveGame.set_setting(ck, run.day)
 		line = tr("Endless: you reached day %d.") % run.day + "  " + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
 	if w and not run.endless:
 		# Ascension: this win opens the next level for this class on this mode
@@ -1282,6 +1330,7 @@ func _run_screen(fresh: bool) -> Control:
 			else:
 				_clear_sel()
 				arr_plan = plan
+				_first_tip("hint", "🪄 " + tr("Follow the blue outlines: drag each item there yourself. The hint closes when the pack matches."))
 			render(), false, 22, "blue")
 		wand.custom_minimum_size = Vector2(60, 56)
 		wand.tooltip_text = tr("Auto-arrange the pack")
@@ -1318,6 +1367,8 @@ func _run_screen(fresh: bool) -> Control:
 	root.add_child(sp)
 
 	var shop: Control = null
+	if run.phase == "morning" and not run.nodes.is_empty() and run.nodes[0].k == "mini":
+		_first_tip.call_deferred("mini", "👺 " + tr("Mini-boss floor: one tough fight, no other road. Win it for a Rare-or-better item and +1 pack tile."))
 	if run.phase != "morning":
 		arr_plan = {}
 	if not arr_plan.is_empty() and hint_moves().is_empty():

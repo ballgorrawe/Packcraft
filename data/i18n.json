@@ -1216,6 +1216,14 @@
   "New item unlocked: %s": "ปลดล็อกไอเทมใหม่: %s",
   "When an item touching it applies Burn, every item touching the Bellows charges 0.4s.": "เมื่อไอเทมที่ติดกันใส่เผาไหม้ ไอเทมทุกชิ้นที่ติดเครื่องเป่าลมจะชาร์จเร็วขึ้น 0.4 วิ",
   "When it triggers, deals Nature damage equal to 1.5x the enemy's Poison (the Poison stays).": "เมื่อทำงาน ทำดาเมจธรรมชาติ 1.5 เท่าของพิษบนศัตรู (พิษไม่หาย)",
-  "+1 Tide each time a Sea creature attacks. Sea creatures deal +3% damage per Tide (max 50%). Every 5 Tide the enemy gets 2 Soaked.": "ได้ กระแสน้ำ 1 ทุกครั้งที่สัตว์ทะเลโจมตี สัตว์ทะเลดาเมจ +3% ต่อ กระแสน้ำ (สูงสุด 50%) ทุก 5 กระแสน้ำ ศัตรูเปียกโชก +2"
+  "Unlock: win with this class.": "ปลดล็อก: ชนะด้วยคลาสนี้",
+  "Unlock: open Ascension 5 with this class.": "ปลดล็อก: เปิดระดับท้าทาย 5 ของคลาสนี้",
+  "Mini-boss floor: one tough fight, no other road. Win it for a Rare-or-better item and +1 pack tile.": "ชั้นมินิบอส: ไฟต์หนัก 1 ไฟต์ ไม่มีทางอื่น ชนะได้ไอเทมแรร์ขึ้นไปแน่นอน + ช่องกระเป๋า 1",
+  "Follow the blue outlines: drag each item there yourself. The hint closes when the pack matches.": "ลากไอเทมไปวางตามกรอบสีฟ้าเอง คำใบ้จะปิดเองเมื่อจัดครบ",
+  "Ascension is open! Pick a level with the arrows: each one adds a rule. Win it to open the next.": "ปลดระดับท้าทายแล้ว! กดลูกศรเลือกระดับ แต่ละระดับเพิ่มกฎ 1 ข้อ ชนะเพื่อปลดระดับถัดไป",
+  "♾️ Endless reward: pick a lasting buff.": "♾️ รางวัล Endless: เลือกบัฟถาวร 1 อย่าง",
+  "+1 Tide each time a Sea creature attacks. Sea creatures deal +3% damage per Tide (max 50%). Every 5 Tide the enemy gets 2 Soaked and you gain 3 Shield and heal 2.": "ได้ กระแสน้ำ 1 ทุกครั้งที่สัตว์ทะเลโจมตี สัตว์ทะเลดาเมจ +3% ต่อ กระแสน้ำ (สูงสุด 50%) ทุก 5 กระแสน้ำ ศัตรูเปียกโชก +2 และเราได้โล่ 3 ฟื้นเลือด 2",
+  "Ascension %d/%d": "ระดับท้าทาย %d/%d",
+  "Endless: floor %d": "ไม่รู้จบ: ชั้น %d"
  }
 }
