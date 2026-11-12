@@ -1839,19 +1839,8 @@ static func elem_mult(e: Dictionary, dt: String) -> float:
 
 ## Rough damage / shield per second of the current pack (for drag previews and the stats line).
 func pack_rates() -> Vector2:
-	calc()
-	var d := 0.0
-	var b := 0.0
-	for i in grid_items():
-		var t: Dictionary = i.def()
-		if t.cd <= 0:
-			continue
-		var f := eff(i)
-		var hit: float = f.dmg * (1.0 + f.crit * (f.critx - 1.0))
-		hit += f.st.get("burn", 0.0) * 3.0 + f.st.get("poison", 0.0) * 3.0
-		d += hit / f.cd
-		b += f.shield / f.cd
-	return Vector2(d, b)
+	var r := arrange_rates()
+	return Vector2(r.x, r.y)
 
 
 ## Training-dummy read-out: damage, shield and healing per second over `secs` of a real fight (average
@@ -1927,37 +1916,60 @@ func preview(h: PItem, x: int, y: int) -> Dictionary:
 
 
 # ---------------------------------------------------------------- auto-arrange
-# The 🪄 button: re-places the items already in the pack into the best spots (the bot's own placement
-# rule). Never loses an item and never makes the pack weaker: if the new layout is not better, or not
-# every item finds room, the old layout stays.
+# The 🪄 button: plans the best pack it can find from the pack AND storage (it may swap a weaker pack
+# item out to storage), always lets recipe pairs touch so they fuse tonight, and is shown as a preview
+# first (plan_arrange), then applied (apply_arrange). Never loses an item and never offers a weaker pack.
 
-## How good the pack is right now: damage/s + 0.7 x shield/s, plus 4 per Golden Link.
+const ARR_LINK := 30.0     # a Golden Link counts like this much damage/s: pairs always end up touching
+const ARR_MW := 6.0        # each touch between two pieces of the same Masterwork
+const ARR_PULL := 8        # storage items tried (best tiers first), keeps the button quick
+
+
+## Damage/s, shield/s and heal/s of the pack (average crits).
+func arrange_rates() -> Vector3:
+	var out := Vector3.ZERO
+	for i in calc():
+		if i.def().cd <= 0:
+			continue
+		var f := eff(i)
+		out.x += (f.dmg * (1.0 + f.crit * (f.critx - 1.0)) + f.st.get("burn", 0.0) * 3.0 + f.st.get("poison", 0.0) * 3.0) / f.cd
+		out.y += f.shield / f.cd
+		out.z += f.heal / f.cd
+	return out
+
+
+## How good the pack is: damage/s + 0.7 x shield/s + 0.6 x heal/s, plus a lot per Golden Link.
 func arrange_score() -> float:
-	var pr := pack_rates()
-	var links_n := 0
+	var r := arrange_rates()
+	var n := 0
 	for l in links():
 		if not off.has(l.key):
-			links_n += 1
-	return pr.x + 0.7 * pr.y + 4.0 * links_n
+			n += 1
+	return r.x + 0.7 * r.y + 0.6 * r.z + ARR_LINK * n
 
 
-## Re-places every pack item. Returns true when the pack changed (it only changes for the better).
-func auto_arrange() -> bool:
-	var its := grid_items()
-	if its.size() < 2:
-		return false
-	var old := its.map(func(i): return [i, i.x, i.y, i.rot])
+## The best layout found, without changing anything. Empty when the pack is already the best it can find.
+## {"moves": [[item, loc, x, y, rot]...], "before"/"after": Vector3 rates, "in"/"out": item ids moved
+## from/to storage, "combos": what touches what in the new layout (see arrange_combos)}
+func plan_arrange() -> Dictionary:
+	var all := items.filter(func(i): return i.loc == "grid" or i.loc == "storage")
+	var old := _arr_snap(all)
+	var pack := grid_items()
+	if pack.is_empty() and storage_items().is_empty():
+		return {}
+	var r0 := arrange_rates()
 	var best_score := arrange_score()
 	var best: Array = []
-	# two placing orders: biggest first (room for awkward shapes) and most valuable first
+	# two placing orders for the pack's own items: recipe pieces and big shapes first, or best tiers first
 	var orders := [
-		func(a: PItem, b: PItem) -> bool: return a.cells().size() * 10 + a.def().tier > b.cells().size() * 10 + b.def().tier,
-		func(a: PItem, b: PItem) -> bool: return a.def().tier * 10 + a.cells().size() > b.def().tier * 10 + b.cells().size(),
+		func(a: PItem, b: PItem) -> bool: return _arr_key(a, true) > _arr_key(b, true),
+		func(a: PItem, b: PItem) -> bool: return _arr_key(a, false) > _arr_key(b, false),
 	]
 	for order in orders:
-		for it in its:
+		_arr_load(old)
+		for it in pack:
 			it.loc = "held"
-		var todo := its.duplicate()
+		var todo := pack.duplicate()
 		todo.sort_custom(order)
 		var ok := true
 		for it in todo:
@@ -1965,35 +1977,177 @@ func auto_arrange() -> bool:
 			if s.is_empty():
 				ok = false
 				break
-			it.loc = "grid"
-			it.x = s.x
-			it.y = s.y
-			it.rot = s.rot
-		if ok:
-			var sc := arrange_score()
-			if sc > best_score + 0.01:
-				best_score = sc
-				best = its.map(func(i): return [i, i.x, i.y, i.rot])
-	# keep the best layout found, or put the old one back
-	var use: Array = best if not best.is_empty() else old
-	for it in its:
-		it.loc = "held"
-	for e in use:
+			_arr_put(it, s)
+		if not ok:
+			continue
+		_arr_pull()
+		var sc := arrange_score()
+		if sc > best_score + 0.05:
+			best_score = sc
+			best = _arr_snap(all)
+	var plan := {}
+	if not best.is_empty():
+		_arr_load(best)
+		var ins := []
+		var outs := []
+		for i in old.size():
+			if old[i][1] == "storage" and best[i][1] == "grid":
+				ins.append(old[i][0].id)
+			elif old[i][1] == "grid" and best[i][1] == "storage":
+				outs.append(old[i][0].id)
+		for id in ins.duplicate():
+			if outs.has(id):   # two copies traded places: not worth listing
+				ins.erase(id)
+				outs.erase(id)
+		plan = {"moves": best, "undo": old, "before": r0, "after": arrange_rates(), "in": ins, "out": outs, "combos": arrange_combos()}
+	_arr_load(old)
+	return plan
+
+
+## Puts a planned layout (plan.moves) or the old one (plan.undo) in place; `chosen` logs the player's pick.
+func apply_arrange(snap: Array, chosen := false) -> void:
+	_arr_load(snap)
+	if chosen:
+		_pl({"a": "arrange", "pack": plog_pack(), "store": storage_items().map(func(q): return q.id)})
+
+
+## What works together in the current layout: Golden Links (fuse tonight) and touching buffs.
+## [{"k": "link", "ids": [a, b(, c)], "r": result id, "mw": bool}, {"k": "buff", "id": source, "to": [ids], "bf": buff}]
+func arrange_combos() -> Array:
+	var out := []
+	for l in links():
+		if off.has(l.key):
+			continue   # toggled off: it will not fuse tonight
+		var ids := [l.a.id, l.b.id]
+		if l.get("c") != null:
+			ids.append(l.c.id)
+		out.append({"k": "link", "ids": ids, "r": l.r, "mw": l.get("mw", false), "evo": l.get("evo", false)})
+	var g := grid_items()
+	for it in g:
+		var d: Dictionary = it.def()
+		for bf in d.adj:
+			var to := []
+			for t in g:
+				if t != it and adj(it, t) and t.def().tags.has(bf.tag):
+					to.append(t.id)
+			if not to.is_empty():
+				out.append({"k": "buff", "id": it.id, "to": to, "bf": bf})
+	return out
+
+
+func _arr_snap(all: Array) -> Array:
+	return all.map(func(i): return [i, i.loc, i.x, i.y, i.rot])
+
+
+func _arr_load(snap: Array) -> void:
+	for e in snap:
+		e[0].loc = "held"
+	for e in snap:
 		var it: PItem = e[0]
-		it.loc = "grid"
-		it.x = e[1]
-		it.y = e[2]
-		it.rot = e[3]
+		it.loc = e[1]
+		it.x = e[2]
+		it.y = e[3]
+		it.rot = e[4]
 	calc()
-	return not best.is_empty()
 
 
-## Best free spot for a held item: the most damage + shield it adds there, plus a bonus for a Golden
-## Link it completes and for sitting next to another piece of the same Masterwork.
+func _arr_put(it: PItem, s: Dictionary) -> void:
+	it.loc = "grid"
+	it.x = s.x
+	it.y = s.y
+	it.rot = s.rot
+
+
+## Placing order: recipe pieces first (when `pairs`), then size or tier.
+func _arr_key(it: PItem, pairs: bool) -> int:
+	var k := 0
+	if pairs:
+		k += 1000 if recipe_partner_owned(it.id, true) else 0
+		return k + it.cells().size() * 10 + it.def().tier
+	return it.def().tier * 10 + it.cells().size()
+
+
+## Items the planner never takes out of the pack: their worth isn't in damage/shield/heal numbers
+## (relics, specials, ⭐ growers, charge/haste/ramp items, treasure).
+func _arr_keep(it: PItem) -> bool:
+	var d: Dictionary = it.def()
+	var on: Dictionary = d.on
+	if d.cd <= 0 and d.adj.is_empty() and d.all.is_empty():
+		return true   # potions, gold makers, Max HP / regen passives
+	return d.relic or d.sp != "" or not d.grow.is_empty() or on.charge > 0 or not on.haste.is_empty() or on.ramp > 0 or d.tags.has("Treasure")
+
+
+## Storage into the pack: into free room when it helps, else in place of a weaker pack item.
+func _arr_pull() -> void:
+	var cands := storage_items()
+	cands.sort_custom(func(a: PItem, b: PItem) -> bool: return _arr_key(a, true) > _arr_key(b, true))
+	var linked := {}
+	for l in links():
+		for p in [l.a, l.b, l.get("c")]:
+			if p != null:
+				linked[p] = true
+	var queue := cands.slice(0, ARR_PULL)
+	var swapped := []
+	for s in queue:
+		var base := arrange_score()
+		s.loc = "held"
+		var spot := _arrange_spot(s)
+		if not spot.is_empty():
+			_arr_put(s, spot)
+			if arrange_score() > base + 0.3:
+				_arr_mark_links(linked)
+				continue
+			s.loc = "held"
+		# swap: the pack item whose place it takes for the biggest gain
+		var best_v := base + 0.5
+		var best_sw: Array = []
+		for p in grid_items():
+			if _arr_keep(p) or linked.has(p) or p.def().tier > s.def().tier:
+				continue
+			p.loc = "storage"
+			var sp2 := _arrange_spot(s)
+			if not sp2.is_empty():
+				_arr_put(s, sp2)
+				var v := arrange_score()
+				if v > best_v:
+					best_v = v
+					best_sw = [p, sp2]
+				s.loc = "held"
+			p.loc = "grid"
+		if best_sw.is_empty():
+			s.loc = "storage"
+		else:
+			best_sw[0].loc = "storage"
+			_arr_put(s, best_sw[1])
+			swapped.append(best_sw[0])
+			_arr_mark_links(linked)
+		calc()
+	# a swapped-out item may still fit somewhere else
+	for p in swapped:
+		var base := arrange_score()
+		p.loc = "held"
+		var spot := _arrange_spot(p)
+		if not spot.is_empty():
+			_arr_put(p, spot)
+			if arrange_score() > base + 0.3:
+				continue
+		p.loc = "storage"
+		calc()
+
+
+func _arr_mark_links(linked: Dictionary) -> void:
+	for l in links():
+		for p in [l.a, l.b, l.get("c")]:
+			if p != null:
+				linked[p] = true
+
+
+## Best free spot for a held item: the most damage + shield + heal it adds there, plus a lot for a
+## Golden Link it completes and a bonus for touching another piece of the same Masterwork.
 func _arrange_spot(it: PItem) -> Dictionary:
 	var best := {}
-	var base_pr := pack_rates()
-	var base := base_pr.x + 0.7 * base_pr.y
+	var b0 := arrange_rates()
+	var base := b0.x + 0.7 * b0.y + 0.6 * b0.z
 	var partner := recipe_partner_owned(it.id, true)
 	var mw_parts := {}
 	for rc in GameData.recipes:
@@ -2003,6 +2157,7 @@ func _arrange_spot(it: PItem) -> Dictionary:
 					mw_parts[q] = true
 	var keep_rot := it.rot
 	var seen_shapes := {}
+	var lone_g := {}   # rotation -> gain at a spot that touches nothing
 	for rot in 4:
 		var key := str(GameData.shape(it.id, rot).c)
 		if seen_shapes.has(key):
@@ -2016,14 +2171,21 @@ func _arrange_spot(it: PItem) -> Dictionary:
 				it.loc = "grid"
 				it.x = x
 				it.y = y
-				var pr := pack_rates()
-				var g := pr.x + 0.7 * pr.y - base
+				var lone := neighbours(it).is_empty()
+				var g: float
+				if lone and lone_g.has(rot):
+					g = lone_g[rot]
+				else:
+					var r := arrange_rates()
+					g = r.x + 0.7 * r.y + 0.6 * r.z - base
+					if lone:
+						lone_g[rot] = g
 				if partner and links().any(func(l): return l.a == it or l.b == it or l.get("c") == it):
-					g += 4.0
+					g += ARR_LINK
 				if not mw_parts.is_empty():
 					for nb in neighbours(it):
 						if mw_parts.has(nb.id):
-							g += 2.0
+							g += ARR_MW
 				it.loc = "held"
 				if best.is_empty() or g > best.g:
 					best = {"x": x, "y": y, "rot": rot, "g": g}

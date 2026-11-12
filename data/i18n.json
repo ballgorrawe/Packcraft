@@ -1032,7 +1032,6 @@
   "SURVIVED": "รอดมาได้",
   "Veteran": "ชำนาญ",
   "Nightmare": "ฝันร้าย",
-  "Arranged: damage %+.1f/s · shield %+.1f/s": "จัดแล้ว: ดาเมจ %+.1f/วิ · โล่ %+.1f/วิ",
   "Already the best layout I can find.": "จัดแบบนี้ดีที่สุดแล้ว",
   "Auto-arrange the pack": "จัดกระเป๋าอัตโนมัติ",
   "Elite Cave Rat": "หนูถ้ำอีลิท",
@@ -1044,6 +1043,15 @@
   "Elite Slime": "สไลม์อีลิท",
   "Ambusher Slime": "สไลม์ซุ่มโจมตี",
   "Elite Skeleton": "โครงกระดูกอีลิท",
-  "Ambusher Skeleton": "โครงกระดูกซุ่มโจมตี"
+  "Ambusher Skeleton": "โครงกระดูกซุ่มโจมตี",
+  "Cancel": "ยกเลิก",
+  "Best layout": "แบบจัดที่ดีที่สุด",
+  "Use this layout": "ใช้แบบนี้",
+  "fuses tonight": "รวมร่างคืนนี้",
+  "From storage: ": "เอาจากกล่อง: ",
+  "To storage: ": "เก็บลงกล่อง: ",
+  "No items buff each other here: the layout just packs the strongest items.": "แบบนี้ไม่มีของที่บัฟกัน แค่จัดของที่แรงที่สุดลงกระเป๋า",
+  "Arranged: damage %+.1f/s · shield %+.1f/s": "จัดแล้ว: ดาเมจ %+.1f/วิ · โล่ %+.1f/วิ",
+  "Looking for the best layout...": "กำลังหาแบบจัดที่ดีที่สุด..."
  }
 }

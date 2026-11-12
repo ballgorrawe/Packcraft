@@ -15,6 +15,8 @@ var sel_diff := "normal"
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
+var arr_plan := {}             # 🪄 preview: the planned layout is in the pack until Use / Cancel
+var _arr_busy := false
 var book_item := ""          # recipe book: item whose details are open
 var foe_info_e := {}      # the monster whose Details popup is open (road card)
 var book_page := 0
@@ -109,7 +111,7 @@ func _process(delta: float) -> void:
 	for k in pops:
 		pops[k] += delta
 	# debounced autosave: one write per burst of actions, never in the middle of a drag
-	if _save_dirty and drag_item == null and Time.get_ticks_msec() - _save_at >= SAVE_DELAY_MS:
+	if _save_dirty and drag_item == null and arr_plan.is_empty() and Time.get_ticks_msec() - _save_at >= SAVE_DELAY_MS:
 		_save_dirty = false
 		if not _dev and run != null:
 			SaveGame.save_run(run)
@@ -134,7 +136,13 @@ func _autosave() -> void:
 	if drag_item != null:
 		_cancel_drag()
 		_end_drag()
+	if arr_plan.is_empty():
+		SaveGame.save_run(run)
+		return
+	# mid 🪄 preview (switching tabs/apps lands here too): save the pack as it was, keep the preview up
+	run.apply_arrange(arr_plan.undo)
 	SaveGame.save_run(run)
+	run.apply_arrange(arr_plan.moves)
 
 
 func _notification(what: int) -> void:
@@ -1183,18 +1191,26 @@ func _run_screen(fresh: bool) -> Control:
 		book_item = ""
 		render(), false, 22, "purple")
 	book.custom_minimum_size = Vector2(60, 56)
-	if run.phase == "morning" and run.grid_items().size() >= 2:
-		# 🪄 auto-arrange: the pack's items into their best spots (never loses an item, never weaker)
+	if run.phase == "morning" and arr_plan.is_empty() and run.items.any(func(i): return i.loc == "grid" or i.loc == "storage"):
+		# 🪄 auto-arrange: plans the best pack from pack + storage and shows it before anything changes
 		var wand := UI.btn("🪄", func():
-			if drag_item != null:
+			if drag_item != null or _arr_busy:
 				return
-			var before := run.pack_rates()
-			if run.auto_arrange():
-				var after := run.pack_rates()
-				_clear_sel()
-				toast("🪄 " + tr("Arranged: damage %+.1f/s · shield %+.1f/s") % [after.x - before.x, after.y - before.y], UI.GOOD)
-			else:
+			# planning takes a moment on the web: say so first, then think
+			_arr_busy = true
+			toast("🪄 " + tr("Looking for the best layout..."), UI.MU)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			_arr_busy = false
+			if run == null or run.phase != "morning":
+				return
+			var plan := run.plan_arrange()
+			if plan.is_empty():
 				toast("🪄 " + tr("Already the best layout I can find."), UI.MU)
+			else:
+				_clear_sel()
+				run.apply_arrange(plan.moves)
+				arr_plan = plan
 			render(), false, 22, "blue")
 		wand.custom_minimum_size = Vector2(60, 56)
 		wand.tooltip_text = tr("Auto-arrange the pack")
@@ -1231,7 +1247,12 @@ func _run_screen(fresh: bool) -> Control:
 	root.add_child(sp)
 
 	var shop: Control = null
-	if run.phase == "morning":
+	if run.phase != "morning":
+		arr_plan = {}
+	if not arr_plan.is_empty():
+		shop = _arrange_panel()
+		root.add_child(shop)
+	elif run.phase == "morning":
 		shop = _memo("shop", _shop_key(), func(): return _shop_panel(fresh)) if not fresh and not _shop_anim else _memo_put("shop", _shop_key(), _shop_panel(fresh))
 		sell_zone = shop
 		sell_lbl = shop.get_meta("sell_lbl")
@@ -1561,6 +1582,71 @@ func _effects_overlay() -> Control:
 		cv.add_child(row)
 	v.add_child(card)
 	return o[0]
+
+
+## 🪄 preview (in the shop's place): the new layout is already shown in the pack; what changes, the
+## combos it makes, and Use / Cancel.
+func _arrange_panel() -> Control:
+	var p := UI.card(Color("#1d2a36", 0.97), Color("#6fa3c8"), 22, 12)
+	var v := UI.vbox(10)
+	p.add_child(v)
+	var head := UI.hbox(8)
+	head.add_child(UI.title("🪄 " + tr("Best layout"), 24, Color("#bfe3ff")))
+	head.add_child(UI.spacer())
+	v.add_child(head)
+	var a: Vector3 = arr_plan.before
+	var b: Vector3 = arr_plan.after
+	var rates := UI.hbox(6)
+	for r in [["⚔️", a.x, b.x, Color("#ff9b5e")], ["🛡️", a.y, b.y, Color("#7dd3fc")], ["💚", a.z, b.z, Color("#4ade80")]]:
+		if r[1] <= 0.05 and r[2] <= 0.05:
+			continue
+		var d: float = r[2] - r[1]
+		rates.add_child(_chip("%s %.1f → %.1f (%+.1f)" % [r[0], r[1], r[2], d], r[3] if d >= -0.05 else UI.BAD))
+	v.add_child(rates)
+	var nm := func(id: String) -> String: return GameData.items[id].ic + " " + tr(GameData.items[id].n)
+	var lines := []   # [text, colour]
+	if not arr_plan["in"].is_empty():
+		lines.append(["📥 " + tr("From storage: ") + ", ".join(arr_plan["in"].map(nm)), UI.GOOD])
+	if not arr_plan.out.is_empty():
+		lines.append(["📤 " + tr("To storage: ") + ", ".join(arr_plan.out.map(nm)), UI.MU])
+	for c in arr_plan.combos:
+		if c.k == "link":
+			var t: String = "🔗 " + " + ".join(c.ids.map(nm)) + " → " + nm.call(c.r)
+			lines.append([t + "  (" + tr("fuses tonight") + ")", UI.GOLD])
+	for c in arr_plan.combos:
+		if c.k == "buff":
+			lines.append(["✨ " + nm.call(c.id) + " → " + ", ".join(c.to.map(nm)) + "  " + GameData._buff_short(c.bf), Color("#d9c49a")])
+	if arr_plan.combos.is_empty():
+		lines.append([tr("No items buff each other here: the layout just packs the strongest items."), UI.MU])
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size.y = 150
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.set_meta("scrolls", true)
+	var lv := UI.vbox(4)
+	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for ln in lines:
+		lv.add_child(UI.wrap_lbl(ln[0], 16, ln[1]))
+	sc.add_child(lv)
+	v.add_child(sc)
+	var bt := UI.hbox(10)
+	var no := UI.btn("↩️ " + tr("Cancel"), func():
+		run.apply_arrange(arr_plan.undo)
+		arr_plan = {}
+		render(), false, 20, "red")
+	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	no.custom_minimum_size.y = 58
+	var yes := UI.btn("✅ " + tr("Use this layout"), func():
+		run.apply_arrange(arr_plan.moves, true)
+		arr_plan = {}
+		toast("🪄 " + tr("Arranged: damage %+.1f/s · shield %+.1f/s") % [b.x - a.x, b.y - a.y], UI.GOOD)
+		render(), false, 20, "green")
+	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	yes.custom_minimum_size.y = 58
+	bt.add_child(no)
+	bt.add_child(yes)
+	v.add_child(bt)
+	return p
 
 
 func _held_text() -> String:
@@ -3136,7 +3222,7 @@ func _owned_col(owned: bool, col: Color) -> Color:
 # =============================================================== input / drag
 
 func _on_grid_press(cell: Vector2i) -> void:
-	if drag_item != null:
+	if drag_item != null or not arr_plan.is_empty():
 		return
 	var it: PItem = run.occ().get(cell)
 	if run.phase != "morning":
@@ -3159,7 +3245,7 @@ func _on_grid_press(cell: Vector2i) -> void:
 
 
 func _press(p: Dictionary) -> void:
-	if drag_item != null:
+	if drag_item != null or not arr_plan.is_empty():
 		return
 	pending = p
 	press_pos = get_global_mouse_position()

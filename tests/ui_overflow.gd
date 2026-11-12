@@ -69,6 +69,18 @@ func _run() -> void:
 	await _check("morning_inspect")
 	main.inspect_id = ""
 	main.inspect_idx = -1
+	# 🪄 preview: the planned pack with its combo list and Use / Cancel in the shop's place
+	var plan := r.plan_arrange()
+	if not plan.is_empty():
+		r.apply_arrange(plan.moves)
+		main.arr_plan = plan
+		main.render()
+		await _check("arrange_preview")
+		r.apply_arrange(plan.undo)
+		main.arr_plan = {}
+	else:
+		issues += 1
+		print("  [arrange_preview] NO PLAN for the test pack")
 	main.show_book = true
 	main.render()
 	await _check("book")
