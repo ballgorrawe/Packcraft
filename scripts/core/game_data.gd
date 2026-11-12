@@ -16,6 +16,7 @@ const WARD_CUT := 0.3     # Warded monsters take this much less Magic damage
 
 static var loaded := false
 static var items := {}
+static var ascension: Array = []        # {k, v, d}: level N turns on the first N rules
 static var recipes: Array = []          # {a, b, r, path}; evolutions are added as {a: x, b: x, r: evo, evo: true}
 static var classes := {}
 static var class_keys: Array = []
@@ -150,6 +151,7 @@ static func ensure_loaded() -> void:
 	foe_dps_curve = d.get("foe_dps_curve", foe_curve)
 	first_boss = d.get("first_boss", {})
 	leveling = d.get("leveling", {})
+	ascension = d.get("ascension", [])
 	W = int(d.grid_w)
 	H = int(d.grid_h)
 	loaded = true
@@ -189,7 +191,7 @@ static func _norm_item(src: Dictionary) -> Dictionary:
 	var ps: Dictionary = src.get("pass", {})
 	return {
 		"n": src.n, "ic": src.ic, "tier": int(src.t), "lv": int(src.get("lv", 1)), "cost": int(src.cost),
-		"cl": str(src.get("cl", "")), "shop": int(src.get("shop", 0)) == 1, "relic": int(src.get("relic", 0)) == 1,
+		"cl": str(src.get("cl", "")), "shop": int(src.get("shop", 0)) == 1, "relic": int(src.get("relic", 0)) == 1, "sig": int(src.get("sig", 0)),
 		"c": _cells(src.c), "tags": src.tags, "cd": float(src.get("cd", 0.0)), "once": int(src.get("once", 0)) == 1,
 		"on": _norm_on(src.get("on", {})), "adj": _buffs(src.get("adj", [])), "all": _buffs(src.get("all", [])),
 		"pass": {

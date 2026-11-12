@@ -188,6 +188,21 @@ func _draw() -> void:
 		_aura_marks(it, shp, base, center, occ, pulse)
 		draw_set_transform(Vector2.ZERO)
 
+	# 🪄 hint: a blue outline (and a faint icon) where each item should go; 📤 on items headed to storage
+	if morning and main.has_method("hint_moves"):
+		var hc := Color(0.49, 0.83, 0.99, 0.55 + 0.4 * pulse)
+		for e in main.hint_moves():
+			var it: PItem = e[0]
+			if e[1] == "storage":
+				if it.loc == "grid":
+					var mc := Vector2i(it.x, it.y) + GameData.mid_cell(it.id, it.rot)
+					_text("📤", cell_rect(mc).grow(-cell * 0.3).grow_individual(cell * 0.3, -cell * 0.1, 0, cell * 0.1), cell * 0.32, Color.WHITE)
+				continue
+			for sc in GameData.shape(it.id, e[4]).c:
+				draw_rect(cell_rect(Vector2i(e[2], e[3]) + sc).grow(-6), hc, false, 3.0)
+			var gm := Vector2i(e[2], e[3]) + GameData.mid_cell(it.id, e[4])
+			_text(it.def().ic, cell_rect(gm), cell * 0.42, Color(1, 1, 1, 0.45))
+
 
 ## Aura items: a corner badge with the tag they buff, and a green arrow on every side that touches
 ## an item they are buffing right now. Buffed items get a small green ▲ in the other corner.

@@ -12,10 +12,11 @@ var run: RunState
 var sel_cls := ""
 var sel_pet := ""
 var sel_diff := "normal"
+var sel_asc := 0               # Ascension picked on the difficulty step
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
-var arr_plan := {}             # 🪄 preview: the planned layout is in the pack until Use / Cancel
+var arr_plan := {}             # 🪄 hint: the best layout found, drawn as outlines until closed or done
 var _arr_busy := false
 var book_item := ""          # recipe book: item whose details are open
 var foe_info_e := {}      # the monster whose Details popup is open (road card)
@@ -76,6 +77,7 @@ func _ready() -> void:
 	sel_cls = GameData.class_keys[0]
 	sel_pet = SaveGame.get_setting("pet", GameData.pet_keys[0] if not GameData.pet_keys.is_empty() else "")
 	sel_diff = SaveGame.get_setting("diff", "normal")
+	_refresh_locks()
 	_bg = UI.background()
 	add_child(_bg)
 	ghost_layer = CanvasLayer.new()
@@ -111,7 +113,7 @@ func _process(delta: float) -> void:
 	for k in pops:
 		pops[k] += delta
 	# debounced autosave: one write per burst of actions, never in the middle of a drag
-	if _save_dirty and drag_item == null and arr_plan.is_empty() and Time.get_ticks_msec() - _save_at >= SAVE_DELAY_MS:
+	if _save_dirty and drag_item == null and Time.get_ticks_msec() - _save_at >= SAVE_DELAY_MS:
 		_save_dirty = false
 		if not _dev and run != null:
 			SaveGame.save_run(run)
@@ -136,13 +138,7 @@ func _autosave() -> void:
 	if drag_item != null:
 		_cancel_drag()
 		_end_drag()
-	if arr_plan.is_empty():
-		SaveGame.save_run(run)
-		return
-	# mid 🪄 preview (switching tabs/apps lands here too): save the pack as it was, keep the preview up
-	run.apply_arrange(arr_plan.undo)
 	SaveGame.save_run(run)
-	run.apply_arrange(arr_plan.moves)
 
 
 func _notification(what: int) -> void:
@@ -960,9 +956,10 @@ func _diff_screen() -> Control:
 		UI.juice(c)
 		UI.hover_glow(c)
 		list.add_child(c)
+	v.add_child(_asc_picker())
 	var cls: Dictionary = GameData.classes[sel_cls]
 	var pet: Dictionary = GameData.pets.get(sel_pet, {})
-	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n)], 18, UI.GOLD, true)
+	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s%s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n), ("   🔥%d" % sel_asc) if sel_asc > 0 else ""], 18, UI.GOLD, true)
 	sum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sum)
 	v.add_child(_step_nav(func():
@@ -971,13 +968,72 @@ func _diff_screen() -> Control:
 		SaveGame.set_setting("pet", sel_pet)
 		SaveGame.set_setting("diff", sel_diff)
 		_send_play_log(SaveGame.load_run(), "quit")   # a saved run left unfinished
-		run = RunState.new(sel_cls, sel_pet, sel_diff)
+		run = RunState.new(sel_cls, sel_pet, sel_diff, sel_asc)
 		run.plog_start()
 		title_step = 0
 		_clear_sel()
 		anim.clear()
 		render(), "red" if sel_diff in ["vhard", "abyss"] else "green"))
 	return v
+
+
+## Locks the signature items not earned yet (first win with the class: the 1st; Ascension 5: the 2nd).
+## Returns the ids that just unlocked.
+func _refresh_locks() -> Array:
+	var before: Dictionary = RunState.locked.duplicate()
+	RunState.locked = {}
+	for id in GameData.items:
+		var d: Dictionary = GameData.items[id]
+		if d.sig <= 0:
+			continue
+		var open := 0
+		for df in GameData.difficulties:
+			open = maxi(open, _asc_open(d.cl, df.id))
+		if open < (1 if d.sig == 1 else 5):
+			RunState.locked[id] = true
+	return before.keys().filter(func(k): return not RunState.locked.has(k))
+
+
+## Highest Ascension open for a class on a mode (beat level N to open N+1).
+func _asc_open(c: String, d: String) -> int:
+	return int(SaveGame.get_setting("asc_%s_%s" % [c, d], 0))
+
+
+## Ascension picker on the difficulty step: ◀ level ▶, and what the newest rule adds.
+func _asc_picker() -> Control:
+	var open := _asc_open(sel_cls, sel_diff)
+	sel_asc = clampi(sel_asc, 0, open)
+	var p := UI.card(Color("#2a1a12", 0.95), Color("#c8602c") if sel_asc > 0 else UI.BD, 18, 10)
+	var h := UI.hbox(10)
+	p.add_child(h)
+	var lt := UI.btn("◀", func():
+		sel_asc = maxi(0, sel_asc - 1)
+		render(), false, 20, "gray")
+	lt.disabled = sel_asc <= 0
+	lt.custom_minimum_size = Vector2(56, 52)
+	h.add_child(lt)
+	var tv := UI.vbox(2)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(tv)
+	var head := "🔥 " + tr("Ascension %d") % sel_asc + "  (" + tr("open: %d/%d") % [open, GameData.ascension.size()] + ")"
+	var hl := UI.lbl(head, 18, Color("#ffb37a") if sel_asc > 0 else UI.MU, true)
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tv.add_child(hl)
+	var sub := ""
+	if sel_asc == 0:
+		sub = tr("Win with this class on this mode to open Ascension 1.") if open == 0 else tr("Off: normal rules. Higher levels stack new rules.")
+	else:
+		sub = tr(GameData.ascension[sel_asc - 1].d) + (("  " + tr("(+%d earlier rules)") % (sel_asc - 1)) if sel_asc > 1 else "")
+	var sl := UI.wrap_lbl(sub, 15, Color("#efe4cf"))
+	sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tv.add_child(sl)
+	var rt := UI.btn("▶", func():
+		sel_asc = mini(open, sel_asc + 1)
+		render(), false, 20, "gray")
+	rt.disabled = sel_asc >= open
+	rt.custom_minimum_size = Vector2(56, 52)
+	h.add_child(rt)
+	return p
 
 
 func _end_screen() -> Control:
@@ -999,6 +1055,20 @@ func _end_screen() -> Control:
 		if run.day > int(SaveGame.get_setting(key, 0)):
 			SaveGame.set_setting(key, run.day)
 		line = tr("Endless: you reached day %d.") % run.day + "  " + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
+	if w and not run.endless:
+		# Ascension: this win opens the next level for this class on this mode
+		if not run.has_meta("asc_new"):
+			var open := _asc_open(run.cls, run.diff)
+			var nxt := mini(run.asc + 1, GameData.ascension.size())
+			run.set_meta("asc_new", nxt if nxt > open else 0)
+			if nxt > open:
+				SaveGame.set_setting("asc_%s_%s" % [run.cls, run.diff], nxt)
+			run.set_meta("sig_new", _refresh_locks())
+		for id in run.get_meta("sig_new", []):
+			line += "
+🎁 " + tr("New item unlocked: %s") % (GameData.items[id].ic + " " + tr(GameData.items[id].n))
+		if int(run.get_meta("asc_new")) > 0:
+			line += "\n🔓 " + tr("Ascension %d unlocked for %s on %s!") % [int(run.get_meta("asc_new")), tr(run.cls_def().n), tr(run.diff_def().n)]
 	var s := UI.wrap_lbl(line, 20 if _wide else 18)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
@@ -1062,6 +1132,8 @@ func _end_header() -> Control:
 		chips.add_child(_chip("🌍 " + tr(run.mod.n), Color("#93c5fd")))
 	chips.add_child(_chip("📅 " + tr("Day %d/%d") % [run.day, GameData.days], UI.MU))
 	chips.add_child(_chip("⭐ " + tr("Lv %d") % run.lv, Color("#bae6fd")))
+	if run.asc > 0:
+		chips.add_child(_chip("🔥 " + tr("Ascension %d") % run.asc, Color("#ffb37a")))
 	chips.add_child(_chip("❤️ ×%d" % run.res, Color("#fca5a5")))
 	chips.add_child(_chip("🪙 %d" % run.gold, UI.GOLD))
 	cv.add_child(chips)
@@ -1192,7 +1264,7 @@ func _run_screen(fresh: bool) -> Control:
 		render(), false, 22, "purple")
 	book.custom_minimum_size = Vector2(60, 56)
 	if run.phase == "morning" and arr_plan.is_empty() and run.items.any(func(i): return i.loc == "grid" or i.loc == "storage"):
-		# 🪄 auto-arrange: plans the best pack from pack + storage and shows it before anything changes
+		# 🪄 hint: the best layout from pack + storage, as outlines to follow (it never moves items itself)
 		var wand := UI.btn("🪄", func():
 			if drag_item != null or _arr_busy:
 				return
@@ -1209,7 +1281,6 @@ func _run_screen(fresh: bool) -> Control:
 				toast("🪄 " + tr("Already the best layout I can find."), UI.MU)
 			else:
 				_clear_sel()
-				run.apply_arrange(plan.moves)
 				arr_plan = plan
 			render(), false, 22, "blue")
 		wand.custom_minimum_size = Vector2(60, 56)
@@ -1249,6 +1320,9 @@ func _run_screen(fresh: bool) -> Control:
 	var shop: Control = null
 	if run.phase != "morning":
 		arr_plan = {}
+	if not arr_plan.is_empty() and hint_moves().is_empty():
+		arr_plan = {}
+		toast("🪄 " + tr("Done: the pack matches the hint."), UI.GOOD)
 	if not arr_plan.is_empty():
 		shop = _arrange_panel()
 		root.add_child(shop)
@@ -1375,7 +1449,7 @@ func _storage_section() -> Control:
 
 
 func _hud_key() -> String:
-	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size(), run.boss_on(run.day) != null or run.boss_on(run.day + 1) != null, run.path]
+	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size(), run.boss_on(run.day) != null or run.boss_on(run.day + 1) != null, run.path + "|a%d" % run.asc]
 
 
 func _storage_key() -> String:
@@ -1459,6 +1533,8 @@ func _level_badge() -> Control:
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var hb := UI.hbox(6)
 	hb.add_child(UI.plbl("⭐ " + tr("Lv %d") % run.lv, 15, Color("#f6e3b4"), true))
+	if run.asc > 0:
+		hb.add_child(UI.plbl("🔥%d" % run.asc, 15, Color("#ffb37a"), true))
 	var xb := ProgressBar.new()
 	xb.show_percentage = false
 	xb.custom_minimum_size = Vector2(70, 10)
@@ -1584,14 +1660,22 @@ func _effects_overlay() -> Control:
 	return o[0]
 
 
-## 🪄 preview (in the shop's place): the new layout is already shown in the pack; what changes, the
-## combos it makes, and Use / Cancel.
+## The 🪄 hint's steps still to do: [item, loc, x, y, rot] for every item not yet where the plan puts it.
+func hint_moves() -> Array:
+	if arr_plan.is_empty():
+		return []
+	# same cells counts as done (a symmetric item may sit at another rotation)
+	return arr_plan.moves.filter(func(e): return run.items.has(e[0]) and (e[0].loc != e[1] or (e[1] == "grid" and (e[0].x != e[2] or e[0].y != e[3] or GameData.shape(e[0].id, e[0].rot).c != GameData.shape(e[0].id, e[4]).c))))
+
+
+## 🪄 hint (in the shop's place): the outlines in the pack show where things go; here, the steps, what
+## the layout would give and the combos it makes.
 func _arrange_panel() -> Control:
 	var p := UI.card(Color("#1d2a36", 0.97), Color("#6fa3c8"), 22, 12)
 	var v := UI.vbox(10)
 	p.add_child(v)
 	var head := UI.hbox(8)
-	head.add_child(UI.title("🪄 " + tr("Best layout"), 24, Color("#bfe3ff")))
+	head.add_child(UI.title("🪄 " + tr("Layout hint"), 24, Color("#bfe3ff")))
 	head.add_child(UI.spacer())
 	v.add_child(head)
 	var a: Vector3 = arr_plan.before
@@ -1605,10 +1689,13 @@ func _arrange_panel() -> Control:
 	v.add_child(rates)
 	var nm := func(id: String) -> String: return GameData.items[id].ic + " " + tr(GameData.items[id].n)
 	var lines := []   # [text, colour]
-	if not arr_plan["in"].is_empty():
-		lines.append(["📥 " + tr("From storage: ") + ", ".join(arr_plan["in"].map(nm)), UI.GOOD])
-	if not arr_plan.out.is_empty():
-		lines.append(["📤 " + tr("To storage: ") + ", ".join(arr_plan.out.map(nm)), UI.MU])
+	for e in hint_moves():
+		if e[1] == "storage":
+			lines.append(["📤 " + tr("Put %s in storage") % nm.call(e[0].id), UI.MU])
+		elif e[0].loc == "storage":
+			lines.append(["📥 " + tr("Drag %s from storage to its blue outline") % nm.call(e[0].id), UI.GOOD])
+		else:
+			lines.append(["➡️ " + tr("Move %s to its blue outline") % nm.call(e[0].id), Color("#bfe3ff")])
 	for c in arr_plan.combos:
 		if c.k == "link":
 			var t: String = "🔗 " + " + ".join(c.ids.map(nm)) + " → " + nm.call(c.r)
@@ -1629,23 +1716,11 @@ func _arrange_panel() -> Control:
 		lv.add_child(UI.wrap_lbl(ln[0], 16, ln[1]))
 	sc.add_child(lv)
 	v.add_child(sc)
-	var bt := UI.hbox(10)
-	var no := UI.btn("↩️ " + tr("Cancel"), func():
-		run.apply_arrange(arr_plan.undo)
+	var close := UI.btn("✖️ " + tr("Close the hint"), func():
 		arr_plan = {}
-		render(), false, 20, "red")
-	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	no.custom_minimum_size.y = 58
-	var yes := UI.btn("✅ " + tr("Use this layout"), func():
-		run.apply_arrange(arr_plan.moves, true)
-		arr_plan = {}
-		toast("🪄 " + tr("Arranged: damage %+.1f/s · shield %+.1f/s") % [b.x - a.x, b.y - a.y], UI.GOOD)
-		render(), false, 20, "green")
-	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	yes.custom_minimum_size.y = 58
-	bt.add_child(no)
-	bt.add_child(yes)
-	v.add_child(bt)
+		render(), false, 20, "gray")
+	close.custom_minimum_size.y = 58
+	v.add_child(close)
 	return p
 
 
@@ -2258,6 +2333,7 @@ func _path_choice_overlay() -> Control:
 const NK := {
 	"combat": ["⚔️", "FIGHT", "#8c6c4a", "red"], "elite": ["👹", "ELITE", "#b0302a", "red"], "boss": ["💀", "BOSS", "#9b1c3c", "red"],
 	"forge": ["🔨", "FORGE", "#b7791f", "gold"], "camp": ["🏕️", "CAMPFIRE", "#3d7a3a", "green"], "ambush": ["⚠️", "AMBUSH", "#b8581f", "red"],
+	"mini": ["👺", "MINI-BOSS", "#8a2b5c", "red"],
 	"shrine": ["🗿", "DARK SHRINE", "#5b3a7a", "purple"], "tailor": ["🧵", "TAILOR", "#3a6a8a", "blue"],
 	"smith": ["🔨", "EVENT", "#b7791f", "gold"], "merchant": ["🛒", "EVENT", "#3a6a8a", "blue"], "roulette": ["🔫", "EVENT", "#b0302a", "red"],
 	"cauldron": ["⚗️", "EVENT", "#3d7a3a", "green"], "altar": ["🗿", "EVENT", "#5b3a7a", "purple"], "chest": ["📦", "EVENT", "#a8641a", "gold"],
@@ -2323,7 +2399,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		if e.imm != "": badges.append("🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm)))
 		if e.weak != "": badges.append("💥 " + tr("weak to %s") % (GameData.elem_icon(e.weak) + tr(e.weak)))
 		badges.append(("🎁 " + tr("loot")) if n.k != "combat" else ("🎲 " + tr("25% loot")))
-		if n.k in ["elite", "ambush"]:
+		if n.k in ["elite", "ambush", "mini"]:
 			badges.append("🎒+1")
 	else:
 		icon = k[0]
@@ -2406,7 +2482,7 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		v.add_child(br)
 	else:
 		v.add_child(go)
-	if n.k in ["elite", "boss", "ambush"]:
+	if n.k in ["elite", "boss", "ambush", "mini"]:
 		var tw := p.create_tween().set_loops()
 		tw.tween_property(p, "self_modulate", Color(1.2, 1.1, 1.1), 0.8)
 		tw.tween_property(p, "self_modulate", Color.WHITE, 0.8)
@@ -3232,7 +3308,7 @@ func _owned_col(owned: bool, col: Color) -> Color:
 # =============================================================== input / drag
 
 func _on_grid_press(cell: Vector2i) -> void:
-	if drag_item != null or not arr_plan.is_empty():
+	if drag_item != null:
 		return
 	var it: PItem = run.occ().get(cell)
 	if run.phase != "morning":
@@ -3255,7 +3331,7 @@ func _on_grid_press(cell: Vector2i) -> void:
 
 
 func _press(p: Dictionary) -> void:
-	if drag_item != null or not arr_plan.is_empty():
+	if drag_item != null:
 		return
 	pending = p
 	press_pos = get_global_mouse_position()

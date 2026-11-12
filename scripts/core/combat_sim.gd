@@ -60,6 +60,12 @@ var _templar_bank := 0.0    # Templar: bonus for the next weapon hit
 var _ranged_n := 0          # Cannoneer: Ranged hits toward the next broadside
 var _first_crit := true     # Assassin: the first weapon hit always crits
 var beasts_n := 0           # Packlord: Beasts in the pack
+var mech_n := 0             # Scrap Cannon: Mech items in the pack
+var _ash_used := false      # Ash Urn: its Shield came already
+var _echo_guard := false    # Twin-Fang Ring / Echo Prism: no echo of an echo
+var _battery := 0           # Arcane Battery: stored Spell charges
+var _verdict := false       # Verdict Bell: the next Weapon hit is +60%
+var _board := 0             # Boarding Hook: doubled Melee hits used
 var stat_dmg := {}          # status id -> damage dealt
 var dot_src := {}           # status id -> {item uid: stacks it applied}, to credit DoT damage to items
 var _by_uid := {}           # item uid -> combat item dict
@@ -142,11 +148,16 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 	for i in g:
 		used += i.cells().size()
 	empty_tiles = maxi(0, r.tiles.size() - used)
-	for x0 in items:
-		if x0.d.tags.has("Beast") and x0.d.cd > 0:
+	# counted from the pack (the fight's item list is built further down)
+	for i in g:
+		if i.def().tags.has("Beast") and i.def().cd > 0:
 			beasts_n += 1
+		if i.def().tags.has("Mech"):
+			mech_n += 1
 	if sp.has("empty_evasion"):
 		evade = minf(0.35, 0.10 + empty_tiles * 0.03)
+	if sp.has("riposte"):
+		evade = minf(0.4, evade + 0.08)
 	hero_dmg = 1.0 + r.pv("dmg")
 	if sp.has("gold_power"):
 		gold_mult += minf(0.5, r.gold * 0.01)
@@ -362,6 +373,16 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 			v *= 2.0
 		if sp.has("assassin") and x.d.tags.has("Weapon") and ehp < e.hp * 0.35:
 			v *= 1.6
+		if _verdict and x.d.tags.has("Weapon"):
+			_verdict = false
+			v *= 1.6
+		if sp.has("ink") and x.d.tags.has("Sea"):
+			v *= 1.0 + 0.03 * fs.get("soaked", 0.0)
+		if sp.has("boarding") and x.d.tags.has("Melee") and _board < 4:
+			_board += 1
+			v *= 2.0
+	if sp.has("penance"):
+		v *= 1.0 + 0.3 * clampf(1.0 - php / mhp, 0.0, 1.0)
 	v *= _defense_mult(is_mag, _pierce(x))
 	v = maxf(1.0, roundf(v))
 	if fshield > 0:
@@ -404,6 +425,11 @@ func damage(x, base: float, el: String, crit := 0.0, critx := 2.0, src := "", ma
 			_chaining = true
 			damage(null, 30.0, "Shock", 0, 2, "⚡")
 			_chaining = false
+	# Twin-Fang Ring: a crit by a Weapon touching it strikes again for half
+	if x != null and cm > 1.0 and not _echo_guard and x.d.tags.has("Weapon") and _near(x, "crit_echo"):
+		_echo_guard = true
+		damage(null, v * 0.5, el, 0, 2, "💍")
+		_echo_guard = false
 	var is_crit := cm > 1.0 and not preview
 	_ev({"t": "hit", "uid": uid, "v": v, "el": el, "m": m, "crit": is_crit, "melee": x != null and x.d.tags.has("Melee"), "icon": x.d.ic if x != null else src})
 	var who: String = (x.d.ic + " " + I18n.t(x.d.n)) if x != null else src
@@ -431,6 +457,12 @@ func add_status(k: String, n: float, uid := -1) -> void:
 			dot_src[k][uid] = dot_src[k].get(uid, 0.0) + n
 		if k == "poison":
 			_gain_res("poison_applied", n)
+		if k == "burn" and sp.has("stoke") and _by_uid.has(uid):
+			var src: Dictionary = _by_uid[uid]
+			for c in src.nb:
+				if _isp(items[c].d, "stoke"):
+					for b in items[c].nb:
+						_charge(b, 0.4)
 		_num("foe", "%s+%s" % [s.ic, GameData._num(n)], s.col, false, uid, "status", k)
 		if k == "burn" and sp.has("burn_burst") and fs.burn >= 15:
 			var v := damage(null, fs.burn, "Fire", 0, 2, "💥")
@@ -449,6 +481,8 @@ func gain_shield(v: float, uid := -1) -> void:
 	var before := shield
 	shield = minf(_shield_cap(), shield + v)
 	_gain_res("shield_gained", v)
+	if sp.has("shield_thorns") and v >= 6.0:
+		add_status("thorns", floorf(v / 6.0), uid)
 	if sp.has("templar"):
 		_templar_bank += v * 0.5   # Templar: the next weapon hit carries half of it
 	_num("hero", "🛡+" + GameData._num(shield - before if shield - before > 0 else v), Color("#7dd3fc"), false, uid, "shield")
@@ -489,6 +523,8 @@ func fire(idx: int) -> void:
 		dmg += floorf(run.gold / 6.0)
 	if _isp(d, "hp_strike_big"):
 		dmg += mhp * 0.10
+	if _isp(d, "mech_count"):
+		dmg += 2.0 * maxi(0, mech_n - 1)
 	if sp.has("templar") and d.tags.has("Weapon") and _templar_bank > 0:
 		dmg += _templar_bank
 		_templar_bank = 0.0
@@ -510,6 +546,7 @@ func fire(idx: int) -> void:
 		damage(x, x["bonus"], "Arcane", 0, 2, "", 1)
 		x["bonus"] = 0.0
 	_class_trigger(idx, x)
+	_signature(idx, x)
 	for k in f.st:
 		add_status(k, f.st[k], x.i.uid)
 	if f.shield > 0:
@@ -554,6 +591,43 @@ func fire(idx: int) -> void:
 			_echoing = false
 
 
+## Signature items reacting to an item firing (two per class, see data "sig").
+func _signature(idx: int, x: Dictionary) -> void:
+	var d: Dictionary = x.d
+	if _isp(d, "toxic_ward"):
+		gain_shield(fs.get("poison", 0.0) * 0.5, x.i.uid)
+	if _isp(d, "catalyze") and fs.get("poison", 0.0) > 0:
+		damage(null, fs.poison * 1.5, "Nature", 0, 2, "🧫")
+	if _isp(d, "overclock"):
+		_hit_hero(2.0, x.i.uid, "💡", false, false)
+	if _isp(d, "verdict"):
+		_verdict = true
+	if _isp(d, "howl"):
+		for b in items.size():
+			if items[b].d.tags.has("Beast"):
+				_charge(b, 0.6)
+	if d.tags.has("Beast") and _near(x, "feed"):
+		gain_shield(2.0, x.i.uid)
+	if d.tags.has("Spell"):
+		if sp.has("battery"):
+			_battery += 1
+			if _battery >= 8:
+				_battery = 0
+				damage(null, 40.0, "Arcane", 0, 2, "🪫")
+		if not _echo_guard and not _echoing and _near(x, "spell_echo") and _rng.randf() < 0.25:
+			_echo_guard = true
+			fire(idx)
+			_echo_guard = false
+
+
+## True if an item touching x carries special k.
+func _near(x: Dictionary, k: String) -> bool:
+	for b in x.nb:
+		if _isp(items[b].d, k):
+			return true
+	return false
+
+
 ## True if an item carries special k (Masterworks carry several, comma-separated).
 func _isp(d: Dictionary, k: String) -> bool:
 	return str(d.get("sp", "")).split(",").has(k)
@@ -591,6 +665,8 @@ func _item_speed(x: Dictionary) -> float:
 	if sp.has("frenzy") and x.d.tags.has("Sea") and fs.get("bleed", 0.0) > 0:
 		s += 0.25
 	if sp.has("bomb_fuse") and x.d.tags.has("Bomb"):
+		s += 0.3
+	if sp.has("overclock") and _near(x, "overclock"):
 		s += 0.3
 	return s
 
@@ -868,10 +944,17 @@ func _hit_hero(dm: float, uid: int, icon: String, dodgeable := true, reflect := 
 			dodge -= 1
 		_num("hero", "💨 " + I18n.t("EVADE"), Color("#d9c49a"), true)
 		dm = 0.0
+		if sp.has("riposte") and ehp > 0:
+			damage(null, 15.0, "Physical", 0, 2, "🪞")
+	if sp.has("stoneskin") and shield > 0:
+		dm *= 0.8
 	var ab := minf(shield, dm)
 	shield -= ab
 	blocked += ab
 	php -= dm - ab
+	if sp.has("ash_guard") and not _ash_used and php > 0 and php < mhp * 0.4:
+		_ash_used = true
+		gain_shield(maxf(15.0, 3.0 * fs.get("burn", 0.0)))
 	_ev({"t": "foe_atk", "dm": dm, "ab": ab, "uid": uid, "icon": icon})
 	var leech := (0.4 if has_tr("vampiric") else 0.0) + float(fpet.get("leech", 0.0))
 	if leech > 0 and dm - ab > 0 and ehp > 0:

@@ -78,14 +78,12 @@ func _run() -> void:
 	await _check("inspect_new_item")
 	main.inspect_id = ""
 	main.inspect_idx = -1
-	# 🪄 preview: the planned pack with its combo list and Use / Cancel in the shop's place
+	# 🪄 hint: outlines in the pack, the steps and combos in the shop's place
 	var plan := r.plan_arrange()
 	if not plan.is_empty():
-		r.apply_arrange(plan.moves)
 		main.arr_plan = plan
 		main.render()
 		await _check("arrange_preview")
-		r.apply_arrange(plan.undo)
 		main.arr_plan = {}
 	else:
 		issues += 1

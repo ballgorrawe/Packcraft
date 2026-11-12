@@ -49,7 +49,7 @@ func _initialize() -> void:
 		_check(score1 > score0, "case %d: better pack (%.1f -> %.1f, in %s, out %s)" % [case, score0, score1, plan["in"], plan.out])
 		r.apply_arrange(plan.undo)
 		_check(_layout(r) == before, "case %d: Cancel puts everything back" % case)
-		r.apply_arrange(plan.moves, true)
+		r.apply_arrange(plan.moves)
 		_check(_layout(r) != before, "case %d: Use keeps the new layout" % case)
 		if case >= 6:
 			_check(not r.links().is_empty(), "case %d: the recipe pair touches (Golden Link)" % case)

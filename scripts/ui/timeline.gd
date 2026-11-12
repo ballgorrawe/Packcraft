@@ -52,6 +52,7 @@ func _draw() -> void:
 	for d in range(first, first + n):
 		var c: Vector2 = pt.call(d)
 		var boss: bool = run.boss_on(d) != null
+		var mini: bool = RunState.MINI_DAYS.has(d)
 		var fork: bool = d == GameData.path_day
 		var cur := d == run.day
 		var past := d < run.day
@@ -62,6 +63,9 @@ func _draw() -> void:
 		if boss:
 			col = Color("#8f1d2c") if not past else Color("#5a1520")
 			r = 13.0
+		elif mini and not past:
+			col = Color("#6b2448")
+			r = 11.5
 		if cur:
 			r = 17.0
 			# torchlight on the floor you are on
@@ -85,6 +89,9 @@ func _draw() -> void:
 		elif boss:
 			label = GameData.foe_icon(run.boss_on(d).n)
 			fs = 13
+		elif mini and not past:
+			label = "👺"
+			fs = 12
 		elif past:
 			label = "✔"
 			lcol = Color("#2a1a05")

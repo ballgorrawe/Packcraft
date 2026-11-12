@@ -71,7 +71,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	var ev := UI.vbox(4)
 	eh.add_child(ev)
 	var en := UI.hbox(8)
-	var tier_txt: String = {"boss": "💀 " + tr("BOSS"), "elite": "👹 " + tr("ELITE"), "tough": tr("TOUGH"), "easy": tr("EASY")}.get(s.e.tier, "")
+	var tier_txt: String = "👺 " + tr("MINI-BOSS") if s.node.k == "mini" else {"boss": "💀 " + tr("BOSS"), "elite": "👹 " + tr("ELITE"), "tough": tr("TOUGH"), "easy": tr("EASY")}.get(s.e.tier, "")
 	if tier_txt != "":
 		var tp := UI.panel(Color("#7f1d1d"), Color(0, 0, 0, 0), 0, 99, 3)
 		tp.add_child(UI.lbl(tr(tier_txt), 12, Color.WHITE, true))
@@ -142,7 +142,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	stage.add_child(world)
 	var boss: bool = s.node.k == "boss"
 	foe = _sprite(GameData.foe_icon(s.e.n), roundi((110 if boss else 84) * ks * 1.4 if wide else (110 if boss else 84)), 0.74, 0.22 if boss else 0.34)
-	if s.node.k in ["elite", "ambush", "boss"]:
+	if s.node.k in ["elite", "ambush", "boss", "mini"]:
 		foe.add_theme_color_override("font_shadow_color", Color("#ff3b3b"))
 		foe.add_theme_constant_override("shadow_outline_size", 12)
 	hero = _sprite(r.cls_def().hero, 130 if wide else 70, 0.26, 0.42)

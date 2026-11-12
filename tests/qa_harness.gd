@@ -377,7 +377,7 @@ func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -
 			if not cs.won:
 				info.losses += 1
 				info.deaths.append(r.day)
-			if n.k in ["elite", "ambush"]:
+			if n.k in ["elite", "ambush", "mini"]:
 				if cs.won:
 					info.elite_w += 1
 				else:
@@ -1089,7 +1089,7 @@ func _pro_node(r: RunState) -> int:
 				tr_day["fc"] = tr_day.get("fc", []) + [{"i": i, "won": cs.won, "lost": snappedf(lost, 0.01), "left": snappedf(maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp), 0.01), "secs": cs.tk / 10.0}]
 			h_after = cs.php if cs.won else r.mhp * 0.5
 			if cs.won:
-				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss"] else 2.2) - 1.5 * lost
+				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss", "mini"] else 2.2) - 1.5 * lost
 			else:
 				s = -5.0 + (1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp))
 		else:
