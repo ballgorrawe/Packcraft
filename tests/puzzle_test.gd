@@ -34,7 +34,8 @@ func _play(p: Dictionary, hint: bool, noise := false) -> Dictionary:
 				it.rot = int(e[3])
 				left.erase(it)
 				break
-	r.travel()
+	_check(not r.needs_path(), "%s: never asks for a path" % p.id)
+	_check(r.travel(), "%s: Fight starts the fight" % p.id)
 	var cs := r.choose(0)
 	var guard := 0
 	while not cs.done and guard < 900:

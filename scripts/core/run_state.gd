@@ -161,7 +161,7 @@ func path_def() -> Dictionary:
 
 ## True on the path day until the player has picked one of the two class paths.
 func needs_path() -> bool:
-	return path == "" and day >= GameData.path_day and phase == "morning"
+	return mode == "" and path == "" and day >= GameData.path_day and phase == "morning"   # trials pick theirs, puzzles have none
 
 
 func choose_path(id: String) -> void:
