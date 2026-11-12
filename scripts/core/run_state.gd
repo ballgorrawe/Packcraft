@@ -593,6 +593,8 @@ func recipe_ok(r: Dictionary) -> bool:
 
 ## Golden Links: recipe or evolution pairs that touch and will fuse at night.
 func links() -> Array:
+	if mode == "puzzle":
+		return []   # puzzles never fuse: no Golden Links to show or plan for
 	var g := grid_items()
 	var out := []
 	var used := {}
@@ -657,6 +659,8 @@ func fuse_place(l: Dictionary):
 ## True if `id` completes a recipe or evolution with something you own.
 ## For an item you already own (`owned_self`), an evolution needs a second copy.
 func recipe_partner_owned(id: String, owned_self := false) -> bool:
+	if mode == "puzzle":
+		return false
 	for r in GameData.recipes:
 		if not recipe_ok(r):
 			continue
@@ -1902,7 +1906,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 		r.over = not win
 		r.lines.append(I18n.t("⭐ %d of 3 stars") % r.stars if win else I18n.t("Not this time: try another layout."))
 		result = r
-		phase = "night"
+		randomize()   # the puzzle seeded the global dice: free them again for whatever comes next
 		return
 	result = r
 	if cs != null:

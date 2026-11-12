@@ -52,7 +52,7 @@ static func run_summary() -> String:
 	var c: Dictionary = GameData.classes[d.cls]
 	var df := GameData.diff_def(str(d.get("diff", "normal")))
 	var pt: Dictionary = GameData.pets.get(str(d.get("pet", "")), {})
-	return "%s %s %s · %s · Day %d · ❤️ %d" % [c.ic, I18n.t(c.n), pt.get("ic", ""), df.ic + " " + I18n.t(df.n), int(d.day), int(d.res)]
+	return "%s %s %s · %s · %s · ❤️ %d" % [c.ic, I18n.t(c.n), pt.get("ic", ""), df.ic + " " + I18n.t(df.n), I18n.t("Day %d") % int(d.day), int(d.res)]
 
 
 static func clear_run() -> void:

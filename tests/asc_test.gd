@@ -31,6 +31,12 @@ func _initialize() -> void:
 	_check(fb.hp > fa.hp and fb.dps > fa.dps, "monsters tougher (%d vs %d HP)" % [fb.hp, fa.hp])
 	var back := RunState.from_dict(JSON.parse_string(JSON.stringify(b.to_dict())))
 	_check(back != null and back.asc == b.asc, "a saved run keeps its level")
+	# Endless gives +2 Hearts, but never past the (Ascension-lowered) cap
+	var e := RunState.new("warden", "", "normal", GameData.ascension.size())
+	e.res = e.max_hearts()
+	e.result = {"victory": true}
+	e.go_endless()
+	_check(e.res <= e.max_hearts(), "Endless Hearts stay within the cap (%d of %d)" % [e.res, e.max_hearts()])
 	print("ASC TEST: %s" % ("PASS" if fails == 0 else "%d FAIL" % fails))
 	quit()
 

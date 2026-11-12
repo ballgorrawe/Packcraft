@@ -147,12 +147,6 @@
   {
    "best": [
     [
-     "coin_purse",
-     5,
-     2,
-     0
-    ],
-    [
      "oath_blade",
      3,
      2,
@@ -163,6 +157,12 @@
      4,
      2,
      0
+    ],
+    [
+     "whetstone",
+     5,
+     2,
+     1
     ],
     [
      "spark_rune",
@@ -227,8 +227,8 @@
    ],
    "n": "Not everything goes in",
    "stars": [
-    0.19,
-    0.47
+    0.22,
+    0.52
    ],
    "tiles": [
     [
@@ -254,6 +254,148 @@
     [
      5,
      3
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "boulder_maul",
+     3,
+     2,
+     0
+    ],
+    [
+     "bark_skin",
+     4,
+     4,
+     0
+    ],
+    [
+     "bark_skin",
+     6,
+     2,
+     0
+    ],
+    [
+     "granite_wall",
+     4,
+     2,
+     0
+    ],
+    [
+     "stone_fist",
+     5,
+     4,
+     0
+    ]
+   ],
+   "ch": 1,
+   "cls": "warden",
+   "d": "The Boulder Maul adds Shield to every Armor it touches. Put it in the middle of your armor.",
+   "day": 7,
+   "foe": {
+    "cd_mult": 1.0,
+    "dmg_mult": 0.572324266666667,
+    "dps": 6.438648,
+    "fam": "Bandit",
+    "gh": 4,
+    "gw": 5,
+    "hp": 597.0,
+    "imm": "",
+    "items": [
+     [
+      "m_throwing_axe",
+      0,
+      2,
+      1
+     ],
+     [
+      "m_leather_guard",
+      2,
+      1,
+      3
+     ],
+     [
+      "m_hook_blade",
+      1,
+      3,
+      1
+     ],
+     [
+      "m_hook_blade",
+      2,
+      0,
+      1
+     ]
+    ],
+    "n": "Bandit",
+    "sup_mult": 2.71363636363636,
+    "tier": "normal",
+    "tr": "swift",
+    "weak": ""
+   },
+   "id": "l03",
+   "items": [
+    "boulder_maul",
+    "bark_skin",
+    "bark_skin",
+    "granite_wall",
+    "stone_fist"
+   ],
+   "n": "Hardened armor",
+   "stars": [
+    0.37,
+    0.45
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
     ]
    ]
   },
@@ -402,6 +544,112 @@
   {
    "best": [
     [
+     "ember_sword",
+     4,
+     2,
+     3
+    ],
+    [
+     "serrated_cleaver",
+     3,
+     3,
+     1
+    ],
+    [
+     "whetstone",
+     3,
+     2,
+     0
+    ]
+   ],
+   "ch": 1,
+   "cls": "ember",
+   "d": "This monster resists Fire. Pick the weapons that hit it for full damage.",
+   "day": 6,
+   "foe": {
+    "cd_mult": 1.0,
+    "dmg_mult": 0.205981176470588,
+    "dps": 1.90679717647059,
+    "fam": "Skeleton",
+    "gh": 3,
+    "gw": 5,
+    "hp": 175.0,
+    "imm": "Fire",
+    "items": [
+     [
+      "m_bone_maul",
+      0,
+      1,
+      1
+     ],
+     [
+      "m_bone_maul",
+      2,
+      0,
+      3
+     ],
+     [
+      "m_bone_shield",
+      0,
+      0,
+      3
+     ],
+     [
+      "m_grave_bow",
+      0,
+      2,
+      1
+     ]
+    ],
+    "n": "Skeleton",
+    "sup_mult": 1.0,
+    "tier": "normal",
+    "tr": "",
+    "weak": ""
+   },
+   "id": "l05",
+   "items": [
+    "ember_sword",
+    "fire_whip",
+    "iron_sword",
+    "serrated_cleaver",
+    "whetstone"
+   ],
+   "n": "It shrugs off Fire",
+   "stars": [
+    0.23,
+    0.52
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
      "armor_breaker",
      3,
      2,
@@ -489,6 +737,155 @@
    "stars": [
     0.74,
     0.81
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "mana_prism",
+     5,
+     3,
+     0
+    ],
+    [
+     "mana_crystal",
+     6,
+     2,
+     2
+    ],
+    [
+     "mana_crystal",
+     4,
+     2,
+     0
+    ],
+    [
+     "arcane_bolt",
+     5,
+     2,
+     0
+    ],
+    [
+     "arcane_bolt",
+     6,
+     3,
+     1
+    ],
+    [
+     "star_orb",
+     4,
+     3,
+     0
+    ]
+   ],
+   "ch": 1,
+   "cls": "weaver",
+   "d": "Mana Crystals and the Mana Prism speed up the Spells they touch. Every Spell should touch at least one.",
+   "day": 7,
+   "foe": {
+    "cd_mult": 1.0,
+    "dmg_mult": 0.297795594383775,
+    "dps": 3.029952,
+    "fam": "Goblin",
+    "gh": 4,
+    "gw": 5,
+    "hp": 281.0,
+    "imm": "",
+    "items": [
+     [
+      "m_fire_pot",
+      0,
+      2,
+      1
+     ],
+     [
+      "m_buckler",
+      2,
+      1,
+      3
+     ],
+     [
+      "m_goblin_dagger",
+      3,
+      1,
+      2
+     ],
+     [
+      "m_firecracker",
+      2,
+      3,
+      0
+     ]
+    ],
+    "n": "Goblin",
+    "sup_mult": 1.27727272727273,
+    "tier": "normal",
+    "tr": "",
+    "weak": ""
+   },
+   "id": "l08",
+   "items": [
+    "mana_prism",
+    "mana_crystal",
+    "mana_crystal",
+    "arcane_bolt",
+    "arcane_bolt",
+    "star_orb"
+   ],
+   "n": "Spell support",
+   "stars": [
+    0.42,
+    0.58
    ],
    "tiles": [
     [
@@ -686,106 +1083,230 @@
   {
    "best": [
     [
-     "flame_saber",
+     "fang_ring",
+     6,
      2,
-     0,
      0
     ],
     [
-     "forge_heart",
+     "shadow_cloak",
+     4,
+     2,
+     0
+    ],
+    [
+     "shadow_dagger",
+     5,
+     2,
+     0
+    ],
+    [
+     "executioners_blade",
+     3,
+     2,
+     0
+    ],
+    [
+     "bloodied_shiv",
+     6,
+     3,
+     1
+    ]
+   ],
+   "ch": 1,
+   "cls": "rogue",
+   "d": "The Twin-Fang Ring strikes again when a Weapon touching it crits; a Shadow Cloak makes the weapons it touches crit more. Build a crit corner.",
+   "day": 8,
+   "foe": {
+    "cd_mult": 1.0,
+    "dmg_mult": 0.444008622225777,
+    "dps": 5.18362447058823,
+    "fam": "Goblin",
+    "gh": 4,
+    "gw": 5,
+    "hp": 444.0,
+    "imm": "",
+    "items": [
+     [
+      "m_fire_pot",
+      0,
+      2,
+      1
+     ],
+     [
+      "m_buckler",
+      2,
+      1,
+      3
+     ],
+     [
+      "m_firecracker",
+      3,
+      1,
+      2
+     ],
+     [
+      "m_bomb_pouch",
+      2,
+      3,
+      0
+     ]
+    ],
+    "n": "Goblin",
+    "sup_mult": 2.01818181818182,
+    "tier": "normal",
+    "tr": "",
+    "weak": ""
+   },
+   "id": "l10",
+   "items": [
+    "fang_ring",
+    "shadow_cloak",
+    "shadow_dagger",
+    "executioners_blade",
+    "bloodied_shiv"
+   ],
+   "n": "A signature item",
+   "stars": [
+    0.36,
+    0.47
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "fire_gem",
+     2,
+     4,
+     3
+    ],
+    [
+     "twin_flames",
+     2,
+     5,
+     0
+    ],
+    [
+     "phoenix_ascendant",
+     2,
+     2,
+     0
+    ],
+    [
+     "flame_saber",
      5,
      4,
      0
     ],
     [
-     "magma_bulwark",
+     "iron_shield",
+     4,
      0,
-     3,
      0
     ],
     [
-     "smith_hammer",
-     2,
-     3,
-     1
-    ],
-    [
-     "whetstone",
-     6,
-     4,
-     0
-    ],
-    [
-     "blaze_gem",
-     6,
-     3,
-     0
-    ],
-    [
-     "forge_heart",
-     3,
-     4,
-     0
-    ],
-    [
-     "medic_shield",
+     "ash_plate",
      1,
-     3,
+     0,
      0
     ],
     [
-     "forge_heart",
-     2,
-     4,
-     0
-    ],
-    [
-     "sunforge_crown",
-     4,
-     1,
-     0
-    ],
-    [
-     "magma_hammer",
+     "honed_blade",
      7,
-     1,
+     2,
+     0
+    ],
+    [
+     "honed_blade",
+     6,
+     2,
      0
     ],
     [
      "ember_plume",
-     8,
-     0,
-     0
-    ],
-    [
-     "ash_urn",
      7,
-     3,
+     1,
      0
     ],
     [
-     "flame_saber",
+     "iron_sword",
+     5,
+     2,
+     0
+    ],
+    [
+     "iron_shield",
      3,
      0,
      0
     ],
     [
-     "rain_cloud",
+     "serrated_cleaver",
      5,
      0,
      0
     ],
     [
-     "time_ember",
+     "wooden_shield",
      6,
-     1,
-     0
+     5,
+     3
     ],
     [
-     "phoenix_crown",
-     4,
-     1,
-     0
+     "ember_sword",
+     0,
+     3,
+     1
     ],
     [
      "hourglass",
@@ -794,15 +1315,407 @@
      0
     ],
     [
-     "rain_cloud",
+     "fire_gem",
+     4,
+     4,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "ember",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 19.0,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 0.514285714285714,
+    "dps": 7.46428571428571,
+    "fam": "Storm Drake",
+    "gh": 4,
+    "gw": 5,
+    "hp": 632.0,
+    "imm": "Fire",
+    "items": [
+     [
+      "m_storm_breath",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_drake_scale",
+      2,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      2,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      3,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 10s a huge breath hits for 4× its attack. Have Shield ready!",
+     "every": 10.0,
+     "first": 7.0,
+     "ic": "⚡",
+     "n": "Storm Breath",
+     "nuke": 4.0,
+     "warn": 2.5
+    },
+    "n": "Storm Drake",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "berserk",
+    "weak": "Nature"
+   },
+   "id": "c_ember_1",
+   "items": [
+    "fire_gem",
+    "twin_flames",
+    "phoenix_ascendant",
+    "forgefed_blade",
+    "flame_saber",
+    "iron_shield",
+    "ash_plate",
+    "honed_blade",
+    "honed_blade",
+    "ember_plume",
+    "iron_sword",
+    "iron_shield",
+    "iron_sword",
+    "serrated_cleaver",
+    "wooden_shield",
+    "ember_sword",
+    "hourglass",
+    "fire_gem"
+   ],
+   "n": "Ember Knight vs Storm Drake",
+   "stars": [
+    0.68,
+    0.86
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     7,
+     2
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     7,
+     1
+    ],
+    [
      0,
+     3
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     4,
+     6
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     8,
+     2
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     7,
+     5
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     7,
+     0
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     8,
+     5
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "searing_edge",
+     4,
+     4,
+     1
+    ],
+    [
+     "twin_flames",
+     2,
+     3,
+     0
+    ],
+    [
+     "magma_bulwark",
+     4,
      0,
      0
     ],
     [
-     "wooden_shield",
+     "flame_saber",
+     6,
      4,
+     0
+    ],
+    [
+     "cinder_heart",
+     2,
+     1,
+     0
+    ],
+    [
+     "scorching_flail",
+     5,
+     0,
+     1
+    ],
+    [
+     "wooden_shield",
+     7,
+     4,
+     0
+    ],
+    [
+     "iron_shield",
+     1,
+     2,
+     0
+    ],
+    [
+     "twin_daggers",
+     2,
+     4,
+     0
+    ],
+    [
+     "honed_blade",
+     8,
+     1,
+     0
+    ],
+    [
+     "sunblade",
      3,
+     0,
+     0
+    ],
+    [
+     "phoenix_gem",
+     4,
+     2,
+     0
+    ],
+    [
+     "forge_heart",
+     6,
+     2,
+     0
+    ],
+    [
+     "scorching_flail",
+     5,
+     3,
+     0
+    ],
+    [
+     "sundering_longsword",
+     1,
+     5,
+     1
+    ],
+    [
+     "butcher_cleaver",
+     0,
+     3,
+     3
+    ],
+    [
+     "ember_sword",
+     4,
+     5,
+     0
+    ],
+    [
+     "ash_urn",
+     2,
+     2,
      0
     ]
    ],
@@ -815,12 +1728,12 @@
     "cd": 1.4,
     "cd_mult": 1.0,
     "d": 10,
-    "dmg_mult": 0.769736842105264,
-    "dps": 21.45,
+    "dmg_mult": 0.949342105263158,
+    "dps": 26.455,
     "fam": "Plague Lord",
     "gh": 4,
     "gw": 5,
-    "hp": 2214.0,
+    "hp": 2731.0,
     "imm": "",
     "items": [
      [
@@ -871,31 +1784,29 @@
     "st_mult": 2.0,
     "sup_mult": 1.0,
     "tier": "boss",
-    "tr": "spiked",
+    "tr": "berserk",
     "weak": "Fire"
    },
-   "id": "c_ember_1",
+   "id": "c_ember_2",
    "items": [
-    "flame_saber",
-    "forge_heart",
+    "searing_edge",
+    "twin_flames",
     "magma_bulwark",
-    "smith_hammer",
-    "whetstone",
-    "blaze_gem",
-    "forge_heart",
-    "medic_shield",
-    "forge_heart",
-    "sunforge_crown",
-    "magma_hammer",
-    "ember_plume",
-    "ash_urn",
     "flame_saber",
-    "rain_cloud",
-    "time_ember",
-    "phoenix_crown",
-    "hourglass",
-    "rain_cloud",
-    "wooden_shield"
+    "cinder_heart",
+    "scorching_flail",
+    "wooden_shield",
+    "iron_shield",
+    "twin_daggers",
+    "honed_blade",
+    "sunblade",
+    "phoenix_gem",
+    "forge_heart",
+    "scorching_flail",
+    "sundering_longsword",
+    "butcher_cleaver",
+    "ember_sword",
+    "ash_urn"
    ],
    "n": "Ember Knight vs Plague Lord",
    "stars": [
@@ -940,95 +1851,79 @@
      4
     ],
     [
-     3,
-     1
-    ],
-    [
-     6,
-     3
-    ],
-    [
      6,
      4
     ],
     [
-     4,
-     5
-    ],
-    [
      2,
-     3
-    ],
-    [
-     3,
-     0
+     4
     ],
     [
      6,
      2
     ],
     [
-     7,
-     2
-    ],
-    [
      6,
-     1
-    ],
-    [
-     6,
-     0
-    ],
-    [
-     4,
-     1
-    ],
-    [
-     2,
-     0
-    ],
-    [
-     1,
      3
-    ],
-    [
-     4,
-     6
-    ],
-    [
-     1,
-     4
-    ],
-    [
-     0,
-     4
-    ],
-    [
-     7,
-     0
-    ],
-    [
-     7,
-     3
-    ],
-    [
-     0,
-     5
-    ],
-    [
-     8,
-     0
-    ],
-    [
-     0,
-     6
     ],
     [
      5,
      1
     ],
     [
-     0,
+     4,
+     1
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     8,
      3
     ],
     [
@@ -1036,12 +1931,28 @@
      2
     ],
     [
-     2,
-     1
+     3,
+     6
     ],
     [
      1,
+     5
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     3,
      0
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     2,
+     6
     ],
     [
      5,
@@ -1049,55 +1960,35 @@
     ],
     [
      2,
-     2
-    ],
-    [
-     1,
-     5
+     1
     ],
     [
      7,
-     4
-    ],
-    [
-     3,
      5
     ],
     [
      0,
-     0
+     3
     ],
     [
-     7,
+     4,
+     6
+    ],
+    [
+     8,
      1
     ],
     [
-     1,
-     6
-    ],
-    [
-     3,
-     6
-    ],
-    [
-     8,
-     4
-    ],
-    [
-     6,
-     5
-    ],
-    [
-     6,
-     6
-    ],
-    [
      2,
+     5
+    ],
+    [
+     0,
      4
     ],
     [
-     8,
-     5
+     4,
+     0
     ]
    ]
   },
@@ -1561,8 +2452,8 @@
     [
      "doomsday_bomb",
      6,
-     0,
-     0
+     6,
+     2
     ],
     [
      "greater_potion",
@@ -1622,12 +2513,12 @@
     "cd": 1.4,
     "cd_mult": 1.0,
     "d": 10,
-    "dmg_mult": 0.949342105263158,
-    "dps": 26.455,
+    "dmg_mult": 0.898026315789474,
+    "dps": 25.025,
     "fam": "Plague Lord",
     "gh": 4,
     "gw": 5,
-    "hp": 2731.0,
+    "hp": 2583.0,
     "imm": "",
     "items": [
      [
@@ -1706,8 +2597,8 @@
    ],
    "n": "Venom Alchemist vs Plague Lord",
    "stars": [
-    0.14,
-    0.34
+    0.17,
+    0.4
    ],
    "tiles": [
     [
@@ -2665,15 +3556,15 @@
     ],
     [
      "lucky_clover",
-     4,
-     2,
-     0
+     8,
+     5,
+     3
     ],
     [
      "lucky_clover",
-     2,
      3,
-     0
+     3,
+     3
     ],
     [
      "barnacle_cutlass",
@@ -2695,9 +3586,9 @@
     ],
     [
      "iron_sword",
-     3,
-     3,
-     1
+     4,
+     2,
+     0
     ],
     [
      "whaling_harpoon",
@@ -2840,8 +3731,8 @@
    ],
    "n": "Abyssal Corsair vs Plague Lord",
    "stars": [
-    0.14,
-    0.24
+    0.15,
+    0.26
    ],
    "tiles": [
     [
@@ -2993,87 +3884,401 @@
   {
    "best": [
     [
-     "barnacle_blade",
-     5,
-     5,
+     "lucky_clover",
+     2,
+     1,
      0
     ],
     [
-     "leviathan_harpoon",
+     "selfmend_golem",
+     8,
+     2,
+     0
+    ],
+    [
+     "arc_repeater",
      2,
      3,
      0
     ],
     [
-     "lucky_pistol",
-     3,
-     4,
+     "honed_blade",
+     5,
+     1,
      0
     ],
     [
-     "powder_keg",
+     "selfmend_golem",
      6,
      1,
      0
     ],
     [
-     "leviathan_harpoon",
-     3,
-     2,
+     "tesla_battery",
+     8,
+     4,
      0
     ],
     [
-     "harpoon_gun",
+     "iron_sword",
+     3,
+     1,
+     0
+    ],
+    [
+     "selfmend_golem",
      4,
      3,
      0
     ],
     [
-     "flintlock",
+     "rain_clock",
+     0,
+     3,
+     0
+    ],
+    [
+     "battery",
      4,
+     5,
+     0
+    ],
+    [
+     "rocket_pod",
+     6,
      0,
      0
     ],
     [
-     "barnacle_cutlass",
+     "rocket_pod",
+     4,
+     6,
+     0
+    ],
+    [
+     "spark_pistol",
+     5,
+     4,
+     0
+    ],
+    [
+     "overclock_core",
+     3,
+     6,
+     3
+    ],
+    [
+     "fortune_blade",
+     6,
+     3,
+     1
+    ],
+    [
+     "rain_clock",
+     3,
+     4,
+     3
+    ],
+    [
+     "armor_breaker",
+     4,
+     1,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "tinker",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 16.9,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 0.540978835978836,
+    "dps": 7.30321428571429,
+    "fam": "Frost Wraith",
+    "gh": 4,
+    "gw": 5,
+    "hp": 619.0,
+    "imm": "Physical",
+    "items": [
+     [
+      "m_frost_scythe",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_soul_lantern",
+      1,
+      0,
+      0
+     ],
+     [
+      "m_wail",
+      2,
+      0,
+      0
+     ],
+     [
+      "m_ice_shard",
+      3,
+      0,
+      0
+     ],
+     [
+      "m_ice_shard",
+      2,
+      1,
+      0
+     ],
+     [
+      "m_ice_shard",
+      3,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 12s it hits for 1.5× its attack and freezes your items for 1.5s.",
+     "every": 12.0,
+     "first": 7.0,
+     "freeze": 1.5,
+     "ic": "❄️",
+     "n": "Frost Nova",
+     "nuke": 1.5,
+     "warn": 2.5
+    },
+    "n": "Frost Wraith",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "spiked",
+    "weak": "Fire"
+   },
+   "id": "c_tinker_1",
+   "items": [
+    "lucky_clover",
+    "selfmend_golem",
+    "arc_repeater",
+    "honed_blade",
+    "selfmend_golem",
+    "tesla_battery",
+    "iron_sword",
+    "selfmend_golem",
+    "rain_clock",
+    "battery",
+    "rocket_pod",
+    "rocket_pod",
+    "spark_pistol",
+    "flechette_turret",
+    "overclock_core",
+    "fortune_blade",
+    "rain_clock",
+    "armor_breaker",
+    "upgrade_bench"
+   ],
+   "n": "Clockwork Tinker vs Frost Wraith",
+   "stars": [
+    0.4,
+    0.58
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     3
+    ],
+    [
      2,
+     3
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     7,
+     0
+    ],
+    [
+     8,
+     3
+    ],
+    [
+     4,
+     6
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     5,
+     6
+    ],
+    [
      5,
      1
     ],
     [
-     "lucky_pistol",
-     4,
+     8,
+     2
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     3,
+     6
+    ],
+    [
+     2,
+     1
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "arc_repeater",
+     6,
      2,
      0
     ],
     [
-     "reef_shark",
-     6,
+     "steam_plate",
+     0,
+     0,
+     0
+    ],
+    [
+     "honed_blade",
+     5,
+     0,
+     0
+    ],
+    [
+     "scrap_cannon",
      3,
-     0
-    ],
-    [
-     "shell_guard",
-     4,
-     5,
-     0
-    ],
-    [
-     "captains_log",
-     8,
-     1,
-     0
-    ],
-    [
-     "harpoon_gun",
-     5,
      4,
      0
     ],
     [
-     "longsword",
+     "wooden_shield",
+     2,
+     0,
+     0
+    ],
+    [
+     "tesla_battery",
+     6,
      1,
-     1,
+     0
+    ],
+    [
+     "gear_box",
+     2,
+     4,
+     0
+    ],
+    [
+     "medic_shield",
+     2,
+     2,
      0
     ],
     [
@@ -3083,33 +4288,1810 @@
      0
     ],
     [
-     "kraken",
+     "selfmend_golem",
+     6,
+     3,
+     0
+    ],
+    [
+     "whetstone",
+     5,
+     4,
+     0
+    ],
+    [
+     "flechette_turret",
+     7,
+     3,
+     0
+    ],
+    [
+     "honed_blade",
      3,
      1,
      0
     ],
     [
-     "thunder_eel",
+     "honed_turret",
+     4,
+     3,
+     1
+    ],
+    [
+     "selfmend_golem",
+     4,
+     1,
+     0
+    ],
+    [
+     "tower_shield",
+     2,
+     5,
+     0
+    ],
+    [
+     "gear_box",
+     8,
+     3,
+     0
+    ],
+    [
+     "health_potion",
+     3,
+     0,
+     0
+    ],
+    [
+     "iron_shield",
+     0,
+     3,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "tinker",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 19.0,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 1.13142857142857,
+    "dps": 16.4214285714286,
+    "fam": "Storm Drake",
+    "gh": 4,
+    "gw": 5,
+    "hp": 1392.0,
+    "imm": "Fire",
+    "items": [
+     [
+      "m_storm_breath",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_drake_scale",
+      2,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      2,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      3,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 10s a huge breath hits for 4× its attack. Have Shield ready!",
+     "every": 10.0,
+     "first": 7.0,
+     "ic": "⚡",
+     "n": "Storm Breath",
+     "nuke": 4.0,
+     "warn": 2.5
+    },
+    "n": "Storm Drake",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "berserk",
+    "weak": "Nature"
+   },
+   "id": "c_tinker_2",
+   "items": [
+    "arc_repeater",
+    "steam_plate",
+    "honed_blade",
+    "scrap_cannon",
+    "wooden_shield",
+    "tesla_battery",
+    "gear_box",
+    "gear_box",
+    "medic_shield",
+    "whetstone",
+    "selfmend_golem",
+    "whetstone",
+    "flechette_turret",
+    "honed_blade",
+    "honed_turret",
+    "selfmend_golem",
+    "tower_shield",
+    "gear_box",
+    "health_potion",
+    "iron_shield"
+   ],
+   "n": "Clockwork Tinker vs Storm Drake",
+   "stars": [
+    0.42,
+    0.86
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     7,
+     2
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     8,
+     5
+    ],
+    [
+     2,
+     6
+    ],
+    [
+     3,
+     6
+    ],
+    [
+     8,
+     3
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     7,
+     6
+    ],
+    [
+     0,
+     4
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "chrono_rune",
+     2,
+     1,
+     0
+    ],
+    [
+     "blood_rune",
+     6,
+     4,
+     0
+    ],
+    [
+     "sworn_blade",
+     8,
+     0,
+     0
+    ],
+    [
+     "sundering_longsword",
      7,
      0,
      0
     ],
     [
-     "lucky_clover",
-     6,
-     0,
+     "storm_rune",
+     5,
+     4,
      0
     ],
     [
-     "tidal_shield",
+     "dusk_sigil",
+     6,
+     2,
+     0
+    ],
+    [
+     "flame_oath",
+     4,
+     1,
+     0
+    ],
+    [
+     "blessed_blade",
+     0,
+     3,
+     0
+    ],
+    [
+     "rune_sword",
+     2,
+     4,
+     0
+    ],
+    [
+     "storm_rune",
+     6,
+     3,
+     0
+    ],
+    [
+     "sworn_blade",
+     5,
+     1,
+     0
+    ],
+    [
+     "crusader_wall",
+     1,
+     2,
+     0
+    ],
+    [
+     "storm_rune",
+     5,
+     3,
+     0
+    ],
+    [
+     "mace_of_mercy",
+     3,
+     1,
+     0
+    ],
+    [
+     "storm_rune",
+     4,
+     3,
+     0
+    ],
+    [
+     "greater_potion",
+     2,
+     3,
+     0
+    ],
+    [
+     "ember_rune",
+     5,
+     5,
+     0
+    ],
+    [
+     "rain_cloud",
+     3,
+     4,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "inquisitor",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 18.2,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 0.718421052631579,
+    "dps": 20.02,
+    "fam": "Plague Lord",
+    "gh": 4,
+    "gw": 5,
+    "hp": 2066.0,
+    "imm": "",
+    "items": [
+     [
+      "m_rot_blade",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_plague_cloud",
+      1,
+      0,
+      0
+     ],
+     [
+      "m_corpse_feast",
+      3,
+      0,
+      0
+     ],
+     [
+      "m_poison_dart",
+      1,
+      1,
+      0
+     ],
+     [
+      "m_poison_dart",
+      2,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 8s it wipes half of your Burn, Poison and Bleed off itself, heals that much and Poisons you 4.",
+     "every": 8.0,
+     "first": 6.0,
+     "ic": "☣️",
+     "n": "Purge",
+     "purge": 1.0,
+     "purge_frac": 0.5,
+     "st": {
+      "poison": 4.0
+     },
+     "warn": 2.0
+    },
+    "n": "Plague Lord",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "berserk",
+    "weak": "Fire"
+   },
+   "id": "c_inquisitor_2",
+   "items": [
+    "chrono_rune",
+    "blood_rune",
+    "sworn_blade",
+    "sundering_longsword",
+    "storm_rune",
+    "dusk_sigil",
+    "flame_oath",
+    "blessed_blade",
+    "rune_sword",
+    "storm_rune",
+    "sworn_blade",
+    "crusader_wall",
+    "storm_rune",
+    "mace_of_mercy",
+    "storm_rune",
+    "greater_potion",
+    "ember_rune",
+    "rain_cloud"
+   ],
+   "n": "Runeblade Inquisitor vs Plague Lord",
+   "stars": [
+    0.82,
+    0.96
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     7,
+     2
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     7,
+     1
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     8,
+     1
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     8,
+     0
+    ],
+    [
+     2,
+     6
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     4,
+     6
+    ],
+    [
+     7,
+     0
+    ],
+    [
+     0,
+     5
+    ],
+    [
+     0,
+     4
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "bloodied_shiv",
      7,
      4,
      0
     ],
     [
-     "tidal_shield",
-     1,
+     "twin_daggers",
      6,
+     1,
+     1
+    ],
+    [
+     "bloodied_shiv",
+     6,
+     5,
+     0
+    ],
+    [
+     "bloodied_shiv",
+     4,
+     5,
+     0
+    ],
+    [
+     "shadow_dagger",
+     4,
+     3,
+     0
+    ],
+    [
+     "whetstone",
+     5,
+     5,
+     0
+    ],
+    [
+     "blade_storm",
+     4,
+     1,
+     0
+    ],
+    [
+     "phantom_quiver",
+     7,
+     0,
+     0
+    ],
+    [
+     "whetstone",
+     3,
+     5,
+     0
+    ],
+    [
+     "shadow_dagger",
+     3,
+     3,
+     0
+    ],
+    [
+     "fan_of_knives",
+     1,
+     3,
+     0
+    ],
+    [
+     "honed_needle",
+     5,
+     2,
+     0
+    ],
+    [
+     "whetstone",
+     6,
+     4,
+     0
+    ],
+    [
+     "assassins_ledger",
+     7,
+     3,
+     0
+    ],
+    [
+     "blade_storm",
+     3,
+     0,
+     0
+    ],
+    [
+     "shadow_dagger",
+     5,
+     3,
+     0
+    ],
+    [
+     "smoke_veil",
+     3,
+     2,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "rogue",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 19.0,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 0.514285714285714,
+    "dps": 7.46428571428571,
+    "fam": "Storm Drake",
+    "gh": 4,
+    "gw": 5,
+    "hp": 632.0,
+    "imm": "Fire",
+    "items": [
+     [
+      "m_storm_breath",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_drake_scale",
+      2,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      2,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      3,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 10s a huge breath hits for 4× its attack. Have Shield ready!",
+     "every": 10.0,
+     "first": 7.0,
+     "ic": "⚡",
+     "n": "Storm Breath",
+     "nuke": 4.0,
+     "warn": 2.5
+    },
+    "n": "Storm Drake",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "berserk",
+    "weak": "Nature"
+   },
+   "id": "c_rogue_1",
+   "items": [
+    "bloodied_shiv",
+    "twin_daggers",
+    "bloodied_shiv",
+    "bloodied_shiv",
+    "blade_storm",
+    "shadow_dagger",
+    "whetstone",
+    "blade_storm",
+    "phantom_quiver",
+    "whetstone",
+    "shadow_dagger",
+    "fan_of_knives",
+    "honed_needle",
+    "whetstone",
+    "assassins_ledger",
+    "blade_storm",
+    "shadow_dagger",
+    "smoke_veil"
+   ],
+   "n": "Shadow Rogue vs Storm Drake",
+   "stars": [
+    0.73,
+    0.85
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     3,
+     6
+    ],
+    [
+     7,
+     5
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     8,
+     5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     4,
+     6
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     7,
+     0
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "living_shield",
+     5,
+     3,
+     0
+    ],
+    [
+     "rock_club",
+     3,
+     1,
+     0
+    ],
+    [
+     "spiked_club",
+     4,
+     0,
+     0
+    ],
+    [
+     "living_shield",
+     0,
+     2,
+     0
+    ],
+    [
+     "whetstone",
+     3,
+     4,
+     0
+    ],
+    [
+     "whetstone",
+     4,
+     5,
+     0
+    ],
+    [
+     "granite_knuckle",
+     4,
+     3,
+     1
+    ],
+    [
+     "moss_charm",
+     6,
+     3,
+     0
+    ],
+    [
+     "moss_charm",
+     8,
+     3,
+     0
+    ],
+    [
+     "pebble_sling",
+     3,
+     0,
+     0
+    ],
+    [
+     "whetstone",
+     0,
+     4,
+     0
+    ],
+    [
+     "armor_breaker",
+     2,
+     0,
+     0
+    ],
+    [
+     "bramble_bastion",
+     1,
+     4,
+     0
+    ],
+    [
+     "living_shield",
+     2,
+     2,
+     0
+    ],
+    [
+     "boulder_maul",
+     5,
+     0,
+     0
+    ],
+    [
+     "wooden_shield",
+     7,
+     2,
+     0
+    ],
+    [
+     "coin_purse",
+     1,
+     4,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "warden",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 19.0,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 0.617142857142857,
+    "dps": 8.95714285714286,
+    "fam": "Storm Drake",
+    "gh": 4,
+    "gw": 5,
+    "hp": 759.0,
+    "imm": "Fire",
+    "items": [
+     [
+      "m_storm_breath",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_drake_scale",
+      2,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      0,
+      0
+     ],
+     [
+      "m_static",
+      2,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      3,
+      1,
+      0
+     ],
+     [
+      "m_static",
+      4,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 10s a huge breath hits for 4× its attack. Have Shield ready!",
+     "every": 10.0,
+     "first": 7.0,
+     "ic": "⚡",
+     "n": "Storm Breath",
+     "nuke": 4.0,
+     "warn": 2.5
+    },
+    "n": "Storm Drake",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "berserk",
+    "weak": "Nature"
+   },
+   "id": "c_warden_2",
+   "items": [
+    "living_shield",
+    "rock_club",
+    "spiked_club",
+    "living_shield",
+    "whetstone",
+    "whetstone",
+    "granite_knuckle",
+    "moss_charm",
+    "moss_charm",
+    "pebble_sling",
+    "whetstone",
+    "armor_breaker",
+    "bramble_bastion",
+    "living_shield",
+    "boulder_maul",
+    "wooden_shield",
+    "coin_purse"
+   ],
+   "n": "Stone Warden vs Storm Drake",
+   "stars": [
+    0.33,
+    0.8
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     8,
+     3
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     7,
+     2
+    ],
+    [
+     2,
+     6
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     6
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "tiger_cub",
+     3,
+     5,
+     0
+    ],
+    [
+     "dire_wolf",
+     2,
+     2,
+     0
+    ],
+    [
+     "iron_shield",
+     6,
+     1,
+     0
+    ],
+    [
+     "dire_wolf",
+     3,
+     3,
+     0
+    ],
+    [
+     "storm_hawk",
+     5,
+     2,
+     1
+    ],
+    [
+     "odd_couple",
+     6,
+     5,
+     0
+    ],
+    [
+     "alpha_fang",
+     2,
+     5,
+     0
+    ],
+    [
+     "nurse_cat",
+     1,
+     5,
+     0
+    ],
+    [
+     "nurse_cat",
+     2,
+     3,
+     0
+    ],
+    [
+     "rain_cloud",
+     2,
+     4,
+     0
+    ],
+    [
+     "storm_hawk",
+     6,
+     3,
+     0
+    ],
+    [
+     "spirit_totem",
+     4,
+     4,
+     1
+    ],
+    [
+     "fox_kit",
+     5,
+     0,
+     0
+    ],
+    [
+     "ancestral_totem",
+     4,
+     1,
+     0
+    ],
+    [
+     "odd_couple",
+     7,
+     5,
+     0
+    ],
+    [
+     "stray_kitten",
+     5,
+     1,
+     0
+    ],
+    [
+     "boar_tusk",
+     3,
+     6,
+     0
+    ]
+   ],
+   "ch": 2,
+   "cls": "beast",
+   "d": "The bot beat this boss with these items. Can you?",
+   "day": 10,
+   "foe": {
+    "atk": 18.2,
+    "cd": 1.4,
+    "cd_mult": 1.0,
+    "d": 10,
+    "dmg_mult": 0.84671052631579,
+    "dps": 23.595,
+    "fam": "Plague Lord",
+    "gh": 4,
+    "gw": 5,
+    "hp": 2435.0,
+    "imm": "",
+    "items": [
+     [
+      "m_rot_blade",
+      0,
+      0,
+      0
+     ],
+     [
+      "m_plague_cloud",
+      1,
+      0,
+      0
+     ],
+     [
+      "m_corpse_feast",
+      3,
+      0,
+      0
+     ],
+     [
+      "m_poison_dart",
+      1,
+      1,
+      0
+     ],
+     [
+      "m_poison_dart",
+      2,
+      1,
+      0
+     ]
+    ],
+    "mech": {
+     "d": "Every 8s it wipes half of your Burn, Poison and Bleed off itself, heals that much and Poisons you 4.",
+     "every": 8.0,
+     "first": 6.0,
+     "ic": "☣️",
+     "n": "Purge",
+     "purge": 1.0,
+     "purge_frac": 0.5,
+     "st": {
+      "poison": 4.0
+     },
+     "warn": 2.0
+    },
+    "n": "Plague Lord",
+    "st_mult": 2.0,
+    "sup_mult": 1.0,
+    "tier": "boss",
+    "tr": "berserk",
+    "weak": "Fire"
+   },
+   "id": "c_beast_1",
+   "items": [
+    "tiger_cub",
+    "dire_wolf",
+    "iron_shield",
+    "dire_wolf",
+    "storm_hawk",
+    "odd_couple",
+    "alpha_fang",
+    "stray_kitten",
+    "nurse_cat",
+    "nurse_cat",
+    "rain_cloud",
+    "storm_hawk",
+    "spirit_totem",
+    "fox_kit",
+    "ancestral_totem",
+    "odd_couple",
+    "stray_kitten",
+    "boar_tusk"
+   ],
+   "n": "Wild Beastmaster vs Plague Lord",
+   "stars": [
+    0.07,
+    0.17
+   ],
+   "tiles": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     3,
+     6
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     4,
+     6
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     7,
+     5
+    ]
+   ]
+  },
+  {
+   "best": [
+    [
+     "barnacle_blade",
+     5,
+     5,
+     0
+    ],
+    [
+     "barnacle_blade",
+     7,
+     3,
+     0
+    ],
+    [
+     "leviathan_harpoon",
+     6,
+     3,
+     0
+    ],
+    [
+     "flintlock",
+     5,
+     1,
+     0
+    ],
+    [
+     "barnacle_cutlass",
+     3,
+     5,
+     1
+    ],
+    [
+     "harpoon_gun",
+     1,
+     3,
+     0
+    ],
+    [
+     "powder_keg",
+     0,
+     3,
+     0
+    ],
+    [
+     "whetstone",
+     4,
+     3,
+     0
+    ],
+    [
+     "stinging_puffer",
+     5,
+     0,
+     0
+    ],
+    [
+     "lucky_clover",
+     4,
+     2,
+     0
+    ],
+    [
+     "stinging_puffer",
+     7,
+     2,
+     0
+    ],
+    [
+     "reef_shark",
+     3,
+     1,
+     1
+    ],
+    [
+     "reef_shark",
+     1,
+     1,
+     0
+    ],
+    [
+     "lucky_clover",
+     6,
+     2,
+     0
+    ],
+    [
+     "leviathan_harpoon",
+     4,
+     4,
+     1
+    ],
+    [
+     "reef_shark",
+     0,
+     4,
+     0
+    ],
+    [
+     "whaling_harpoon",
+     5,
+     2,
      0
     ]
    ],
@@ -3122,12 +6104,12 @@
     "cd": 1.4,
     "cd_mult": 1.0,
     "d": 10,
-    "dmg_mult": 0.795394736842106,
-    "dps": 22.165,
+    "dmg_mult": 0.615789473684211,
+    "dps": 17.16,
     "fam": "Plague Lord",
     "gh": 4,
     "gw": 5,
-    "hp": 2288.0,
+    "hp": 1771.0,
     "imm": "",
     "items": [
      [
@@ -3184,30 +6166,29 @@
    "id": "c_corsair_2",
    "items": [
     "barnacle_blade",
+    "barnacle_blade",
     "leviathan_harpoon",
-    "lucky_pistol",
-    "powder_keg",
-    "leviathan_harpoon",
-    "harpoon_gun",
+    "harpoon",
     "flintlock",
+    "leviathan_harpoon",
     "barnacle_cutlass",
-    "lucky_pistol",
-    "reef_shark",
-    "shell_guard",
-    "captains_log",
     "harpoon_gun",
-    "longsword",
+    "powder_keg",
     "whetstone",
-    "kraken",
-    "thunder_eel",
+    "stinging_puffer",
     "lucky_clover",
-    "tidal_shield",
-    "tidal_shield"
+    "stinging_puffer",
+    "reef_shark",
+    "reef_shark",
+    "lucky_clover",
+    "leviathan_harpoon",
+    "reef_shark",
+    "whaling_harpoon"
    ],
    "n": "Abyssal Corsair vs Plague Lord",
    "stars": [
-    0.06,
-    0.15
+    0.27,
+    0.39
    ],
    "tiles": [
     [
@@ -3247,7 +6228,23 @@
      4
     ],
     [
+     5,
+     5
+    ],
+    [
      6,
+     4
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     2,
      3
     ],
     [
@@ -3255,1198 +6252,228 @@
      1
     ],
     [
-     7,
-     3
-    ],
-    [
      4,
      5
     ],
     [
-     2,
-     3
+     6,
+     2
     ],
     [
-     5,
-     5
+     2,
+     4
+    ],
+    [
+     1,
+     4
     ],
     [
      3,
-     5
+     6
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     5,
+     6
     ],
     [
      6,
-     5
+     1
     ],
     [
      2,
-     5
+     1
     ],
     [
      7,
      2
     ],
     [
-     7,
-     1
-    ],
-    [
-     6,
-     6
-    ],
-    [
-     4,
-     1
-    ],
-    [
-     8,
-     3
-    ],
-    [
-     1,
-     3
-    ],
-    [
-     6,
-     1
-    ],
-    [
-     4,
-     6
-    ],
-    [
-     8,
-     1
-    ],
-    [
-     8,
+     0,
      4
-    ],
-    [
-     7,
-     6
-    ],
-    [
-     6,
-     4
-    ],
-    [
-     5,
-     6
-    ],
-    [
-     5,
-     0
-    ],
-    [
-     2,
-     4
-    ],
-    [
-     3,
-     1
     ],
     [
      0,
      3
     ],
     [
-     6,
-     0
-    ],
-    [
-     7,
-     4
-    ],
-    [
-     2,
-     6
-    ],
-    [
-     7,
-     0
-    ],
-    [
      1,
-     2
-    ],
-    [
-     3,
-     6
-    ],
-    [
-     4,
-     0
-    ],
-    [
-     1,
-     6
-    ],
-    [
-     7,
-     5
+     3
     ],
     [
      1,
      1
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     5,
+     0
     ]
    ]
   },
   {
    "best": [
     [
-     "rebirth_coal",
-     7,
-     4,
-     0
-    ],
-    [
-     "searing_edge",
-     6,
-     3,
-     0
-    ],
-    [
-     "fire_gem",
-     3,
-     2,
-     0
-    ],
-    [
-     "forge_heart",
-     3,
-     4,
-     0
-    ],
-    [
-     "warm_elixir",
-     7,
-     1,
-     0
-    ],
-    [
-     "cinder_heart",
-     6,
-     0,
-     0
-    ],
-    [
      "iron_shield",
-     8,
-     1,
-     0
-    ],
-    [
-     "smith_hammer",
-     1,
-     3,
-     1
-    ],
-    [
-     "rebirth_coal",
-     7,
-     3,
-     0
-    ],
-    [
-     "twin_flames",
-     4,
-     2,
-     0
-    ],
-    [
-     "phoenix_gem",
-     3,
-     0,
-     0
-    ],
-    [
-     "executioner",
-     2,
-     4,
-     0
-    ],
-    [
-     "fire_gem",
-     0,
-     0,
-     0
-    ],
-    [
-     "molten_buckler",
-     4,
-     4,
-     0
-    ],
-    [
-     "flame_saber",
-     2,
-     0,
-     0
-    ],
-    [
-     "sunblade",
-     3,
-     3,
-     1
-    ],
-    [
-     "flame_saber",
-     1,
-     0,
-     0
-    ],
-    [
-     "twin_flames",
-     4,
-     1,
-     0
-    ],
-    [
-     "ember_sword",
-     0,
-     2,
-     0
-    ],
-    [
-     "ember_plume",
-     4,
-     0,
-     0
-    ]
-   ],
-   "ch": 2,
-   "cls": "ember",
-   "d": "The bot beat this boss with these items. Can you?",
-   "day": 10,
-   "foe": {
-    "atk": 16.9,
-    "cd": 1.4,
-    "cd_mult": 1.0,
-    "d": 10,
-    "dmg_mult": 1.13113756613757,
-    "dps": 15.2703571428572,
-    "fam": "Frost Wraith",
-    "gh": 4,
-    "gw": 5,
-    "hp": 1294.0,
-    "imm": "Physical",
-    "items": [
-     [
-      "m_frost_scythe",
-      0,
-      0,
-      0
-     ],
-     [
-      "m_soul_lantern",
-      1,
-      0,
-      0
-     ],
-     [
-      "m_wail",
-      2,
-      0,
-      0
-     ],
-     [
-      "m_ice_shard",
-      3,
-      0,
-      0
-     ],
-     [
-      "m_ice_shard",
-      2,
-      1,
-      0
-     ],
-     [
-      "m_ice_shard",
-      3,
-      1,
-      0
-     ]
-    ],
-    "mech": {
-     "d": "Every 12s it hits for 1.5× its attack and freezes your items for 1.5s.",
-     "every": 12.0,
-     "first": 7.0,
-     "freeze": 1.5,
-     "ic": "❄️",
-     "n": "Frost Nova",
-     "nuke": 1.5,
-     "warn": 2.5
-    },
-    "n": "Frost Wraith",
-    "st_mult": 2.0,
-    "sup_mult": 1.0,
-    "tier": "boss",
-    "tr": "berserk",
-    "weak": "Fire"
-   },
-   "id": "c_ember_2",
-   "items": [
-    "rebirth_coal",
-    "searing_edge",
-    "fire_gem",
-    "forge_heart",
-    "warm_elixir",
-    "cinder_heart",
-    "iron_shield",
-    "smith_hammer",
-    "rebirth_coal",
-    "twin_flames",
-    "phoenix_gem",
-    "executioner",
-    "fire_gem",
-    "molten_buckler",
-    "flame_saber",
-    "sunblade",
-    "flame_saber",
-    "twin_flames",
-    "ember_sword",
-    "ember_plume"
-   ],
-   "n": "Ember Knight vs Frost Wraith",
-   "stars": [
-    0.46,
-    0.54
-   ],
-   "tiles": [
-    [
-     3,
-     2
-    ],
-    [
-     4,
-     2
-    ],
-    [
-     5,
-     2
-    ],
-    [
-     3,
-     3
-    ],
-    [
-     4,
-     3
-    ],
-    [
-     5,
-     3
-    ],
-    [
-     3,
-     4
-    ],
-    [
-     4,
-     4
-    ],
-    [
-     5,
-     4
-    ],
-    [
-     4,
-     5
-    ],
-    [
-     5,
-     5
-    ],
-    [
-     4,
-     6
-    ],
-    [
-     4,
-     1
-    ],
-    [
-     3,
-     6
-    ],
-    [
-     6,
-     4
-    ],
-    [
-     6,
-     5
-    ],
-    [
-     2,
-     4
-    ],
-    [
-     2,
-     5
-    ],
-    [
-     6,
-     3
-    ],
-    [
-     2,
-     6
-    ],
-    [
-     5,
-     6
-    ],
-    [
-     2,
-     3
-    ],
-    [
-     4,
-     0
-    ],
-    [
-     2,
-     2
-    ],
-    [
-     1,
-     2
-    ],
-    [
-     7,
-     3
-    ],
-    [
-     7,
-     5
-    ],
-    [
-     6,
-     6
-    ],
-    [
-     7,
-     6
-    ],
-    [
-     6,
-     2
-    ],
-    [
-     2,
-     1
-    ],
-    [
-     6,
-     1
-    ],
-    [
-     5,
-     1
-    ],
-    [
-     1,
-     1
-    ],
-    [
-     1,
-     5
-    ],
-    [
-     7,
-     4
-    ],
-    [
-     6,
-     0
-    ],
-    [
-     1,
-     3
-    ],
-    [
-     8,
-     4
-    ],
-    [
-     1,
-     0
-    ],
-    [
-     1,
-     6
-    ],
-    [
-     8,
-     6
-    ],
-    [
-     3,
-     0
-    ],
-    [
-     0,
-     6
-    ],
-    [
-     8,
-     5
-    ],
-    [
-     0,
-     5
-    ],
-    [
-     2,
-     0
-    ],
-    [
-     7,
-     1
-    ],
-    [
-     8,
-     3
-    ],
-    [
-     8,
-     1
-    ],
-    [
-     0,
-     2
-    ],
-    [
-     0,
-     0
-    ],
-    [
-     8,
-     2
-    ],
-    [
-     0,
-     3
-    ]
-   ]
-  },
-  {
-   "best": [
-    [
-     "arc_repeater",
-     7,
-     4,
-     0
-    ],
-    [
-     "steam_plate",
-     2,
-     0,
-     0
-    ],
-    [
-     "honed_blade",
-     5,
-     1,
-     0
-    ],
-    [
-     "scrap_cannon",
-     6,
-     5,
-     1
-    ],
-    [
-     "wooden_shield",
-     4,
-     1,
-     0
-    ],
-    [
-     "tesla_battery",
-     0,
-     3,
-     0
-    ],
-    [
-     "gear_box",
-     1,
-     3,
-     0
-    ],
-    [
-     "gear_box",
-     3,
-     4,
-     0
-    ],
-    [
-     "medic_shield",
-     3,
-     2,
-     0
-    ],
-    [
-     "whetstone",
-     8,
-     3,
-     0
-    ],
-    [
-     "selfmend_golem",
-     4,
-     3,
-     0
-    ],
-    [
-     "whetstone",
-     8,
-     5,
-     0
-    ],
-    [
-     "flechette_turret",
-     7,
-     2,
-     0
-    ],
-    [
-     "honed_blade",
      6,
      1,
      0
     ],
     [
-     "honed_turret",
+     "arcane_barrage",
+     4,
+     2,
+     0
+    ],
+    [
+     "star_orb",
      5,
      4,
+     0
+    ],
+    [
+     "shooting_star",
+     4,
+     4,
+     0
+    ],
+    [
+     "void_sigil",
+     3,
+     3,
+     0
+    ],
+    [
+     "shooting_star",
+     3,
+     4,
+     0
+    ],
+    [
+     "greater_potion",
+     5,
+     0,
+     0
+    ],
+    [
+     "healers_wand",
+     3,
+     1,
+     0
+    ],
+    [
+     "mana_prism",
+     2,
+     2,
      1
     ],
     [
-     "selfmend_golem",
-     2,
-     2,
-     0
-    ],
-    [
-     "tower_shield",
-     0,
-     0,
-     0
-    ],
-    [
-     "gear_box",
-     2,
-     4,
-     0
-    ],
-    [
-     "health_potion",
-     5,
-     0,
-     0
-    ],
-    [
-     "iron_shield",
-     2,
+     "star_orb",
+     3,
      5,
      0
     ]
    ],
    "ch": 2,
-   "cls": "tinker",
+   "cls": "weaver",
    "d": "The bot beat this boss with these items. Can you?",
-   "day": 10,
+   "day": 5,
    "foe": {
-    "atk": 19.0,
-    "cd": 1.4,
-    "cd_mult": 1.0,
-    "d": 10,
-    "dmg_mult": 1.08,
-    "dps": 15.675,
-    "fam": "Storm Drake",
+    "atk": 13.5,
+    "cd": 1.5,
+    "cd_mult": 1.3,
+    "d": 5,
+    "dmg_mult": 0.593372093023256,
+    "dps": 10.206,
+    "fam": "Magma Golem",
     "gh": 4,
     "gw": 5,
-    "hp": 1328.0,
-    "imm": "Fire",
-    "items": [
-     [
-      "m_storm_breath",
-      0,
-      0,
-      0
-     ],
-     [
-      "m_drake_scale",
-      2,
-      0,
-      0
-     ],
-     [
-      "m_static",
-      4,
-      0,
-      0
-     ],
-     [
-      "m_static",
-      2,
-      1,
-      0
-     ],
-     [
-      "m_static",
-      3,
-      1,
-      0
-     ],
-     [
-      "m_static",
-      4,
-      1,
-      0
-     ]
-    ],
-    "mech": {
-     "d": "Every 10s a huge breath hits for 4× its attack. Have Shield ready!",
-     "every": 10.0,
-     "first": 7.0,
-     "ic": "⚡",
-     "n": "Storm Breath",
-     "nuke": 4.0,
-     "warn": 2.5
-    },
-    "n": "Storm Drake",
-    "st_mult": 2.0,
-    "sup_mult": 1.0,
-    "tier": "boss",
-    "tr": "spiked",
-    "weak": "Nature"
-   },
-   "id": "c_tinker_1",
-   "items": [
-    "arc_repeater",
-    "steam_plate",
-    "honed_blade",
-    "scrap_cannon",
-    "wooden_shield",
-    "tesla_battery",
-    "gear_box",
-    "gear_box",
-    "medic_shield",
-    "whetstone",
-    "selfmend_golem",
-    "whetstone",
-    "flechette_turret",
-    "honed_blade",
-    "honed_turret",
-    "selfmend_golem",
-    "tower_shield",
-    "gear_box",
-    "health_potion",
-    "iron_shield"
-   ],
-   "n": "Clockwork Tinker vs Storm Drake",
-   "stars": [
-    0.18,
-    0.43
-   ],
-   "tiles": [
-    [
-     3,
-     2
-    ],
-    [
-     4,
-     2
-    ],
-    [
-     5,
-     2
-    ],
-    [
-     3,
-     3
-    ],
-    [
-     4,
-     3
-    ],
-    [
-     5,
-     3
-    ],
-    [
-     3,
-     4
-    ],
-    [
-     4,
-     4
-    ],
-    [
-     5,
-     4
-    ],
-    [
-     2,
-     4
-    ],
-    [
-     2,
-     3
-    ],
-    [
-     2,
-     2
-    ],
-    [
-     3,
-     1
-    ],
-    [
-     3,
-     0
-    ],
-    [
-     6,
-     3
-    ],
-    [
-     6,
-     4
-    ],
-    [
-     2,
-     0
-    ],
-    [
-     2,
-     5
-    ],
-    [
-     1,
-     0
-    ],
-    [
-     1,
-     3
-    ],
-    [
-     6,
-     2
-    ],
-    [
-     2,
-     1
-    ],
-    [
-     7,
-     4
-    ],
-    [
-     6,
-     5
-    ],
-    [
-     1,
-     1
-    ],
-    [
-     5,
-     1
-    ],
-    [
-     8,
-     4
-    ],
-    [
-     3,
-     5
-    ],
-    [
-     0,
-     1
-    ],
-    [
-     7,
-     2
-    ],
-    [
-     6,
-     1
-    ],
-    [
-     5,
-     0
-    ],
-    [
-     4,
-     1
-    ],
-    [
-     8,
-     5
-    ],
-    [
-     2,
-     6
-    ],
-    [
-     3,
-     6
-    ],
-    [
-     8,
-     3
-    ],
-    [
-     7,
-     3
-    ],
-    [
-     0,
-     0
-    ],
-    [
-     6,
-     6
-    ],
-    [
-     0,
-     3
-    ],
-    [
-     7,
-     6
-    ],
-    [
-     0,
-     4
-    ]
-   ]
-  },
-  {
-   "best": [
-    [
-     "arc_repeater",
-     2,
-     1,
-     0
-    ],
-    [
-     "fortune_blade",
-     4,
-     1,
-     0
-    ],
-    [
-     "longsword",
-     6,
-     3,
-     0
-    ],
-    [
-     "longsword",
-     3,
-     5,
-     1
-    ],
-    [
-     "scrap_knight",
-     5,
-     1,
-     0
-    ],
-    [
-     "wooden_shield",
-     1,
-     3,
-     0
-    ],
-    [
-     "selfmend_golem",
-     4,
-     3,
-     0
-    ],
-    [
-     "tesla_battery",
-     3,
-     0,
-     0
-    ],
-    [
-     "fortune_blade",
-     5,
-     3,
-     0
-    ],
-    [
-     "iron_shield",
-     7,
-     1,
-     0
-    ],
-    [
-     "repair_drone",
-     2,
-     2,
-     0
-    ],
-    [
-     "overclock_core",
-     1,
-     2,
-     0
-    ],
-    [
-     "static_coil",
-     8,
-     2,
-     0
-    ],
-    [
-     "iron_sword",
-     7,
-     3,
-     0
-    ],
-    [
-     "hourglass",
-     0,
-     3,
-     0
-    ],
-    [
-     "selfmend_golem",
-     3,
-     2,
-     0
-    ],
-    [
-     "whetstone",
-     3,
-     4,
-     0
-    ],
-    [
-     "health_potion",
-     2,
-     3,
-     0
-    ],
-    [
-     "lucky_clover",
-     8,
-     3,
-     0
-    ],
-    [
-     "flechette_turret",
-     1,
-     5,
-     0
-    ]
-   ],
-   "ch": 2,
-   "cls": "tinker",
-   "d": "The bot beat this boss with these items. Can you?",
-   "day": 10,
-   "foe": {
-    "atk": 18.2,
-    "cd": 1.4,
-    "cd_mult": 1.0,
-    "d": 10,
-    "dmg_mult": 0.641447368421053,
-    "dps": 17.875,
-    "fam": "Plague Lord",
-    "gh": 4,
-    "gw": 5,
-    "hp": 1845.0,
+    "hp": 740.0,
     "imm": "",
     "items": [
      [
-      "m_rot_blade",
+      "m_magma_fist",
       0,
       0,
       0
      ],
      [
-      "m_plague_cloud",
-      1,
+      "m_lava_heart",
+      2,
       0,
       0
      ],
      [
-      "m_corpse_feast",
-      3,
-      0,
-      0
-     ],
-     [
-      "m_poison_dart",
-      1,
-      1,
-      0
-     ],
-     [
-      "m_poison_dart",
+      "m_obsidian",
       2,
       1,
+      0
+     ],
+     [
+      "m_ember_spark",
+      4,
+      0,
+      0
+     ],
+     [
+      "m_ember_spark",
+      2,
+      2,
       0
      ]
     ],
     "mech": {
-     "d": "Every 8s it wipes half of your Burn, Poison and Bleed off itself, heals that much and Poisons you 4.",
-     "every": 8.0,
+     "d": "Every 10s it gains a Shield of 8% of its Max HP and Burns you 2.",
+     "every": 10.0,
      "first": 6.0,
-     "ic": "☣️",
-     "n": "Purge",
-     "purge": 1.0,
-     "purge_frac": 0.5,
+     "ic": "🌋",
+     "n": "Magma Shell",
+     "shell": 0.08,
      "st": {
-      "poison": 4.0
+      "burn": 2.0
      },
      "warn": 2.0
     },
-    "n": "Plague Lord",
-    "st_mult": 2.0,
+    "n": "Magma Golem",
+    "st_mult": 1.5,
     "sup_mult": 1.0,
     "tier": "boss",
-    "tr": "berserk",
-    "weak": "Fire"
+    "tr": "brute",
+    "weak": "Nature"
    },
-   "id": "c_tinker_2",
+   "id": "c_weaver_1",
    "items": [
-    "arc_repeater",
-    "fortune_blade",
-    "longsword",
-    "longsword",
-    "scrap_knight",
-    "wooden_shield",
-    "selfmend_golem",
-    "tesla_battery",
-    "fortune_blade",
     "iron_shield",
-    "repair_drone",
-    "overclock_core",
-    "static_coil",
-    "iron_sword",
-    "hourglass",
-    "selfmend_golem",
-    "whetstone",
-    "health_potion",
-    "lucky_clover",
-    "flechette_turret"
+    "arcane_barrage",
+    "comet",
+    "star_orb",
+    "shooting_star",
+    "void_sigil",
+    "shooting_star",
+    "greater_potion",
+    "healers_wand",
+    "mana_prism",
+    "star_orb",
+    "shooting_star"
    ],
-   "n": "Clockwork Tinker vs Plague Lord",
+   "n": "Astral Weaver vs Magma Golem",
    "stars": [
-    0.11,
-    0.26
+    0.7,
+    0.83
    ],
    "tiles": [
     [
@@ -4491,50 +6518,14 @@
     ],
     [
      6,
-     3
+     2
     ],
     [
      4,
      1
     ],
     [
-     2,
-     3
-    ],
-    [
-     6,
-     4
-    ],
-    [
-     6,
-     5
-    ],
-    [
-     3,
-     5
-    ],
-    [
-     1,
-     3
-    ],
-    [
-     3,
-     1
-    ],
-    [
-     1,
-     4
-    ],
-    [
-     7,
-     3
-    ],
-    [
-     7,
-     2
-    ],
-    [
-     3,
+     4,
      0
     ],
     [
@@ -4542,60 +6533,24 @@
      2
     ],
     [
-     5,
+     6,
      1
     ],
     [
-     7,
-     4
-    ],
-    [
-     2,
-     1
-    ],
-    [
-     4,
-     6
-    ],
-    [
-     8,
-     2
-    ],
-    [
      5,
-     6
+     0
+    ],
+    [
+     3,
+     5
     ],
     [
      7,
      1
     ],
     [
-     8,
-     3
-    ],
-    [
-     1,
-     5
-    ],
-    [
-     5,
-     5
-    ],
-    [
-     2,
-     4
-    ],
-    [
-     1,
-     6
-    ],
-    [
-     1,
-     2
-    ],
-    [
-     0,
-     3
+     3,
+     1
     ]
    ]
   }

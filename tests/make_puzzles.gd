@@ -7,17 +7,18 @@ extends SceneTree
 const LESSONS := [
 	{"id": "l01", "n": "Touching items help", "d": "Whetstones sharpen the weapons they touch. Put each one between blades.", "cls": "rogue", "w": 4, "h": 3, "items": ["rogue_dagger", "rogue_dagger", "bloodied_shiv", "whetstone", "whetstone", "whetstone"], "foe": {"fam": "Goblin", "day": 5}},
 	{"id": "l02", "n": "Not everything goes in", "d": "There is more than the pack can hold. Leave out what does not help this fight.", "cls": "inquisitor", "w": 3, "h": 2, "items": ["coin_purse", "leather_vest", "oath_blade", "rune_sword", "whetstone", "spark_rune"], "foe": {"fam": "Bandit", "day": 6}},
-	{"id": "l03", "n": "Shields and thorns", "d": "A fast monster hits often: Shield soaks the hits and Thorns punish each one.", "cls": "warden", "w": 4, "h": 3, "items": ["bark_skin", "bark_skin", "granite_shield", "stone_fist", "thorn_whip"], "foe": {"fam": "Bandit", "day": 7, "tr": "swift"}},
+		{"id": "l03", "n": "Hardened armor", "d": "The Boulder Maul adds Shield to every Armor it touches. Put it in the middle of your armor.", "cls": "warden", "w": 4, "h": 3, "items": ["boulder_maul", "bark_skin", "bark_skin", "granite_wall", "stone_fist"], "foe": {"fam": "Bandit", "day": 7, "tr": "swift"}},
 	{"id": "l04", "n": "Stack the Burn", "d": "A Fire Gem turns the weapons it touches into Fire. Burn keeps hurting a monster that heals.", "cls": "ember", "w": 4, "h": 3, "items": ["fire_gem", "kindling_blade", "kindling_blade", "fire_whip", "iron_sword"], "foe": {"fam": "Slime", "day": 7, "tr": "regen"}},
 	{"id": "l05", "n": "It shrugs off Fire", "d": "This monster resists Fire. Pick the weapons that hit it for full damage.", "cls": "ember", "w": 3, "h": 2, "items": ["ember_sword", "fire_whip", "iron_sword", "serrated_cleaver", "whetstone"], "foe": {"fam": "Skeleton", "day": 6, "imm": "Fire"}},
 	{"id": "l06", "n": "Break the armor", "d": "Armored monsters take less Physical damage. An Armor Breaker lets the weapons it touches pierce it.", "cls": "warden", "w": 4, "h": 3, "items": ["armor_breaker", "stone_fist", "stone_fist", "rock_club", "pebble_sling"], "foe": {"fam": "Skeleton", "day": 7, "tr": "armored"}},
-	{"id": "l07", "n": "Charge them up", "d": "A Battery charges the items it touches. Put it where it reaches the most weapons.", "cls": "tinker", "w": 4, "h": 3, "items": ["battery", "spark_pistol", "spark_pistol", "scrap_golem", "static_coil"], "foe": {"fam": "Cave Rat", "day": 7}},
-	{"id": "l08", "n": "Spell support", "d": "The Mana Prism makes the Spells it touches faster and stronger.", "cls": "weaver", "w": 4, "h": 3, "items": ["mana_prism", "arcane_bolt", "arcane_bolt", "shooting_star", "apprentice_wand"], "foe": {"fam": "Goblin", "day": 7}},
+		{"id": "l07", "n": "Charge them up", "d": "A Battery and a Capacitor charge the items they touch. Put them where they reach the most weapons.", "cls": "tinker", "w": 4, "h": 3, "items": ["battery", "capacitor", "volt_rifle", "spark_pistol", "spark_pistol"], "foe": {"fam": "Cave Rat", "day": 7}},
+		{"id": "l08", "n": "Spell support", "d": "Mana Crystals and the Mana Prism speed up the Spells they touch. Every Spell should touch at least one.", "cls": "weaver", "w": 4, "h": 3, "items": ["mana_prism", "mana_crystal", "mana_crystal", "arcane_bolt", "arcane_bolt", "star_orb"], "foe": {"fam": "Goblin", "day": 7}},
 	{"id": "l09", "n": "Lead the pack", "d": "A Spirit Totem makes the Beasts it touches hit harder. Two totems, three beasts: make every beast touch both.", "cls": "beast", "w": 4, "h": 3, "items": ["spirit_totem", "spirit_totem", "wolf_pup", "fox_kit", "stray_kitten"], "foe": {"fam": "Bandit", "day": 7}},
-	{"id": "l10", "n": "A signature item", "d": "The Twin-Fang Ring strikes again when a Weapon touching it crits. Surround it with crit weapons.", "cls": "rogue", "w": 4, "h": 3, "items": ["fang_ring", "shadow_dagger", "executioners_blade", "lucky_clover", "bloodied_shiv"], "foe": {"fam": "Goblin", "day": 8}},
+		{"id": "l10", "n": "A signature item", "d": "The Twin-Fang Ring strikes again when a Weapon touching it crits; a Shadow Cloak makes the weapons it touches crit more. Build a crit corner.", "cls": "rogue", "w": 4, "h": 3, "items": ["fang_ring", "shadow_cloak", "shadow_dagger", "executioners_blade", "bloodied_shiv"], "foe": {"fam": "Goblin", "day": 8}},
 ]
 
 const MIN_GAP := 0.1   # the good layout keeps at least this much more HP than the careless one
+const SEARCH_TRIES := 250 # tries per puzzle when looking for its best layout
 
 var out := []
 var boards_dir := ""
@@ -63,44 +64,46 @@ func _challenges() -> void:
 	if boards_dir == "":
 		return
 	var picked := {}
-	for mode in ["f_normal", "f_hard"]:
-		var d := DirAccess.open(boards_dir + "/" + mode)
-		if d == null:
-			continue
-		for fn in d.get_files():
-			if not fn.ends_with(".out"):
+	# floor 10 first; a class with none (Weaver packs there hold 20+ small items) tries its floor-5 pack
+	for fl in [10, 5]:
+		for mode in ["f_normal", "f_hard", "f_vhard", "f_abyss"]:
+			var d := DirAccess.open(boards_dir + "/" + mode)
+			if d == null:
 				continue
-			for line in FileAccess.get_file_as_string(boards_dir + "/" + mode + "/" + fn).split("\n"):
-				var x := line.split("|")
-				if x.size() < 23 or x[6] != "1":
+			for fn in d.get_files():
+				if not fn.ends_with(".out"):
 					continue
-				var cls := x[3]
-				if picked.get(cls, 0) >= 2:
-					continue
-				var bosses := x[21].split(",")
-				for snap in x[22].split("~"):
-					var parts := snap.split("#")
-					if parts.size() < 3 or parts[0] != "10" or bosses.size() < 2:
+				for line in FileAccess.get_file_as_string(boards_dir + "/" + mode + "/" + fn).split("\n"):
+					var x := line.split("|")
+					if x.size() < 23 or x[6] != "1":
 						continue
-					var boss_name := bosses[1].split(":")[0]
-					var p := _board_puzzle(cls, parts[1], parts[2], boss_name, "c_%s_%d" % [cls, picked.get(cls, 0) + 1])
-					if p.is_empty():
+					var cls := x[3]
+					if picked.get(cls, 0) >= (2 if fl == 10 else 1):
 						continue
-					var before := out.size()
-					var r := RunState.new(cls, "", "normal")
-					r.day = 10
-					r.boss_pick[10] = boss_name
-					_tune(p, r.boss_foe(r.boss_on(10)))
-					if out.size() > before:
-						picked[cls] = picked.get(cls, 0) + 1
+					var bosses := x[21].split(",")
+					for snap in x[22].split("~"):
+						var parts := snap.split("#")
+						if parts.size() < 3 or parts[0] != str(fl) or bosses.size() < fl / 5:
+							continue
+						var boss_name := bosses[fl / 5 - 1].split(":")[0]
+						var p := _board_puzzle(cls, parts[1], parts[2], boss_name, "c_%s_%d" % [cls, picked.get(cls, 0) + 1], fl)
+						if p.is_empty():
+							continue
+						var before := out.size()
+						var r := RunState.new(cls, "", "normal")
+						r.day = fl
+						r.boss_pick[fl] = boss_name
+						_tune(p, r.boss_foe(r.boss_on(fl)))
+						if out.size() > before:
+							picked[cls] = picked.get(cls, 0) + 1
 
 
-func _board_puzzle(cls: String, tiles_s: String, items_s: String, boss_name: String, id: String) -> Dictionary:
+func _board_puzzle(cls: String, tiles_s: String, items_s: String, boss_name: String, id: String, fl: int) -> Dictionary:
 	var tiles := Array(tiles_s.split(";")).map(func(t): return [int(t.split(".")[0]), int(t.split(".")[1])])
 	var items := Array(items_s.split(";")).map(func(t): return t.split(":")[0])
 	if items.size() < 5 or items.size() > 20:
 		return {}
-	return {"id": id, "ch": 2, "n": "%s vs %s" % [GameData.classes[cls].n, boss_name], "d": "The bot beat this boss with these items. Can you?", "cls": cls, "day": 10, "tiles": tiles, "items": items}
+	return {"id": id, "ch": 2, "n": "%s vs %s" % [GameData.classes[cls].n, boss_name], "d": "The bot beat this boss with these items. Can you?", "cls": cls, "day": fl, "tiles": tiles, "items": items}
 
 
 ## Tunes the foe where a good layout stands out most from a careless one (the most HP left between
@@ -160,7 +163,7 @@ func _fight(p: Dictionary, base: Dictionary, k: float, layout: Array) -> Diction
 	while not cs.done and guard < 900:
 		cs.step()
 		guard += 1
-	return {"win": cs.won, "left": cs.php / maxf(1.0, cs.mhp)}
+	return {"win": cs.won, "left": cs.php / maxf(1.0, cs.mhp), "foe_left": maxf(0.0, cs.ehp) / maxf(1.0, float(cs.e.hp))}
 
 
 ## A careless player: every item, in the order given, dropped on a random spot that fits (the same
@@ -197,7 +200,8 @@ func _apply(r: RunState, layout: Array) -> void:
 				break
 
 
-## The best layout the arranger finds, starting from the careless one.
+## The best layout found by real fights: the arranger's layout first, then a few hundred tries of
+## moving one item, or swapping one in or out of storage, keeping each try that fights better.
 func _best_layout(p: Dictionary, base: Dictionary) -> Array:
 	var r := RunState.new(p.cls, "", "normal")
 	var q := p.duplicate(true)
@@ -207,4 +211,61 @@ func _best_layout(p: Dictionary, base: Dictionary) -> Array:
 	var plan := r.plan_arrange()
 	if not plan.is_empty():
 		r.apply_arrange(plan.moves)
-	return r.grid_items().map(func(i): return [i.id, i.x, i.y, i.rot])
+	var snap := func() -> Array: return r.grid_items().map(func(i): return [i.id, i.x, i.y, i.rot])
+	var best: Array = snap.call()
+	var best_v := _value(p, base, best)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(p.id) + "best")
+	for _try in SEARCH_TRIES:
+		_apply_fresh(r, best)
+		var it: PItem = r.items[rng.randi() % r.items.size()]
+		if it.loc == "grid" and rng.randf() < 0.25:
+			it.loc = "storage"   # leave it out
+		else:
+			it.loc = "held"
+			var spots := []
+			for rot in 4:
+				for y in GameData.H:
+					for x in GameData.W:
+						if r.fits(it, x, y, rot):
+							spots.append([x, y, rot])
+			if spots.is_empty():
+				# no room: make room by taking out another item
+				var g := r.grid_items()
+				if g.is_empty():
+					it.loc = "storage"
+					continue
+				g[rng.randi() % g.size()].loc = "storage"
+				for rot in 4:
+					for y in GameData.H:
+						for x in GameData.W:
+							if r.fits(it, x, y, rot):
+								spots.append([x, y, rot])
+			if spots.is_empty():
+				it.loc = "storage"
+			else:
+				var s: Array = spots[rng.randi() % spots.size()]
+				it.loc = "grid"
+				it.x = s[0]
+				it.y = s[1]
+				it.rot = s[2]
+		var cand: Array = snap.call()
+		var v := _value(p, base, cand)
+		if v > best_v:
+			best_v = v
+			best = cand
+	return best
+
+
+## How well a layout fights the base foe: HP left when it wins, how much of the foe is left when not.
+func _value(p: Dictionary, base: Dictionary, layout: Array) -> float:
+	if layout.is_empty():
+		return -2.0
+	var res := _fight(p, base, 0.6, layout)
+	return res.left if res.win else -res.foe_left
+
+
+func _apply_fresh(r: RunState, layout: Array) -> void:
+	for it in r.items:
+		it.loc = "storage"
+	_apply(r, layout)
