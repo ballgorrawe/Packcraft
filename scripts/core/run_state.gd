@@ -655,9 +655,9 @@ func recipe_partner_owned(id: String, owned_self := false) -> bool:
 	return false
 
 
-## Recipes relevant to an item (as ingredient or result), for the inspector.
+## Recipes relevant to an item (as ingredient or result) that this class can make, for the inspector.
 func recipes_for(id: String) -> Array:
-	return GameData.recipes.filter(func(r): return (r.a == id or r.b == id or r.get("c", "") == id or r.r == id) and (r.path == "" or r.path == path or path == ""))
+	return GameData.recipes.filter(func(r): return (r.a == id or r.b == id or r.get("c", "") == id or r.r == id) and (r.path == "" or r.path == path or path == "") and in_class_pool(r.r))
 
 
 # ---------------------------------------------------------------- play log

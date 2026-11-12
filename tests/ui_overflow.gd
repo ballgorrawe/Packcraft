@@ -67,6 +67,15 @@ func _run() -> void:
 	main.inspect_idx = 0
 	main.render()
 	await _check("morning_inspect")
+	# an item in many recipes: its card lists at most 4, then "+N more"
+	main.inspect_id = "wooden_shield"
+	main.inspect_idx = -1
+	main.render()
+	await _check("inspect_recipes")
+	# a new fused item's card (stats + its recipe)
+	main.inspect_id = "sundering_longsword"
+	main.render()
+	await _check("inspect_new_item")
 	main.inspect_id = ""
 	main.inspect_idx = -1
 	# 🪄 preview: the planned pack with its combo list and Use / Cancel in the shop's place

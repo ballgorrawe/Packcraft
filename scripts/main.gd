@@ -1909,8 +1909,8 @@ func _inspector_popup() -> Control:
 		v.add_child(UI.wrap_lbl(line, 18, Color("#f4ebd8")))
 	if owned:
 		v.add_child(_buff_panel(selected, minf(get_viewport_rect().size.x, COLUMN_W) - 2.0 * _side_pad() - 60.0))
-	for r in run.recipes_for(id):
-		v.add_child(_recipe_row(r))
+	for row in _recipe_rows(id):
+		v.add_child(row)
 	if owned and run.phase == "morning":
 		var tips := UI.hbox(8)
 		var rb := UI.btn("🔄 " + tr("Rotate"), func(): _rotate(1), false, 17, "blue")
@@ -2107,8 +2107,7 @@ func _item_info_card(t: Dictionary) -> Control:
 	var it: PItem = t.item
 	if it != null and run.items.has(it):
 		v.add_child(_buff_panel(it, 488))
-	for r in run.recipes_for(id):
-		var rr := _recipe_row(r)
+	for rr in _recipe_rows(id):
 		rr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(rr)
 	var hint := ""
@@ -2167,6 +2166,17 @@ func _tip(icon: String, t: String) -> Control:
 	v.add_child(UI.plbl(icon, 24, UI.TX, false, true))
 	v.add_child(UI.plbl(t, 14, UI.MU, true, true))
 	return p
+
+
+## The item card's recipe rows: the ones you are closest to first, at most 4, then "+N more".
+func _recipe_rows(id: String) -> Array:
+	var rs := run.recipes_for(id)
+	var have := func(r: Dictionary) -> int: return [r.a, r.b, r.get("c", "")].filter(func(q): return q != "" and run.owns(q)).size()
+	rs.sort_custom(func(x, y): return have.call(x) > have.call(y))
+	var out: Array = rs.slice(0, 4).map(func(r): return _recipe_row(r))
+	if rs.size() > 4:
+		out.append(UI.lbl("📖 " + tr("+%d more recipes in the book") % (rs.size() - 4), 15, UI.MU))
+	return out
 
 
 func _recipe_row(r: Dictionary) -> Control:
