@@ -17,6 +17,7 @@ const WARD_CUT := 0.3     # Warded monsters take this much less Magic damage
 static var loaded := false
 static var items := {}
 static var ascension: Array = []        # {k, v, d}: level N turns on the first N rules
+static var puzzles: Array = []          # data/puzzles.json (made by tests/make_puzzles.gd)
 static var recipes: Array = []          # {a, b, r, path}; evolutions are added as {a: x, b: x, r: evo, evo: true}
 static var classes := {}
 static var class_keys: Array = []
@@ -152,6 +153,8 @@ static func ensure_loaded() -> void:
 	first_boss = d.get("first_boss", {})
 	leveling = d.get("leveling", {})
 	ascension = d.get("ascension", [])
+	if FileAccess.file_exists("res://data/puzzles.json"):
+		puzzles = JSON.parse_string(FileAccess.get_file_as_string("res://data/puzzles.json")).get("puzzles", [])
 	W = int(d.grid_w)
 	H = int(d.grid_h)
 	loaded = true

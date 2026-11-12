@@ -60,6 +60,22 @@ func _run() -> void:
 	main.render()
 	await _check("trial_end")
 	main.run = null
+	# ---- puzzles: the list, a puzzle in play, its end screen
+	main.title_step = 11
+	main.render()
+	await _check("puzzle_list")
+	main.title_step = 0
+	if not GameData.puzzles.is_empty():
+		var pz_run := RunState.new(str(GameData.puzzles[0].cls), "", "normal")
+		pz_run.start_puzzle(GameData.puzzles[0])
+		main.run = pz_run
+		main.render()
+		await _check("puzzle_play")
+		pz_run.result = {"stars": 2}
+		pz_run.end_state = "win"
+		main.render()
+		await _check("puzzle_end")
+		main.run = null
 
 	# ---- a run in progress with a full-ish pack
 	seed(3)

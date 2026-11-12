@@ -20,6 +20,8 @@ var diff := "normal"            # difficulty mode id
 static var locked := {}         # signature item ids not unlocked yet (the game fills it; bots and tests see all)
 var mode := ""                  # "" a normal run, "trial" a class trial, "puzzle" a puzzle (neither is saved)
 var trial := {}                 # the trial's plan (trial_plan): what the shop sells each day and the day's steps
+var puzzle := {}                # the puzzle being played (data/puzzles.json entry)
+var puzzle_hint := false        # the hint was used: this try earns at most 2 stars
 var asc := 0                    # Ascension level (0 = off): the first `asc` rules of GameData.ascension
 var day := 1
 var gold := 8
@@ -776,6 +778,9 @@ func bag_price(n: int) -> int:
 
 
 func fill_shop() -> void:
+	if mode == "puzzle":
+		shop = []   # a puzzle has only the items it gives
+		return
 	shop = shop.filter(func(e): return not e.has("bag"))
 	if mode == "trial":
 		for id in trial.days.get(day, {}).get("buy", []):
@@ -1264,6 +1269,49 @@ func _trial_parent(id: String) -> String:
 	return ""
 
 
+# ---------------------------------------------------------------- puzzles
+# A fixed pack shape and item set against one foe (data/puzzles.json, made by tests/make_puzzles.gd).
+# Arrange, fight once, earn stars by the HP left. No shop, no fusing, no saving.
+
+const PUZZLE_SEED := 4242
+const PUZZLE_STARS := [0.5, 0.8]   # HP left for the 2nd and 3rd star when a puzzle names none
+
+
+## Stars for a puzzle fight: a win is 1, more with HP left; a used hint caps it at 2.
+func puzzle_stars(win: bool, hp_left: float) -> int:
+	if not win:
+		return 0
+	var marks: Array = puzzle.get("stars", PUZZLE_STARS)   # each puzzle has its own (tests/make_puzzles.gd)
+	var s := 1 + (1 if hp_left >= float(marks[0]) else 0) + (1 if hp_left >= float(marks[1]) else 0)
+	return mini(s, 2) if puzzle_hint else s
+
+
+## Turns this new run into a puzzle: its tiles, its items (all in storage) and its foe.
+func start_puzzle(p: Dictionary) -> void:
+	mode = "puzzle"
+	puzzle = p
+	mod = {"id": "", "n": ""}   # no world modifier or hazard: a puzzle is the same every time
+	hz = {}
+	items = []
+	tiles = {}
+	for t in p.tiles:
+		tiles[Vector2i(int(t[0]), int(t[1]))] = true
+	start = tiles.duplicate()
+	for id in p.items:
+		items.append(make_item(str(id), "storage"))
+	expand = 0
+	gold = 0
+	shop = []
+	day = int(p.get("day", 6))
+	mhp = max_hp()
+	hp = mhp
+	var e: Dictionary = p.foe.duplicate(true)
+	_fix_foe(e)
+	nodes = [{"k": "boss" if str(e.get("tier", "")) == "boss" else "combat", "e": e}]
+	phase = "morning"
+	msg = ""
+
+
 ## Most Hearts you can hold (5 in Endless).
 func max_hearts() -> int:
 	return (ENDLESS_HEARTS if endless else MAX_HEARTS) + int(av("hearts"))
@@ -1427,7 +1475,11 @@ func choose(i: int) -> CombatSim:
 		calc()
 		sync_hp()
 		phase = "evening"
-		return CombatSim.new(self, n)
+		var cs := CombatSim.new(self, n)
+		if mode == "puzzle":
+			cs._rng.seed = PUZZLE_SEED   # the same layout always fights the same way
+			seed(PUZZLE_SEED)            # (some fight rolls use the global dice)
+		return cs
 	if EVENTS.has(n.k):
 		start_event(n.k)
 		return null
@@ -1843,6 +1895,15 @@ static func from_dict(d: Dictionary) -> RunState:
 func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 	phase = "night"
 	var r := {"n": n, "win": win, "cs": cs, "lines": [], "over": false, "victory": false, "rew": [], "fused": []}
+	if mode == "puzzle":
+		var left := cs.php / maxf(1.0, cs.mhp) if cs != null else 0.0
+		r.stars = puzzle_stars(win, left)
+		r.victory = win
+		r.over = not win
+		r.lines.append(I18n.t("⭐ %d of 3 stars") % r.stars if win else I18n.t("Not this time: try another layout."))
+		result = r
+		phase = "night"
+		return
 	result = r
 	if cs != null:
 		hp = maxf(1.0, roundf(cs.php)) if win else 0.0

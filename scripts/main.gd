@@ -341,6 +341,8 @@ func render() -> void:
 		body = _title_screen()
 	elif run.end_state != "" and run.mode == "trial":
 		body = _trial_end_screen()
+	elif run.end_state != "" and run.mode == "puzzle":
+		body = _puzzle_end_screen()
 	elif run.end_state != "":
 		_send_play_log(run, run.end_state)
 		body = _end_screen()
@@ -537,6 +539,7 @@ func _title_screen() -> Control:
 		2: body = _pet_screen()
 		3: body = _diff_screen()
 		10: body = _trial_screen()
+		11: body = _puzzle_screen()
 		_: body = _start_screen()
 	# scrolls on short screens; spacers inside still centre things on tall ones
 	var sc := ScrollContainer.new()
@@ -627,6 +630,13 @@ func _start_screen() -> Control:
 	if _wide:
 		tb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(tb)
+	var pz := UI.btn("🧩 " + tr("Puzzles"), func():
+		title_step = 11
+		render(), false, 24, "purple")
+	pz.custom_minimum_size = Vector2(640 if _wide else 0, 72)
+	if _wide:
+		pz.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(pz)
 	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
 		show_how = not show_how
 		render(), false, 17, "purple")))
@@ -1048,6 +1058,137 @@ func _first_tip(key: String, text: String) -> void:
 		return
 	SaveGame.set_setting("tip_" + key, true)
 	toast(text, Color("#7dd3fc"), 7.0)
+
+
+# ---------------------------------------------------------------- puzzles
+
+## A puzzle's name: lessons have their own, challenges are "<class> vs <boss>".
+func _puzzle_name(p: Dictionary) -> String:
+	if int(p.ch) == 2:
+		return tr(GameData.classes[p.cls].n) + " vs " + tr(str(p.foe.n))
+	return tr(str(p.n))
+
+
+func _stars_text(n: int) -> String:
+	return "⭐".repeat(n) + "☆".repeat(3 - n)
+
+
+## The puzzle list: lessons, then challenges, each with the stars earned.
+func _puzzle_screen() -> Control:
+	var v := UI.vbox(10)
+	var total := 0
+	for p in GameData.puzzles:
+		total += int(SaveGame.get_setting("puzzle_" + str(p.id), 0))
+	var t := UI.title("🧩 " + tr("Puzzles") + "   ⭐ %d/%d" % [total, GameData.puzzles.size() * 3], 34, UI.GOLD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var sub := UI.wrap_lbl(tr("Arrange the items you are given and win one fight. More HP left, more stars."), 17, UI.MU)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	for ch in [1, 2]:
+		v.add_child(UI.lbl(("📘 " + tr("Lessons")) if ch == 1 else ("💀 " + tr("Challenges: packs the bot won with")), 20, Color("#bfe3ff"), true))
+		var grid := GridContainer.new()
+		grid.columns = 3 if _wide else 2
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		v.add_child(grid)
+		for p in GameData.puzzles:
+			if int(p.ch) != ch:
+				continue
+			var stars := int(SaveGame.get_setting("puzzle_" + str(p.id), 0))
+			var pp: Dictionary = p
+			var b := UI.btn(GameData.classes[p.cls].hero + " " + _puzzle_name(p) + "\n" + _stars_text(stars), func():
+				_start_puzzle(pp), false, 15, "gold" if stars >= 3 else "purple" if stars > 0 else "gray")
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.custom_minimum_size.y = 64
+			grid.add_child(b)
+	var back := UI.btn("◀️ " + tr("Back"), func():
+		title_step = 0
+		render(), false, 20, "gray")
+	back.custom_minimum_size = Vector2(0, 64)
+	v.add_child(back)
+	return v
+
+
+func _start_puzzle(p: Dictionary) -> void:
+	run = RunState.new(str(p.cls), "", "normal")
+	run.start_puzzle(p)
+	title_step = 0
+	arr_plan = {}
+	_clear_sel()
+	anim.clear()
+	render()
+
+
+## In the shop's place during a puzzle: what it teaches, the foe, Fight / Hint / Leave.
+func _puzzle_panel() -> Control:
+	var p := UI.card(Color("#2a1f3a", 0.96), Color("#a78bfa"), 22, 12)
+	var v := UI.vbox(8)
+	p.add_child(v)
+	var pz: Dictionary = run.puzzle
+	v.add_child(UI.title("🧩 " + _puzzle_name(pz), 22, Color("#ddd6fe")))
+	var d := UI.wrap_lbl(tr(str(pz.d)), 16, Color("#efe4cf"))
+	v.add_child(d)
+	var e: Dictionary = run.nodes[0].e
+	var foe := "%s %s  ❤️ %d  ⚔️ %.1f/%s" % [GameData.foe_icon(e.n), tr(str(e.n)), roundi(e.hp), e.dps, tr("s")]
+	if str(e.get("imm", "")) != "":
+		foe += "  🛡️ " + tr("resists %s") % (GameData.elem_icon(e.imm) + tr(e.imm))
+	v.add_child(UI.lbl(foe, 16, UI.MU, true))
+	if run.puzzle_hint:
+		v.add_child(UI.lbl("🪄 " + tr("Hint used: this try earns at most 2 stars."), 15, UI.MU))
+	var bt := UI.hbox(8)
+	var leave := UI.btn("◀️ " + tr("Leave"), func():
+		run = null
+		title_step = 11
+		render(), false, 18, "gray")
+	leave.custom_minimum_size = Vector2(120, 64)
+	bt.add_child(leave)
+	var fight := UI.btn("⚔️ " + tr("Fight!"), func():
+		if drag_item != null or run.grid_items().is_empty():
+			return
+		run.travel()
+		_clear_sel()
+		_choose(0), false, 24, "green")
+	fight.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fight.custom_minimum_size.y = 64
+	bt.add_child(fight)
+	v.add_child(bt)
+	return p
+
+
+## A finished puzzle: its stars (kept when better than before), and where to go next.
+func _puzzle_end_screen() -> Control:
+	var cc := CenterContainer.new()
+	var v := UI.vbox(14)
+	v.custom_minimum_size.x = 640.0
+	cc.add_child(v)
+	var pz: Dictionary = run.puzzle
+	var stars := int(run.result.get("stars", 0))
+	var key := "puzzle_" + str(pz.id)
+	if stars > 0 and not _dev and stars > int(SaveGame.get_setting(key, 0)):
+		SaveGame.set_setting(key, stars)
+	var t := UI.title(_stars_text(stars) if stars > 0 else ("💀 " + tr("Not this time")), 52, UI.GOLD if stars > 0 else UI.BAD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var l := UI.wrap_lbl("🧩 " + _puzzle_name(pz) + "\n" + (tr("More HP left means more stars: try another layout for 3.") if stars in [1, 2] else tr("Perfect!") if stars >= 3 else tr("Try another layout: what touches what matters.")), 20)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	var again := UI.big_btn("🔁 " + tr("Try again"), func(): _start_puzzle(pz), "green", 26)
+	v.add_child(again)
+	var i := GameData.puzzles.find(pz)
+	if i >= 0 and i + 1 < GameData.puzzles.size():
+		var nxt: Dictionary = GameData.puzzles[i + 1]
+		var nb := UI.btn("▶️ " + tr("Next puzzle"), func(): _start_puzzle(nxt), false, 22, "purple")
+		nb.custom_minimum_size.y = 64
+		v.add_child(nb)
+	var lst := UI.btn("🧩 " + tr("All puzzles"), func():
+		run = null
+		title_step = 11
+		render(), false, 20, "gray")
+	lst.custom_minimum_size.y = 60
+	v.add_child(lst)
+	return cc
 
 
 # ---------------------------------------------------------------- class trials
@@ -1483,6 +1624,8 @@ func _run_screen(fresh: bool) -> Control:
 			else:
 				_clear_sel()
 				arr_plan = plan
+				if run.mode == "puzzle":
+					run.puzzle_hint = true   # this try earns at most 2 stars
 				_first_tip("hint", "🪄 " + tr("Follow the blue outlines: drag each item there yourself. The hint closes when the pack matches."))
 			render(), false, 22, "blue")
 		wand.custom_minimum_size = Vector2(60, 56)
@@ -1529,6 +1672,9 @@ func _run_screen(fresh: bool) -> Control:
 		toast("🪄 " + tr("Done: the pack matches the hint."), UI.GOOD)
 	if not arr_plan.is_empty():
 		shop = _arrange_panel()
+		root.add_child(shop)
+	elif run.mode == "puzzle":
+		shop = _puzzle_panel()
 		root.add_child(shop)
 	elif run.phase == "morning":
 		shop = _memo("shop", _shop_key(), func(): return _shop_panel(fresh)) if not fresh and not _shop_anim else _memo_put("shop", _shop_key(), _shop_panel(fresh))
