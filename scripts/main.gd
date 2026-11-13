@@ -1823,7 +1823,8 @@ func _hud() -> Control:
 	p.add_child(outer)
 	var h := UI.hbox(10)
 	outer.add_child(h)
-	outer.add_child(Timeline.new().setup(run))
+	if run.mode != "puzzle":   # a puzzle is one fight, not a climb
+		outer.add_child(Timeline.new().setup(run))
 	var av := UI.panel(Color("#ffcf3f"), Color("#c47a0c"), 4, 99, 4)
 	av.custom_minimum_size = Vector2(66, 66)
 	var al := UI.lbl(run.cls_def().hero, 38)
@@ -1866,12 +1867,14 @@ func _hud() -> Control:
 	_shown_hp = hp_now
 	hv.add_child(bar)
 	var hr := UI.hbox(6)
-	hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(maxi(0, run.max_hearts() - run.res)), 18))
-	hr.add_child(_level_badge())
+	if run.mode != "puzzle":   # a puzzle has no Hearts, levels or floors
+		hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(maxi(0, run.max_hearts() - run.res)), 18))
+		hr.add_child(_level_badge())
 	hr.add_child(UI.spacer())
 	hr.add_child(_effects_button())
-	var dl := UI.lbl(("♾️ " + tr("Day %d") % run.day) if run.endless else tr("Day %d/%d") % [run.day, GameData.days], 16, UI.GOLD, true)
-	hr.add_child(dl)
+	if run.mode != "puzzle":
+		var dl := UI.lbl(("♾️ " + tr("Day %d") % run.day) if run.endless else tr("Day %d/%d") % [run.day, RunState.TRIAL_DAYS if run.mode == "trial" else GameData.days], 16, UI.GOLD, true)
+		hr.add_child(dl)
 	hv.add_child(hr)
 	h.add_child(hv)
 	if run.phase != "morning":
@@ -1953,7 +1956,7 @@ func _gold_pill() -> Control:
 ## Each entry: [label, colour, explanation, is_boss_warning?].
 func _effect_list() -> Array:
 	var pills := []
-	for bd in range(run.day, run.day + 4):
+	for bd in (range(run.day, run.day + 4) if run.mode != "puzzle" else []):
 		var b = run.boss_on(bd)
 		if b == null:
 			continue
@@ -1966,7 +1969,8 @@ func _effect_list() -> Array:
 		pills.append([dd.ic + " " + tr(dd.n), UI.BAD, tr(dd.d)])
 	if run.pet != "":
 		pills.append([run.pet_def().ic + " " + tr(run.pet_def().n), UI.GOOD, tr(run.pet_def().d)])
-	pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
+	if run.mod.id != "":   # trials and puzzles have no world modifier
+		pills.append(["🌐 " + tr(run.mod.n), UI.STAR, tr(run.mod.d)])
 	if run.path != "":
 		pills.append([run.path_def().ic + " " + tr(run.path_def().n), UI.GOLD, tr(run.path_def().d)])
 	return pills
@@ -1976,7 +1980,7 @@ func _effect_list() -> Array:
 func _effects_button() -> Control:
 	var boss_near := false
 	for b in [run.boss_on(run.day), run.boss_on(run.day + 1)]:
-		if b != null:
+		if b != null and run.mode != "puzzle":
 			boss_near = true
 	# a compact chip (a full button's side padding made the top bar too wide)
 	var col: Color = UI.BAD if boss_near else UI.BD
@@ -2940,7 +2944,7 @@ func _night_overlay() -> Control:
 		_clear_sel()
 		render(), "green", 28)
 	nb.disabled = choosing
-	if r.victory:
+	if r.victory and run.mode == "":
 		# beat the day-15 boss: claim the win, or keep going in Endless (+2 Hearts, max 5)
 		var eb := UI.big_btn("♾️ " + tr("Keep going (Endless)") + "  +2 ❤️", func():
 			_fused_flash = fused.duplicate()

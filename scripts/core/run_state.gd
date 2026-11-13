@@ -1207,6 +1207,7 @@ static func trial_plan(path_id: String) -> Dictionary:
 func start_trial(path_id: String) -> void:
 	mode = "trial"
 	trial = trial_plan(path_id)
+	mod = {"id": "", "n": ""}   # no world modifier: the trial teaches the path as it is
 	choose_path(path_id)   # its relic comes now
 	msg = ""
 	for x in range(2, 7):
@@ -1324,7 +1325,7 @@ func max_hearts() -> int:
 ## Endless: beat the day-15 boss and keep going. +2 Hearts (max 5) and a new boss every 5 days.
 func go_endless() -> void:
 	_pl({"a": "endless"})
-	if endless:
+	if endless or mode != "":
 		return
 	endless = true
 	res = mini(ENDLESS_HEARTS, res + 2)
@@ -1398,7 +1399,7 @@ func begin_day() -> void:
 	msg = ""
 	hz = {}
 	event = {}
-	if day >= 3 and boss_on(day) == null and randf() < 0.4:
+	if mode == "" and day >= 3 and boss_on(day) == null and randf() < 0.4:   # trials keep the rules plain
 		hz = GameData.hazards.pick_random()
 	shop = shop.filter(func(e): return e.get("lock", false))
 	fill_shop()

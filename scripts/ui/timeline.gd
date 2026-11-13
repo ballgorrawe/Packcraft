@@ -26,7 +26,7 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if run == null:
 		return
-	var n := GameData.days
+	var n := RunState.TRIAL_DAYS if run.mode == "trial" else GameData.days
 	# Endless: the track slides along so today stays in view (15 days shown)
 	var first := 1
 	if run.endless:
@@ -52,8 +52,8 @@ func _draw() -> void:
 	for d in range(first, first + n):
 		var c: Vector2 = pt.call(d)
 		var boss: bool = run.boss_on(d) != null
-		var mini: bool = RunState.MINI_DAYS.has(d)
-		var fork: bool = d == GameData.path_day
+		var mini: bool = RunState.MINI_DAYS.has(d) and run.mode == ""
+		var fork: bool = d == GameData.path_day and run.mode == ""
 		var cur := d == run.day
 		var past := d < run.day
 		var r := 10.0
