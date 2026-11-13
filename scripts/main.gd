@@ -3983,6 +3983,7 @@ func _pay_shop() -> bool:
 		run.msg = tr("Not enough gold.")
 		return false
 	run.gold -= e.price
+	run._pl({"a": "buy", "id": e.id, "price": e.price})   # the play log's buys (buy_item logs the tap-to-buy ones)
 	drag_item.paid = int(e.price)
 	run.shop.remove_at(drag_shop_idx)
 	drag_item.uid = run.uid_ctr
