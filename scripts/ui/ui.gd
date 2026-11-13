@@ -494,6 +494,24 @@ static func on_tap(c: Control, cb: Callable) -> void:
 			cb.call())
 
 
+## A big picture: the pixel sprite when there is one (drawn inside a Label, so callers can still
+## align it like text), else the emoji.
+static func icon(tex: Texture2D, emoji: String, size: int) -> Label:
+	var l := lbl(emoji if tex == null else "", size)
+	if tex != null:
+		var s := roundi(size * 1.25)
+		l.custom_minimum_size = Vector2(s, s)
+		var t := TextureRect.new()
+		t.texture = tex
+		t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.add_child(t)
+	return l
+
+
 ## Puts an item's corner badge (data "bd") on its icon label, bottom-right. Items that share an icon
 ## differ by this badge (tests/data_test.gd checks every icon + badge pair is unique).
 static func add_badge(icon: Label, bd: String, size: int) -> Label:

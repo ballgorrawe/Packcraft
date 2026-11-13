@@ -168,12 +168,11 @@ static func equip(cls: String, slot: String, v: int) -> void:
 static func dress(cls: String, lk: Dictionary) -> Dictionary:
 	var c: Dictionary = GameData.classes[cls]
 	var col := Color(c.col)
-	var skins: Array = cfg("skins", {}).get(cls, [])
 	var titles: Array = cfg("titles", {}).get(cls, [])
 	var th := int(lk.get("theme", 0))
 	var fr := int(lk.get("frame", 0))
 	return {
-		"hero": skins[lk.skin] if int(lk.get("skin", -1)) >= 0 and int(lk.skin) < skins.size() else c.hero,
+		"hero": c.hero,   # in text; the skins recolour the hero sprite (data/sprites.json looks)
 		"slot_bg": [Color("#130e0a"), col.darkened(0.82), col.darkened(0.6)][th],
 		"slot_bd": [Color("#5a4630"), col.darkened(0.25), col.lightened(0.35)][th],
 		"spark": col.lightened(0.2) if int(lk.get("spark", 0)) > 0 else Color(0, 0, 0, 0),   # alpha 0 = not worn

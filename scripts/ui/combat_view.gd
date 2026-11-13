@@ -141,13 +141,13 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	world.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(world)
 	var boss: bool = s.node.k == "boss"
-	foe = _sprite(GameData.foe_icon(s.e.n), roundi((110 if boss else 84) * ks * 1.4 if wide else (110 if boss else 84)), 0.74, 0.22 if boss else 0.34)
+	foe = _sprite(GameData.foe_icon(s.e.n), roundi((110 if boss else 84) * ks * 1.4 if wide else (110 if boss else 84)), 0.74, 0.22 if boss else 0.34, Sprites.foe(s.e.n))
 	if s.node.k in ["elite", "ambush", "boss", "mini"]:
 		foe.add_theme_color_override("font_shadow_color", Color("#ff3b3b"))
 		foe.add_theme_constant_override("shadow_outline_size", 12)
-	hero = _sprite(r.dress().hero, 130 if wide else 70, 0.26, 0.42)
+	hero = _sprite(r.dress().hero, 130 if wide else 70, 0.26, 0.42, Sprites.hero(r.cls, r.cos))
 	if r.pet != "":
-		_sprite(r.pet_def().ic, 64 if wide else 40, 0.1, 0.62)
+		_sprite(r.pet_def().ic, 64 if wide else 40, 0.1, 0.62, Sprites.tex("pet_" + r.pet))
 	if not s.fpet.is_empty():
 		_sprite(s.fpet.ic, 64 if wide else 40, 0.9, 0.62)   # the monster's pet (Hard and up)
 	combo_lbl = UI.lbl("", 30, UI.GOLD, true)
@@ -362,7 +362,7 @@ func _bar(col: Color, h := 14) -> ProgressBar:
 	return b
 
 
-func _sprite(icon: String, fs: int, ax: float, ay: float) -> Label:
+func _sprite(icon: String, fs: int, ax: float, ay: float, tex: Texture2D = null) -> Label:
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.anchor_left = ax
@@ -373,7 +373,7 @@ func _sprite(icon: String, fs: int, ax: float, ay: float) -> Label:
 	holder.offset_right = fs * 0.7
 	holder.offset_bottom = fs * 1.25
 	world.add_child(holder)
-	var l := UI.lbl(icon, fs)
+	var l := UI.icon(tex, icon, fs)   # the pixel sprite when there is one
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.size = Vector2(fs * 1.4, fs * 1.25)

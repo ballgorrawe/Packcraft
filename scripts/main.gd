@@ -578,7 +578,7 @@ func _start_screen() -> Control:
 	var k := 0
 	var hero_px := 64 if _wide else clampi(int((minf(get_viewport_rect().size.x, COLUMN_W) - 90.0) / (GameData.class_keys.size() * 1.75)), 26, 64)
 	for c in GameData.class_keys:
-		var hl := UI.lbl(Mastery.dress(c, Mastery.look(c)).hero, hero_px)
+		var hl := UI.icon(Sprites.hero(c, Mastery.look(c)), Mastery.dress(c, Mastery.look(c)).hero, hero_px)
 		party.add_child(hl)
 		var tw := hl.create_tween().set_loops()
 		tw.tween_interval(0.15 * k)
@@ -756,7 +756,9 @@ func _hero_screen() -> Control:
 		hp_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hp_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		pic.add_child(hp_panel)
-	var hero := UI.plbl(Mastery.dress(sel_cls, Mastery.look(sel_cls)).hero, 190 if _wide else 120, UI.TX, false, true)
+	var hero := UI.icon(Sprites.hero(sel_cls, Mastery.look(sel_cls)), Mastery.dress(sel_cls, Mastery.look(sel_cls)).hero, 150 if _wide else 100)
+	hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hero.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hp_panel.add_child(hero)
 	UI.breathe(hero, 0.06)
@@ -932,7 +934,9 @@ func _pet_screen() -> Control:
 		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cv.alignment = BoxContainer.ALIGNMENT_CENTER
 		c.add_child(cv)
-		var pic := UI.plbl(p.ic, 96 if _wide else 64, UI.TX, false, true)
+		var pic := UI.icon(Sprites.tex("pet_" + str(k)), p.ic, 80 if _wide else 56)
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cv.add_child(pic)
 		if on:
 			UI.breathe(pic, 0.08)
@@ -1430,7 +1434,7 @@ func _end_header() -> Control:
 	var card := UI.card(Color(UI.PN, 0.92), run.cls_def().col, 18, 12)
 	var hb := UI.hbox(14)
 	card.add_child(hb)
-	hb.add_child(UI.lbl(run.dress().hero, 64 if _wide else 52))
+	hb.add_child(UI.icon(Sprites.hero(run.cls, run.cos), run.dress().hero, 56 if _wide else 46))
 	var cv := UI.vbox(6)
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(cv)
@@ -1833,14 +1837,16 @@ func _hud() -> Control:
 	var fr: Color = run.dress().frame
 	var av := UI.panel(Color(run.cls_def().col).darkened(0.35) if fr.a > 0 else Color("#ffcf3f"), fr if fr.a > 0 else Color("#c47a0c"), 6 if fr.a > 0 else 4, 99, 4)   # mastery frame
 	av.custom_minimum_size = Vector2(66, 66)
-	var al := UI.lbl(run.dress().hero, 38)
+	var al := UI.icon(Sprites.hero(run.cls, run.cos), run.dress().hero, 38)
+	al.custom_minimum_size = Vector2.ZERO   # fills the round portrait
+	al.set_anchors_preset(Control.PRESET_FULL_RECT)
 	al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	av.add_child(al)
 	h.add_child(av)
 	if run.pet != "":
 		# the pet rides next to the hero
-		var pb := UI.lbl(run.pet_def().ic, 32)
+		var pb := UI.icon(Sprites.tex("pet_" + run.pet), run.pet_def().ic, 32)
 		pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(pb)
 		UI.breathe(pb, 0.08)
@@ -2785,7 +2791,8 @@ func _road_card(n: Dictionary, i: int) -> Control:
 		icon = k[0]
 		nm = tr(EV[n.k][1]) if EV.has(n.k) else tr("Campfire")
 		sub = tr(EV[n.k][2]) if EV.has(n.k) else tr("Recover 50% HP")
-	var il := UI.lbl(icon, (110 if boss else 90) if _wide else (64 if boss else 52))
+	var stex: Texture2D = Sprites.foe(n.e.n) if n.has("e") else Sprites.tex("ev_" + n.k)
+	var il := UI.icon(stex, icon, (100 if boss else 84) if _wide else (60 if boss else 48))
 	if _wide:
 		il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_child(il)
@@ -3273,7 +3280,7 @@ func _event_overlay() -> Control:
 	# PC: the Merchant gets the full width so its buy + sell cards fit without scrolling
 	var o := _overlay("", Callable(), _wide and ev.k == "merchant")
 	var v: VBoxContainer = o[1]
-	var big := UI.lbl(info[0], 72 if _wide else 96)
+	var big := UI.icon(Sprites.tex("ev_" + (str(ev.get("game", "russian")) if ev.k == "roulette" else ev.k)), info[0], 72 if _wide else 88)
 	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(big)
 	UI.breathe(big, 0.05)
@@ -4257,7 +4264,7 @@ func _mastery_reward_text(cls: String, lv: int) -> String:
 	match w.k:
 		"title": what = tr("Title: %s") % ("\"" + tr(dr.title) + "\"")
 		"theme": what = tr("Pack theme %d") % w.v
-		"skin": what = tr("Hero skin %s") % dr.hero
+		"skin": what = tr("Hero skin %d") % (w.v + 1)
 		"spark": what = tr("Hit sparks")
 		"fuse": what = tr("Fusion burst")
 		"frame": what = tr("Gold frame") if w.v >= 2 else tr("Bronze frame")
@@ -4300,7 +4307,7 @@ func _mastery_screen() -> Control:
 	v.add_child(card)
 	var pr := Mastery.progress(Mastery.xp(mst_cls))
 	var head := UI.hbox(10)
-	head.add_child(UI.lbl(dr.hero, 48))
+	head.add_child(UI.icon(Sprites.hero(mst_cls, lk), dr.hero, 48))
 	var hv := UI.vbox(2)
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hv.add_child(UI.lbl(tr(cd.n) + ("  ·  " + tr(dr.title) if dr.title != "" else ""), 20, Color.WHITE, true))
@@ -4392,7 +4399,7 @@ func _mastery_screen() -> Control:
 			var d := Mastery.dress(mst_cls, {slot: ch})
 			var lab := ""
 			match slot:
-				"skin": lab = d.hero
+				"skin": lab = tr("Classic") if ch < 0 else tr("Skin %d") % (ch + 1)
 				"title": lab = tr(d.title) if d.title != "" else tr("None")
 				"theme": lab = tr("Classic") if ch == 0 else "🎨 %d" % ch
 				"frame": lab = [tr("None"), tr("Bronze"), tr("Gold"), tr("Crimson")][ch]
