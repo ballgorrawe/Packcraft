@@ -207,7 +207,7 @@ func _draw() -> void:
 
 
 ## Aura items: a corner badge with the tag they buff, and a green arrow on every side that touches
-## an item they are buffing right now. Buffed items get a small green ▲ in the other corner.
+## an item they are buffing right now. Buffed items get a small green triangle in the other corner.
 func _aura_marks(it: PItem, shp: Array, base: Vector2, center: Vector2, occ: Dictionary, pulse: float) -> void:
 	var d: Dictionary = it.def()
 	var mid := GameData.mid_cell(it.id, it.rot)

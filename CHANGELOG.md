@@ -4,6 +4,9 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.13.2
+- 🐛 แก้สัญลักษณ์แปลก/กล่องสี่เหลี่ยมบนเว็บ: ดาวปริศนาแสดงเป็น ⭐ 2/3 และลูกศรในขั้นตอนด่านฝึก/ค่าพลังเปลี่ยนเป็น »
+
 ## v0.13.1
 - 🧩 ปริศนาเพิ่มเป็น **24 ข้อ**: บทเรียน 9 ข้อ (ใหม่: เกราะแกร่ง, ไม่สะทกสะท้านต่อไฟ, เสริมเวท, ไอเทมเด่นประจำคลาส) · โจทย์ท้าทายครบทุกคลาส (เพิ่มโจรเงาและจอมเวทดวงดาว)
 - 🧩 ดาวของแต่ละข้อคำนวณจากเลย์เอาต์ที่ดีที่สุดที่หาได้จริง

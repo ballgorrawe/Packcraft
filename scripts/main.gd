@@ -524,7 +524,7 @@ func _center(c: Control) -> Control:
 
 
 # --------------------------------------------------------------- title
-# 0 start screen → 1 hero → 2 pet → 3 difficulty → run
+# 0 start screen » 1 hero » 2 pet » 3 difficulty » run
 
 var title_step := 0
 var _splash := true     # first screen of a launch: "tap anywhere", then the menu
@@ -1070,7 +1070,7 @@ func _puzzle_name(p: Dictionary) -> String:
 
 
 func _stars_text(n: int) -> String:
-	return "⭐".repeat(n) + "☆".repeat(3 - n)
+	return ("⭐".repeat(n) + " " if n > 0 else "") + "%d/3" % n   # the web build has no font with a hollow star
 
 
 ## The puzzle list: lessons, then challenges, each with the stars earned.
@@ -2037,7 +2037,7 @@ func _arrange_panel() -> Control:
 		if r[1] <= 0.05 and r[2] <= 0.05:
 			continue
 		var d: float = r[2] - r[1]
-		rates.add_child(_chip("%s %.1f → %.1f (%+.1f)" % [r[0], r[1], r[2], d], r[3] if d >= -0.05 else UI.BAD))
+		rates.add_child(_chip("%s %.1f » %.1f (%+.1f)" % [r[0], r[1], r[2], d], r[3] if d >= -0.05 else UI.BAD))
 	v.add_child(rates)
 	var nm := func(id: String) -> String: return GameData.items[id].ic + " " + tr(GameData.items[id].n)
 	var lines := []   # [text, colour]
@@ -2050,11 +2050,11 @@ func _arrange_panel() -> Control:
 			lines.append(["➡️ " + tr("Move %s to its blue outline") % nm.call(e[0].id), Color("#bfe3ff")])
 	for c in arr_plan.combos:
 		if c.k == "link":
-			var t: String = "🔗 " + " + ".join(c.ids.map(nm)) + " → " + nm.call(c.r)
+			var t: String = "🔗 " + " + ".join(c.ids.map(nm)) + " » " + nm.call(c.r)
 			lines.append([t + "  (" + tr("fuses tonight") + ")", UI.GOLD])
 	for c in arr_plan.combos:
 		if c.k == "buff":
-			lines.append(["✨ " + nm.call(c.id) + " → " + ", ".join(c.to.map(nm)) + "  " + GameData._buff_short(c.bf), Color("#d9c49a")])
+			lines.append(["✨ " + nm.call(c.id) + " » " + ", ".join(c.to.map(nm)) + "  " + GameData._buff_short(c.bf), Color("#d9c49a")])
 	if arr_plan.combos.is_empty():
 		lines.append([tr("No items buff each other here: the layout just packs the strongest items."), UI.MU])
 	var sc := ScrollContainer.new()
@@ -2481,7 +2481,7 @@ func _buff_panel(it: PItem, width: float) -> Control:
 		if changed:
 			var diff := now - base
 			var dtxt: String = ("%+d%%" % roundi(diff * 100)) if r[5] else ("%+.1fs" % diff if r[4] else "%+.1f" % diff)
-			line += " → [b][color=%s]%s (%s)[/color][/b]" % ["#4ade80" if better else "#ff6b81", fmt.call(now), dtxt]
+			line += " » [b][color=%s]%s (%s)[/color][/b]" % ["#4ade80" if better else "#ff6b81", fmt.call(now), dtxt]
 		s += "
 " + line
 	if rep.src.is_empty():

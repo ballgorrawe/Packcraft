@@ -297,7 +297,7 @@ static func _buff_short(b: Dictionary) -> String:
 		"heal": return "+%s %s" % [_num(b.v), I18n.t("heal")]
 		"shield": return "+%s %s" % [_num(b.v), I18n.t("shield")]
 		"pierce": return "+%d%% %s" % [roundi(b.v * 100), I18n.t("armor pierce")]
-		"to_fire": return "→ " + I18n.t("Fire damage")
+		"to_fire": return "» " + I18n.t("Fire damage")
 		_:
 			if statuses.has(b.k):
 				return "+%s %s" % [_num(b.v), I18n.t(statuses[b.k].n).to_lower()]
