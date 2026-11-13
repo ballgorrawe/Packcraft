@@ -12,13 +12,18 @@ static func save_run(r: RunState) -> void:
 	if r.end_state != "":
 		clear_run()
 		return
-	var tmp := RUN_PATH + ".tmp"
+	# The web build stores user:// in the browser only when a file written to is closed; a rename or
+	# delete never reaches it (a reload brought back the old save, or a finished run). So write in place there.
+	var web := OS.has_feature("web")
+	var tmp := RUN_PATH if web else RUN_PATH + ".tmp"
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		push_warning("Could not write save: %s" % FileAccess.get_open_error())
 		return
 	f.store_string(JSON.stringify(r.to_dict()))
 	f.close()
+	if web:
+		return
 	# write-then-rename so a crash mid-write never corrupts the old save
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), ProjectSettings.globalize_path(RUN_PATH))
 
@@ -56,8 +61,14 @@ static func run_summary() -> String:
 
 
 static func clear_run() -> void:
-	if has_run():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(RUN_PATH))
+	if not has_run():
+		return
+	if OS.has_feature("web"):
+		var f := FileAccess.open(RUN_PATH, FileAccess.WRITE)   # emptied, not deleted: see save_run
+		if f != null:
+			f.close()
+		return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(RUN_PATH))
 
 
 static func get_setting(key: String, default):

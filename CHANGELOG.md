@@ -4,6 +4,12 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.13.3
+- 🐛 เว็บ: เกมที่จบแล้วไม่กลับมาโผล่เป็น "เล่นต่อ" หลังรีเฟรช และเซฟล่าสุดไม่ย้อนกลับไปอันก่อนหน้าอีก
+- 🐛 ปริศนาและบอสด่านฝึก: ไม่มีปุ่มไปต่อโหมดไม่รู้จบแล้ว (เดิมกดแล้วด่านฝึกกลายเป็นรันไม่รู้จบ)
+- 🧩 ปริศนาไม่โชว์แถบชั้น หัวใจ เลเวล และคำเตือนบอสที่ไม่เกี่ยวข้อง
+- 🎓 ด่านฝึกโชว์ชั้น B1/B5 ไม่มีกฎโลกสุ่มหรืออันตรายประจำชั้นมาปน
+
 ## v0.13.2
 - 🐛 แก้สัญลักษณ์แปลก/กล่องสี่เหลี่ยมบนเว็บ: ดาวปริศนาแสดงเป็น ⭐ 2/3 และลูกศรในขั้นตอนด่านฝึก/ค่าพลังเปลี่ยนเป็น »
 
