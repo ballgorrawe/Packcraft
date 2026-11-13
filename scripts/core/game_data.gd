@@ -201,6 +201,7 @@ static func _norm_item(src: Dictionary) -> Dictionary:
 			"hp": float(ps.get("hp", 0.0)), "hp_pct": float(ps.get("hp_pct", 0.0)), "regen": float(ps.get("regen", 0.0)), "thorns": float(ps.get("thorns", 0.0)),
 			"shield": float(ps.get("shield", 0.0)), "income": int(ps.get("income", 0)),
 		},
+		"bd": str(src.get("bd", "")),   # corner badge: tells apart items that share an icon
 		"sp": str(src.get("sp", "")), "evo": str(src.get("evo", "")), "d": str(src.get("d", "")),
 		"grow": src.get("grow", {}),   # ⭐ grows each won fight: {k: dmg|shield|heal|<status>, v, max} or {adj: true, v, max}
 	}
@@ -242,7 +243,7 @@ static func elem_icon(el: String) -> String:
 
 
 ## Icons for the tags auras look for (corner badges and card lines).
-const TAG_ICONS := {"Weapon": "⚔️", "Fire": "🔥", "Potion": "🧪", "Mech": "⚙️", "Nature": "🌿", "Armor": "🛡️", "Shield": "🛡️", "Turret": "🔫", "Spell": "🔮", "Rune": "🔯", "Beast": "🐾", "Sea": "🌊", "Totem": "🎋", "Food": "🍖", "Arcane": "💫", "Water": "💧"}
+const TAG_ICONS := {"Weapon": "⚔️", "Fire": "🔥", "Potion": "🧪", "Mech": "⚙️", "Nature": "🌿", "Armor": "🛡️", "Shield": "🛡️", "Turret": "🎯", "Spell": "🔮", "Rune": "🔯", "Beast": "🐾", "Sea": "🌊", "Totem": "🎋", "Food": "🍖", "Arcane": "💫", "Water": "💧"}
 
 
 static func tag_icon(tag: String) -> String:

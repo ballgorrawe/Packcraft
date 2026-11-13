@@ -59,6 +59,8 @@ func _draw() -> void:
 		var m := GameData.mid_cell(id, rot)
 		var fs := icon_px if icon_px > 0 else cell * 0.6
 		_center_text(GameData.items[id].ic, Rect2(origin_offset + Vector2(m) * cell, Vector2(cell, cell)), fs, Color(1, 1, 1, tint.a))
+		if GameData.items[id].bd != "":
+			_center_text(GameData.items[id].bd, Rect2(origin_offset + Vector2(m) * cell + Vector2(cell * 0.5, cell * 0.5), Vector2(cell * 0.5, cell * 0.5)), fs * 0.45, Color(1, 1, 1, tint.a))
 
 
 func _center_text(t: String, r: Rect2, fs: float, col: Color) -> void:

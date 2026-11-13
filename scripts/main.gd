@@ -2139,7 +2139,8 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.custom_minimum_size.y = 50
-	top.add_child(UI.plbl(d.ic, (24 if w < 56.0 else 28) if narrow else 36))
+	var isz := (24 if w < 56.0 else 28) if narrow else 36
+	top.add_child(UI.add_badge(UI.plbl(d.ic, isz), d.bd, isz))
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(ShapeView.new().setup(it.id, it.rot, (6 if w < 56.0 else 8) if narrow else 11))
@@ -2714,14 +2715,14 @@ const NK := {
 	"forge": ["🔨", "FORGE", "#b7791f", "gold"], "camp": ["🏕️", "CAMPFIRE", "#3d7a3a", "green"], "ambush": ["⚠️", "AMBUSH", "#b8581f", "red"],
 	"mini": ["👺", "MINI-BOSS", "#8a2b5c", "red"],
 	"shrine": ["🗿", "DARK SHRINE", "#5b3a7a", "purple"], "tailor": ["🧵", "TAILOR", "#3a6a8a", "blue"],
-	"smith": ["🔨", "EVENT", "#b7791f", "gold"], "merchant": ["🛒", "EVENT", "#3a6a8a", "blue"], "roulette": ["🔫", "EVENT", "#b0302a", "red"],
+	"smith": ["🔨", "EVENT", "#b7791f", "gold"], "merchant": ["🛒", "EVENT", "#3a6a8a", "blue"], "roulette": ["🎲", "EVENT", "#b0302a", "red"],
 	"cauldron": ["⚗️", "EVENT", "#3d7a3a", "green"], "altar": ["🗿", "EVENT", "#5b3a7a", "purple"], "chest": ["📦", "EVENT", "#a8641a", "gold"],
 }
 
 const EV := {
 	"smith": ["🔨", "Blacksmith", "Pay to evolve one item right now: no second copy needed."],
 	"merchant": ["🛒", "Wandering Merchant", "Rare wares, and he buys your items at full price."],
-	"roulette": ["🔫", "Russian Roulette", "One bullet, six chambers. Every empty click grows the pot. Walk away any time."],
+	"roulette": ["🎲", "Russian Roulette", "One bullet, six chambers. Every empty click grows the pot. Walk away any time."],
 	"cauldron": ["⚗️", "Alchemist's Cauldron", "Put in two items, get one better item back."],
 	"altar": ["🗿", "Cursed Altar", "Take a Legendary item. The price: one Heart."],
 	"chest": ["📦", "Mystery Chests", "Open one. Treasure, gold... or a trap."],
@@ -2888,7 +2889,7 @@ func _night_overlay() -> Control:
 	var head := "🌙 " + tr("NIGHT")
 	if fight:
 		# won: Victory · went down but a Heart pulled you through: Survived · no Hearts left: Defeat
-		head = ("🏆 " + tr("VICTORY!")) if r.win else (("💔 " + tr("DEFEAT")) if r.over else ("🩹 " + tr("SURVIVED") + "  -1 ❤️"))
+		head = ("🏆 " + tr("VICTORY!")) if r.win else (("💔 " + tr("DEFEAT")) if r.over else ("💔 " + tr("SURVIVED") + "  -1 ❤️"))
 	var o := _overlay(head, Callable(), _wide)
 	var v: VBoxContainer = o[1]
 	var side: VBoxContainer = v   # where the fight summary goes
@@ -3328,7 +3329,7 @@ func _item_pick_card(it: PItem, sub: String, on: bool, cb: Callable) -> Control:
 	var vb := UI.vbox(2)
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(vb)
-	vb.add_child(UI.plbl(d.ic, 40, UI.TX, false, true))
+	vb.add_child(UI.add_badge(UI.plbl(d.ic, 40, UI.TX, false, true), d.bd, 40))
 	var nl := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nl.custom_minimum_size.x = 130
@@ -3375,7 +3376,7 @@ func _ev_merchant(v: VBoxContainer) -> void:
 		p.custom_minimum_size = Vector2(200, 0)
 		var vb := UI.vbox(4)
 		p.add_child(vb)
-		vb.add_child(UI.plbl(d.ic, 48, UI.TX, false, true))
+		vb.add_child(UI.add_badge(UI.plbl(d.ic, 48, UI.TX, false, true), d.bd, 48))
 		var nl := UI.plbl(tr(d.n), 16, UI.TX, true, true)
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.custom_minimum_size.x = 180
@@ -3431,7 +3432,7 @@ func _ev_roulette(v: VBoxContainer) -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)
 	var row := UI.hbox(10)
-	var pull := UI.btn("🔫 " + tr("PULL"), func():
+	var pull := UI.btn("🎲 " + tr("PULL"), func():
 		var r := run.ev_pull()
 		if r == "click":
 			toast("*click* 😅", UI.GOOD)
@@ -3493,7 +3494,7 @@ func _ev_altar(v: VBoxContainer) -> void:
 		var p := UI.card(col.darkened(0.55), col, 20, 12)
 		var h := UI.hbox(12)
 		p.add_child(h)
-		h.add_child(UI.lbl(d.ic, 56))
+		h.add_child(UI.add_badge(UI.lbl(d.ic, 56), d.bd, 56))
 		var tv := UI.vbox(4)
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(tv)
@@ -3654,7 +3655,7 @@ func _book_chip(id: String, known: bool, tag: String) -> Control:
 	var c := UI.card(col.darkened(0.35) if known else Color("#8f8170"), _owned_col(run.owns(id), col), 16, 4)
 	c.custom_minimum_size = Vector2(80, 80)
 	c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var il := UI.lbl(d.ic if known else "❓", 44)
+	var il := UI.add_badge(UI.lbl(d.ic if known else "❓", 44), d.bd if known else "", 44)
 	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	il.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	c.add_child(il)

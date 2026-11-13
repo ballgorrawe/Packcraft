@@ -91,3 +91,5 @@ func _draw() -> void:
 		var sz := int(cell * 0.6 * (1.0 + lit * 0.4))
 		var w := f.get_string_size(d.ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 		draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), d.ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color.WHITE)
+		if d.bd != "":
+			draw_string(f, mc + Vector2(cell * 0.08, cell * 0.42), d.bd, HORIZONTAL_ALIGNMENT_LEFT, -1, int(cell * 0.28), Color.WHITE)

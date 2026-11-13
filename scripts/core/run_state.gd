@@ -1708,7 +1708,7 @@ func ev_cash_out() -> void:
 	event.done = true
 	gold += event.pot
 	event.rew.append({"k": "gold", "v": event.pot})
-	event.lines.append(I18n.t("🔫 You walk away with %d gold after %d empty chambers.") % [event.pot, event.pulls])
+	event.lines.append(I18n.t("🎲 You walk away with %d gold after %d empty chambers.") % [event.pot, event.pulls])
 	if event.pulls >= 4:
 		var id := roll_tiered(_event_rank(), 1)
 		items.append(make_item(id, "storage"))

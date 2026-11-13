@@ -474,6 +474,8 @@ func _draw_pack() -> void:
 		var sz := int(pcell * 0.56 * (1.0 + lit * 0.4))
 		var w := f.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 		pack.draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(1, 1, 1, 0.3 if used else 1.0))
+		if it.def().bd != "":
+			pack.draw_string(f, mc + Vector2(pcell * 0.08, pcell * 0.42), it.def().bd, HORIZONTAL_ALIGNMENT_LEFT, -1, int(pcell * 0.26), Color(1, 1, 1, 0.3 if used else 1.0))
 		if sim and sim.grab_t > 0 and sim.grab_uids.has(it.uid):
 			# held by the Kraken: dark purple with a tentacle on top
 			for c in cells:

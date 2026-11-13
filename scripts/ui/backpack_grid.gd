@@ -181,6 +181,8 @@ func _draw() -> void:
 			if main.selected == it:
 				draw_rect(r.grow(2), Color.WHITE, false, 3.0)
 		_text(it.def().ic, Rect2(-cell / 2, -cell / 2, cell, cell), cell * 0.6, Color.WHITE)
+		if it.def().bd != "":
+			_text(it.def().bd, Rect2(cell * 0.02, -cell / 2, cell * 0.48, cell * 0.48), cell * 0.32, Color.WHITE)   # top-right: the other corners mark buffs, relics and links
 		if it.def().relic:
 			_text("✨", Rect2(-cell / 2, -cell / 2, cell * 0.45, cell * 0.45), cell * 0.28, UI.GOLD)
 		if linked.has(it.uid):

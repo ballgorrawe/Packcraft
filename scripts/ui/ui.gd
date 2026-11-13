@@ -445,6 +445,19 @@ static func on_tap(c: Control, cb: Callable) -> void:
 			cb.call())
 
 
+## Puts an item's corner badge (data "bd") on its icon label, bottom-right. Items that share an icon
+## differ by this badge (tests/data_test.gd checks every icon + badge pair is unique).
+static func add_badge(icon: Label, bd: String, size: int) -> Label:
+	if bd != "":
+		var b := lbl(bd, maxi(12, roundi(size * 0.55)))
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		b.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		b.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		icon.add_child(b)
+	return icon
+
+
 ## Small rounded chip with an item icon, coloured by rarity.
 static func item_chip(id: String, owned := false) -> PanelContainer:
 	var d: Dictionary = GameData.items[id]
@@ -452,7 +465,7 @@ static func item_chip(id: String, owned := false) -> PanelContainer:
 	var p := panel(c.darkened(0.45), GOOD if owned else c.lightened(0.1), 3, 12, 2)
 	p.custom_minimum_size = Vector2(48, 48)
 	p.tooltip_text = I18n.t(d.n) + (I18n.t(" (owned)") if owned else "")
-	var l := lbl(d.ic, 26)
+	var l := add_badge(lbl(d.ic, 26), d.bd, 26)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	p.add_child(l)

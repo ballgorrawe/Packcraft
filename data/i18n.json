@@ -986,7 +986,7 @@
   "Bag bought: tap the glowing tiles next to your pack to unlock %d tiles.": "ซื้อกระเป๋าแล้ว: แตะช่องที่เรืองแสงข้างกระเป๋าเพื่อปลดล็อก %d ช่อง",
   "🔨 The blacksmith reforges %s into %s.": "🔨 ช่างตีเหล็กตีขึ้นรูป %s เป็น %s",
   "💥 BANG! You lose %d HP and the pot.": "💥 ปัง! เสียเลือด %d และเงินกองกลางหมด",
-  "🔫 You walk away with %d gold after %d empty chambers.": "🔫 เดินจากไปพร้อม %d ทอง หลังลั่นไกเปล่า %d ครั้ง",
+  "🎲 You walk away with %d gold after %d empty chambers.": "🎲 เดินจากไปพร้อม %d ทอง หลังลั่นไกเปล่า %d ครั้ง",
   "⚗️ The cauldron turns %s and %s into %s.": "⚗️ หม้อยาเปลี่ยน %s กับ %s เป็น %s",
   "🗿 The altar takes its price and leaves %s.": "🗿 แท่นบูชารับเครื่องเซ่นแล้วทิ้ง %s ไว้ให้",
   "📦 A trap! The chest bites for %d HP.": "📦 กับดัก! หีบงับเสียเลือด %d",

@@ -24,6 +24,12 @@ func _initialize() -> void:
 	for id in GameData.items:
 		var n: String = GameData.items[id].n
 		_check(I18n.t(n) != n or n == "PACKCRAFT", "Thai name for " + n)
+	# every item looks different: no two share the same icon and corner badge
+	var looks := {}
+	for id in GameData.items.keys().filter(func(k): return not k.begins_with("m_")):   # monster items only show in enemy packs
+		var lk: String = GameData.items[id].ic + "|" + GameData.items[id].bd
+		_check(not looks.has(lk), "%s looks the same as %s (%s)" % [id, looks.get(lk, ""), lk])
+		looks[lk] = id
 	print("DATA TEST: %s" % ("PASS" if fails == 0 else "%d FAIL" % fails))
 	quit()
 
