@@ -2261,7 +2261,7 @@ func plan_arrange() -> Dictionary:
 	return plan
 
 
-## Puts a planned layout (plan.moves) or the old one (plan.undo) in place (tests and tools; the game only hints).
+## Puts a planned layout (plan.moves) or the old one (plan.undo) in place (🪄 in runs, ↩️ undo, tests).
 func apply_arrange(snap: Array) -> void:
 	_arr_load(snap)
 

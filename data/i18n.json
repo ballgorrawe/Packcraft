@@ -1033,6 +1033,8 @@
   "Nightmare": "ฝันร้าย",
   "Already the best layout I can find.": "จัดแบบนี้ดีที่สุดแล้ว",
   "Auto-arrange the pack": "จัดกระเป๋าอัตโนมัติ",
+  "Arranged: ⚔️ %.1f » %.1f  🛡️ %.1f » %.1f. Tap ↩️ to undo.": "จัดแล้ว: ⚔️ %.1f » %.1f  🛡️ %.1f » %.1f กด ↩️ เพื่อย้อนกลับ",
+  "Undo auto-arrange": "ย้อนการจัดอัตโนมัติ",
   "Elite Cave Rat": "หนูถ้ำอีลิท",
   "Ambusher Cave Rat": "หนูถ้ำซุ่มโจมตี",
   "Elite Goblin": "ก็อบลินอีลิท",

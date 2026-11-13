@@ -16,7 +16,8 @@ var sel_asc := 0               # Ascension picked on the difficulty step
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
-var arr_plan := {}             # 🪄 hint: the best layout found, drawn as outlines until closed or done
+var arr_plan := {}             # 🪄 hint (puzzles): the best layout found, drawn as outlines until closed or done
+var arr_done := {}             # 🪄 (runs): the layout it just put in place, kept for ↩️ undo while nothing else moved
 var _arr_busy := false
 var book_item := ""          # recipe book: item whose details are open
 var foe_info_e := {}      # the monster whose Details popup is open (road card)
@@ -1621,16 +1622,37 @@ func _run_screen(fresh: bool) -> Control:
 			var plan := run.plan_arrange()
 			if plan.is_empty():
 				toast("🪄 " + tr("Already the best layout I can find."), UI.MU)
-			else:
+			elif run.mode == "puzzle":
+				# puzzles are about arranging it yourself: only the outlines, and at most 2 stars
 				_clear_sel()
 				arr_plan = plan
-				if run.mode == "puzzle":
-					run.puzzle_hint = true   # this try earns at most 2 stars
+				run.puzzle_hint = true
 				_first_tip("hint", "🪄 " + tr("Follow the blue outlines: drag each item there yourself. The hint closes when the pack matches."))
+			else:
+				_clear_sel()
+				run.apply_arrange(plan.moves)
+				arr_done = plan
+				var a: Vector3 = plan.before
+				var b: Vector3 = plan.after
+				toast("🪄 " + tr("Arranged: ⚔️ %.1f » %.1f  🛡️ %.1f » %.1f. Tap ↩️ to undo.") % [a.x, b.x, a.y, b.y], UI.GOOD)
 			render(), false, 22, "blue")
 		wand.custom_minimum_size = Vector2(60, 56)
 		wand.tooltip_text = tr("Auto-arrange the pack")
 		gh.add_child(wand)
+	if run.phase == "morning" and not arr_done.is_empty() and _plan_left(arr_done).is_empty():
+		# ↩️ only while the pack is still exactly as 🪄 left it (a buy, sale or move ends it)
+		var undo := UI.btn("↩️", func():
+			if drag_item != null or arr_done.is_empty():
+				return
+			run.apply_arrange(arr_done.undo)
+			arr_done = {}
+			_clear_sel()
+			render(), false, 22, "gray")
+		undo.custom_minimum_size = Vector2(60, 56)
+		undo.tooltip_text = tr("Undo auto-arrange")
+		gh.add_child(undo)
+	else:
+		arr_done = {}
 	gh.add_child(book)
 	gv.add_child(gh)
 	grid = BackpackGrid.new().setup(self, cell_px)
@@ -2018,10 +2040,18 @@ func _effects_overlay() -> Control:
 
 ## The 🪄 hint's steps still to do: [item, loc, x, y, rot] for every item not yet where the plan puts it.
 func hint_moves() -> Array:
-	if arr_plan.is_empty():
+	return _plan_left(arr_plan).filter(func(e): return e != null)
+
+
+## A plan's moves not yet true in the pack; [null] when the items changed since (bought, sold, fused).
+func _plan_left(plan: Dictionary) -> Array:
+	if plan.is_empty():
 		return []
+	var mine := run.items.filter(func(i): return i.loc in ["grid", "storage", "held"])
+	if mine.size() != plan.moves.size() or plan.moves.any(func(e): return not mine.has(e[0])):
+		return [null]
 	# same cells counts as done (a symmetric item may sit at another rotation)
-	return arr_plan.moves.filter(func(e): return run.items.has(e[0]) and (e[0].loc != e[1] or (e[1] == "grid" and (e[0].x != e[2] or e[0].y != e[3] or GameData.shape(e[0].id, e[0].rot).c != GameData.shape(e[0].id, e[4]).c))))
+	return plan.moves.filter(func(e): return run.items.has(e[0]) and (e[0].loc != e[1] or (e[1] == "grid" and (e[0].x != e[2] or e[0].y != e[3] or GameData.shape(e[0].id, e[0].rot).c != GameData.shape(e[0].id, e[4]).c))))
 
 
 ## 🪄 hint (in the shop's place): the outlines in the pack show where things go; here, the steps, what
