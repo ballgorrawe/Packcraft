@@ -39,8 +39,47 @@ function doPost(e) {
 }
 
 // Opening the URL in a browser just says it is running.
-function doGet() {
-  return reply('PackCraft log collector is running.');
+// With ?key=<READ_KEY> it returns every log in a compact form (the per-day morning snapshots cut down
+// to what the bot tools use), so Claude can download them all at once for bot training.
+// READ_KEY lives only in this script's Project Settings > Script properties, never in the game.
+function doGet(e) {
+  const want = PropertiesService.getScriptProperties().getProperty('READ_KEY');
+  const key = e && e.parameter && e.parameter.key;
+  if (!want || key !== want) return reply('PackCraft log collector is running.');
+  const out = [];
+  const files = folder().getFiles();
+  while (files.hasNext()) {
+    const f = files.next();
+    if (!f.getName().endsWith('.json')) continue;
+    try {
+      out.push(compact(f.getName(), JSON.parse(f.getBlob().getDataAsString())));
+    } catch (err) {
+      // a junk file: skip it
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function compact(name, d) {
+  const r = d.run || {};
+  const days = (r.days || []).map((day) => {
+    const m = day.m || {};
+    return {
+      d: day.d,
+      gold: m.gold, hp: m.hp, mhp: m.mhp, res: m.res, lv: m.lv, path: m.path, mod: m.mod, hz: m.hz,
+      tiles: (m.tiles || []).length,
+      items: (m.items || []).map((i) => [i.id, i.loc, i.x, i.y, i.rot].join(':')),
+      shop: (m.shop || []).map((s) => s.bag ? 'bag' + s.n : s.id + ':' + s.price),
+      nodes: (m.nodes || []).map((n) => n.k + (n.e ? ':' + n.e.n : '')),
+      a: (day.a || []).map((x) => {
+        const c = Object.assign({}, x);
+        delete c.shop;   // the reroll's new shop: big, and the next action says what was bought
+        return c;
+      }),
+    };
+  });
+  return {f: name, ver: d.ver, pid: d.pid, when: d.when, cls: r.cls, pet: r.pet, diff: r.diff, asc: r.asc, path: r.path,
+    end: r.end, win: r.win, day: r.day, lv: r.lv, endless: r.endless, hearts: r.hearts, pack: r.pack, days: days};
 }
 
 function folder() {
