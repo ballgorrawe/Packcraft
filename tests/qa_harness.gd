@@ -14,7 +14,6 @@ var mode := "edge"
 var style := "smart"
 var cls_filter := ""
 var diff := "normal"
-var asc := 0           # --asc=N: Ascension level for every run
 var endless_on := false   # --endless=1: after the day-15 win, keep going until the run ends
 var pro_cfg := {}      # --cfg=key:val,key:val  pro bot weights (aff, cap, fuse, verify, sim_w, rr, min_gain, elite)
 var force_boss := ""   # --boss=Name: every run meets this boss on its day (balance checks)
@@ -44,7 +43,6 @@ func _init() -> void:
 			"style": style = v
 			"cls": cls_filter = v
 			"diff": diff = v
-			"asc": asc = int(v)
 			"endless": endless_on = v == "1"
 			"start": start = int(v)
 			"count": count = int(v)
@@ -333,7 +331,7 @@ func _board(r: RunState) -> String:
 ## Plays one full run. Returns a summary dictionary.
 func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -> Dictionary:
 	seed(seed_v)
-	var r := RunState.new(cls, pet, diff, asc)
+	var r := RunState.new(cls, pet, diff)
 	if force_boss != "":
 		for b in GameData.bosses:
 			if b.n == force_boss:

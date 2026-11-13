@@ -19,10 +19,14 @@ var pet := ""                   # companion id (a simple always-on buff), "" for
 var diff := "normal"            # difficulty mode id
 static var locked := {}         # signature item ids not unlocked yet (the game fills it; bots and tests see all)
 var mode := ""                  # "" a normal run, "trial" a class trial, "puzzle" a puzzle (neither is saved)
+var mst := {}                   # class mastery perks for this run (Mastery.perks): shop lean, head start, free reroll
+var cos := {}                   # class mastery look for this run (Mastery.look): skin, pack theme, effects, frame, title
+var boss_wins := 0              # bosses and mini-bosses beaten this run (mastery XP)
+var mini_wins := 0
+var _dress := {}
 var trial := {}                 # the trial's plan (trial_plan): what the shop sells each day and the day's steps
 var puzzle := {}                # the puzzle being played (data/puzzles.json entry)
 var puzzle_hint := false        # the hint was used: this try earns at most 2 stars
-var asc := 0                    # Ascension level (0 = off): the first `asc` rules of GameData.ascension
 var day := 1
 var gold := 8
 var res := MAX_HEARTS
@@ -59,12 +63,11 @@ var plog_on := false             # record the player's decisions (real players o
 var plog: Array = []             # one entry per day: {"d": day, "m": morning snapshot, "a": [actions]}
 
 
-func _init(c: String, p := "", df := "normal", a := 0) -> void:
+func _init(c: String, p := "", df := "normal") -> void:
 	GameData.ensure_loaded()
 	cls = c
 	pet = p if GameData.pets.has(p) else ""
 	diff = GameData.diff_def(df).id
-	asc = clampi(a, 0, GameData.ascension.size())
 	res = max_hearts()
 	mhp = max_hp()
 	hp = mhp
@@ -76,15 +79,6 @@ func _init(c: String, p := "", df := "normal", a := 0) -> void:
 	for st in cls_def().st:
 		items.append(make_item(st[0], "grid", st[1], st[2], true))
 	begin_day()
-
-
-## The sum of an Ascension rule's value over the levels that are on (0 when off).
-func av(k: String) -> float:
-	var s := 0.0
-	for i in mini(asc, GameData.ascension.size()):
-		if GameData.ascension[i].k == k:
-			s += float(GameData.ascension[i].v)
-	return s
 
 
 func cls_def() -> Dictionary:
@@ -209,6 +203,24 @@ func owns(id: String) -> bool:
 
 func count_owned(id: String) -> int:
 	return items.filter(func(i): return i.id == id).size()
+
+
+## A new story run takes the class's mastery: perks and look.
+func apply_mastery(perks: Dictionary, look: Dictionary) -> void:
+	mst = perks
+	cos = look
+	_dress = {}
+	for p in mst.get("head", []):
+		var pool := Mastery.path_items(p).filter(func(id): return int(GameData.items[id].tier) <= 1)
+		if not pool.is_empty():
+			items.append(make_item(pool.pick_random(), "storage"))   # Head start
+
+
+## What this run looks like (Mastery.dress): hero emoji, pack colours, effect colours, frame, title.
+func dress() -> Dictionary:
+	if _dress.is_empty():
+		_dress = Mastery.dress(cls, cos)
+	return _dress
 
 
 func in_class_pool(id: String) -> bool:
@@ -445,7 +457,7 @@ func max_hp() -> float:
 	for i in grid_items():
 		m += i.def().pass.hp
 		pct += i.def().pass.hp_pct
-	return maxf(10.0, m * (1.0 + pct / 100.0) * (1.0 + av("max_hp")))
+	return maxf(10.0, m * (1.0 + pct / 100.0))
 
 
 func regen() -> float:
@@ -716,7 +728,7 @@ func plog_pack() -> Array:
 
 ## The whole run for sending: summary + every day.
 func plog_payload() -> Dictionary:
-	return {"cls": cls, "pet": pet, "diff": diff, "asc": asc, "path": path, "win": end_state == "win", "end": end_state, "day": day, "lv": lv,
+	return {"cls": cls, "pet": pet, "diff": diff, "path": path, "win": end_state == "win", "end": end_state, "day": day, "lv": lv,
 		"endless": endless, "hearts": res, "pack": plog_pack(), "days": plog}
 
 
@@ -752,6 +764,12 @@ func roll_tiered(rk: int, min_tier := 0, partner_bias := 0.0) -> String:
 			if d.shop and d.tier == t and in_class_pool(k) and not locked.has(k):
 				pool.append(k)
 		if pool.size() > 0:
+			# mastery: a Favoured path's items come up more often
+			for p in mst.get("bias", {}):
+				if randf() < float(Mastery.cfg("bias_per_rank", 0.08)) * int(mst.bias[p]):
+					var mp := pool.filter(func(k): return Mastery.path_items(p).has(k))
+					if mp.size() > 0:
+						return mp.pick_random()
 			if partner_bias > 0.0 and randf() < partner_bias:
 				var pp := pool.filter(func(k): return recipe_partner_owned(k))
 				if pp.size() > 0:
@@ -792,15 +810,15 @@ func fill_shop() -> void:
 				shop.append({"id": id, "price": GameData.items[id].cost})
 	while shop.size() < 5:
 		var id := roll_item()
-		shop.append({"id": id, "price": roundi(GameData.items[id].cost * (1.0 + av("shop_price")))})
+		shop.append({"id": id, "price": int(GameData.items[id].cost)})
 	shop.append({"bag": true, "n": 3 if day >= 8 else 2, "price": bag_price(3 if day >= 8 else 2)})
 	shop.append({"bag": true, "n": 4, "price": bag_price(4)})
 
 
 func reroll_cost() -> int:
-	if rr < int(pv("free_reroll")):
+	if rr < int(pv("free_reroll")) + int(mst.get("free_rr", 0)):
 		return 0
-	return 1 + int(rr / 2) + (1 if mod.id == "guild" else 0) + int(av("reroll"))
+	return 1 + int(rr / 2) + (1 if mod.id == "guild" else 0)
 
 
 func reroll() -> bool:
@@ -905,7 +923,7 @@ func foe_dps(d: int) -> float:
 
 func foe_base(elite: bool) -> Dictionary:
 	var fam: String = GameData.FOE_NAMES.pick_random()
-	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.03) * (1.0 + av("foe_hp")))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.01) * (1.0 + av("foe_dps")), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
+	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.03))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.01), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
 	# monsters follow the player's power curve: weak on the first floors, strong once core items
 	# come together after the first boss (data: foe_curve; a mode may override floors 1-4 with early_ease)
 	var curve: Array = GameData.foe_curve
@@ -958,7 +976,6 @@ func foe(elite: bool, boost := Vector2.ONE) -> Dictionary:
 ## guarantees a Rare-or-better item.
 func mini_foe() -> Dictionary:
 	var boost := Vector2(0.5, 0.45) if day < 5 else Vector2(0.7, 0.9)   # stays under the next boss
-	boost.y *= 1.0 + av("boss_dps")   # before the pack is tuned, so its items really hit harder
 	var e := foe(true, boost)
 	if day < 5:
 		e.imm = ""   # floor 3 stays fair: no element it shrugs off
@@ -975,7 +992,6 @@ func _add_skills(e: Dictionary) -> void:
 	var spec = diff_def().get("skills", {}).get(str(e.get("tier", "normal")), 0)
 	var want: int = randi_range(int(spec[0]), int(spec[1])) if spec is Array else int(spec)
 	if str(e.get("tier", "")) == "boss":
-		want += int(av("boss_skill"))
 		if endless and day > GameData.days:
 			want += mini(2, int(maxf(0, day - GameData.days - 5) / 15))   # +1 skill from floor 35, +2 from 50
 	var got: Array = str(e.get("tr", "")).split(",", false)
@@ -1089,8 +1105,8 @@ func boss_foe(b: Dictionary) -> Dictionary:
 	var e: Dictionary = b.duplicate()
 	var bp: Dictionary = GameData.boss_packs.get(b.n, {})
 	e["fam"] = b.n
-	e["dps"] = b.atk / b.cd * (1.0 + maxf(0.0, b.d - 8) * GameData.late_ramp) * diff_def().dps * (1.0 + av("foe_dps") + av("boss_dps"))
-	e["hp"] = float(roundi(b.hp * diff_def().hp * (1.0 + av("foe_hp"))))
+	e["dps"] = b.atk / b.cd * (1.0 + maxf(0.0, b.d - 8) * GameData.late_ramp) * diff_def().dps
+	e["hp"] = float(roundi(b.hp * diff_def().hp))
 	if int(b.d) == 5 and not endless:
 		# the first boss is a little gentler (data: first_boss)
 		e.hp = float(roundi(e.hp * float(GameData.first_boss.get("hp", 1.0))))
@@ -1319,7 +1335,7 @@ func start_puzzle(p: Dictionary) -> void:
 
 ## Most Hearts you can hold (5 in Endless).
 func max_hearts() -> int:
-	return (ENDLESS_HEARTS if endless else MAX_HEARTS) + int(av("hearts"))
+	return (ENDLESS_HEARTS if endless else MAX_HEARTS)
 
 
 ## Endless: beat the day-15 boss and keep going. +2 Hearts (max 5) and a new boss every 5 days.
@@ -1393,7 +1409,7 @@ func event_ok(k: String) -> bool:
 
 func begin_day() -> void:
 	if day > 1:
-		gold += maxi(1, 5 + int(day / 2) + income() + int(av("gold_day")))
+		gold += maxi(1, 5 + int(day / 2) + income())
 	phase = "morning"
 	rr = 0
 	msg = ""
@@ -1444,7 +1460,7 @@ func begin_day() -> void:
 		if not extra.is_empty():
 			nodes.append(extra.pick_random())
 	# harder modes throw an extra Elite road at you more often
-	if randf() < diff_def().elite + av("elite") and day >= ELITE_FROM_DAY and nodes.size() < 3:
+	if randf() < diff_def().elite and day >= ELITE_FROM_DAY and nodes.size() < 3:
 		nodes.append({"k": "elite", "e": foe(true)})
 	# under half HP there is always a campfire: it takes the place of an event (never of every fight)
 	if hp < mhp * 0.5 and not nodes.any(func(n): return n.k == "camp"):
@@ -1765,14 +1781,14 @@ func to_dict() -> Dictionary:
 	if not result.is_empty():
 		res_d = {"n": result.n, "win": result.win, "lines": result.lines, "over": result.over, "victory": result.victory, "rew": result.get("rew", []), "fused": result.get("fused", [])}
 	return {
-		"v": SAVE_VERSION, "cls": cls, "path": path, "pet": pet, "diff": diff, "asc": asc, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
+		"v": SAVE_VERSION, "cls": cls, "path": path, "pet": pet, "diff": diff, "day": day, "gold": gold, "res": res, "hp": hp, "mhp": mhp,
 		"phase": phase, "items": its, "uid_ctr": uid_ctr,
 		"tiles": tiles.keys().map(_v2a), "start": start.keys().map(_v2a),
 		"shop": shop, "rr": rr, "expand": expand, "bags": bags, "mod": mod.id, "hz": hz.get("id", ""),
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
 		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks, "mw_done": mw_done, "endless": endless,
-		"boss_pick": boss_pick, "plog": plog,
+		"boss_pick": boss_pick, "plog": plog, "mst": mst, "cos": cos, "bw": boss_wins, "mnw": mini_wins,
 	}
 
 
@@ -1789,7 +1805,7 @@ static func from_dict(d: Dictionary) -> RunState:
 	GameData.ensure_loaded()
 	if int(d.get("v", 0)) != SAVE_VERSION or not GameData.classes.has(d.get("cls", "")):
 		return null
-	var r := RunState.new(d.cls, str(d.get("pet", "")), str(d.get("diff", "normal")), int(d.get("asc", 0)))
+	var r := RunState.new(d.cls, str(d.get("pet", "")), str(d.get("diff", "normal")))
 	r.path = str(d.get("path", ""))
 	r.mhp_mod = float(d.get("mhp_mod", 0.0))
 	r.lv = int(d.get("lv", 1))
@@ -1888,6 +1904,14 @@ static func from_dict(d: Dictionary) -> RunState:
 		r.phase = "morning"
 	r.end_state = d.end_state
 	r.plog = d.get("plog", [])
+	r.mst = d.get("mst", {})
+	for p in r.mst.get("bias", {}):
+		r.mst.bias[p] = int(r.mst.bias[p])
+	r.cos = d.get("cos", {})
+	for k in r.cos:
+		r.cos[k] = int(r.cos[k])
+	r.boss_wins = int(d.get("bw", 0))
+	r.mini_wins = int(d.get("mnw", 0))
 	r.msg = d.msg
 	r.seen = {}
 	for k in d.seen:
@@ -1968,6 +1992,10 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					res += 1
 					r.lines.append(I18n.t("❤️ Boss reward: +1 Heart."))
 					r.rew.append({"k": "heart", "v": 1})
+				if n.k == "boss":
+					boss_wins += 1
+				elif n.k == "mini":
+					mini_wins += 1
 				if n.k == "boss" and day > GameData.days:
 					var ids: Array = GameData.leveling.get("picks", []).map(func(p): return p.id)
 					ids.shuffle()

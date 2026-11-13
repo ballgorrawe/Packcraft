@@ -145,7 +145,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	if s.node.k in ["elite", "ambush", "boss", "mini"]:
 		foe.add_theme_color_override("font_shadow_color", Color("#ff3b3b"))
 		foe.add_theme_constant_override("shadow_outline_size", 12)
-	hero = _sprite(r.cls_def().hero, 130 if wide else 70, 0.26, 0.42)
+	hero = _sprite(r.dress().hero, 130 if wide else 70, 0.26, 0.42)
 	if r.pet != "":
 		_sprite(r.pet_def().ic, 64 if wide else 40, 0.1, 0.62)
 	if not s.fpet.is_empty():
@@ -162,7 +162,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	var hv := UI.vbox(4)
 	hb.add_child(hv)
 	var hr := UI.hbox(8)
-	hr.add_child(UI.lbl(r.cls_def().hero + " " + tr(r.cls_def().n), roundi(16 * ks * 1.2), Color.WHITE, true))
+	hr.add_child(UI.lbl(r.dress().hero + " " + tr(r.cls_def().n), roundi(16 * ks * 1.2), Color.WHITE, true))
 	hv.add_child(hr)
 	php_bar = StatBar.new().setup(Color("#3ee07a"), 24 * ks)
 	hv.add_child(php_bar)
@@ -652,7 +652,8 @@ func _hit_anim(ev: Dictionary, quiet: bool) -> void:
 		combo_lbl.create_tween().tween_property(combo_lbl, "scale", Vector2.ONE, 0.15)
 	var land := func():
 		_flash_lbl(foe)
-		UI.burst(fxl, _center_of(foe), col, 10 if not big else 24, 260, 6 if not big else 9)
+		var sp: Color = run.dress().spark   # mastery hit sparks
+		UI.burst(fxl, _center_of(foe), sp if sp.a > 0 and not ev.crit else col, 10 if not big else 24, 260, 6 if not big else 9)
 		_float_at(_center_of(foe) + Vector2(randf_range(-60, 60), randf_range(-20, 30)), txt, col, big)
 		if big:
 			_shake()

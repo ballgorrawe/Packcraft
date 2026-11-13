@@ -46,6 +46,17 @@ func _run() -> void:
 		main.sel_pet = "bee"
 		main.render()
 		await _check("title_step%d" % st)
+	# ---- class mastery: the screen, and a run wearing every cosmetic
+	main.title_step = 12
+	main.render()
+	await _check("mastery")
+	main.title_step = 0
+	var ms_run := RunState.new("ember", "fox", "normal")
+	ms_run.apply_mastery({}, {"skin": 1, "theme": 2, "frame": 2, "spark": 1, "fuse": 1, "title": 2})
+	main.run = ms_run
+	main.render()
+	await _check("mastery_run")
+	main.run = null
 	# ---- class trials: the picker, a trial morning with its steps, the end screen
 	main.title_step = 10
 	main.render()

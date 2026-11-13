@@ -12,7 +12,7 @@ var run: RunState
 var sel_cls := ""
 var sel_pet := ""
 var sel_diff := "normal"
-var sel_asc := 0               # Ascension picked on the difficulty step
+var mst_cls := ""              # the class open on the Mastery screen
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
@@ -541,6 +541,7 @@ func _title_screen() -> Control:
 		3: body = _diff_screen()
 		10: body = _trial_screen()
 		11: body = _puzzle_screen()
+		12: body = _mastery_screen()
 		_: body = _start_screen()
 	# scrolls on short screens; spacers inside still centre things on tall ones
 	var sc := ScrollContainer.new()
@@ -576,7 +577,7 @@ func _start_screen() -> Control:
 	var k := 0
 	var hero_px := 64 if _wide else clampi(int((minf(get_viewport_rect().size.x, COLUMN_W) - 90.0) / (GameData.class_keys.size() * 1.75)), 26, 64)
 	for c in GameData.class_keys:
-		var hl := UI.lbl(GameData.classes[c].hero, hero_px)
+		var hl := UI.lbl(Mastery.dress(c, Mastery.look(c)).hero, hero_px)
 		party.add_child(hl)
 		var tw := hl.create_tween().set_loops()
 		tw.tween_interval(0.15 * k)
@@ -624,20 +625,20 @@ func _start_screen() -> Control:
 		play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(play)
 	UI.breathe(play, 0.03)
-	var tb := UI.btn("🎓 " + tr("Class trials"), func():
-		title_step = 10
-		render(), false, 24, "blue")
-	tb.custom_minimum_size = Vector2(640 if _wide else 0, 72)
+	var modes := UI.hbox(10)
+	modes.custom_minimum_size.x = 640 if _wide else 0
 	if _wide:
-		tb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(tb)
-	var pz := UI.btn("🧩 " + tr("Puzzles"), func():
-		title_step = 11
-		render(), false, 24, "purple")
-	pz.custom_minimum_size = Vector2(640 if _wide else 0, 72)
-	if _wide:
-		pz.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(pz)
+		modes.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for m in [["🏅 " + tr("Mastery"), 12, "gold"], ["🎓 " + tr("Class trials"), 10, "blue"], ["🧩 " + tr("Puzzles"), 11, "purple"]]:
+		var step: int = m[1]
+		var mb := UI.btn(m[0], func():
+			title_step = step
+			render(), false, 20, m[2])
+		mb.custom_minimum_size.y = 72
+		mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		modes.add_child(mb)
+	v.add_child(modes)
 	v.add_child(_center(UI.btn(tr("How to play") + (" 🔼" if show_how else " 🔽"), func():
 		show_how = not show_how
 		render(), false, 17, "purple")))
@@ -744,7 +745,7 @@ func _hero_screen() -> Control:
 		hp_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hp_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		pic.add_child(hp_panel)
-	var hero := UI.plbl(c.hero, 190 if _wide else 120, UI.TX, false, true)
+	var hero := UI.plbl(Mastery.dress(sel_cls, Mastery.look(sel_cls)).hero, 190 if _wide else 120, UI.TX, false, true)
 	hero.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hp_panel.add_child(hero)
 	UI.breathe(hero, 0.06)
@@ -851,13 +852,11 @@ func _hero_screen() -> Control:
 	return v
 
 
-## What a class has left to earn, in one row: highest Ascension opened, deepest Endless floor and
+## What a class has left to earn, in one row: its Mastery level, deepest Endless floor and
 ## its two signature items (locked ones dimmed; their tooltip says how to unlock them).
 func _goals_panel(cls: String, fs: int) -> Control:
-	var best := 0
 	var deep := 0
 	for df in GameData.difficulties:
-		best = maxi(best, _asc_open(cls, df.id))
 		deep = maxi(deep, int(SaveGame.get_setting("endless_best_%s_%s" % [cls, df.id], 0)))
 	var p := UI.panel(Color(0, 0, 0, 0.3), Color("#c8602c"), 2, 14, 8)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -867,7 +866,7 @@ func _goals_panel(cls: String, fs: int) -> Control:
 	var medals := 0
 	for p_id in GameData.classes[cls].paths:
 		medals += 1 if int(SaveGame.get_setting("trial_" + p_id, 0)) > 0 else 0
-	var txt := "🔥 " + tr("Ascension %d/%d") % [best, GameData.ascension.size()] + "   🎓 %d/%d" % [medals, GameData.classes[cls].paths.size()]
+	var txt := "🏅 " + tr("Mastery %d/%d") % [Mastery.level(cls), Mastery.max_level()] + "   🎓 %d/%d" % [medals, GameData.classes[cls].paths.size()]
 	if deep > 0:
 		txt += "   ♾️ " + tr("Endless: floor %d") % deep
 	var l := UI.wrap_lbl(txt, fs + 1, Color("#ffb37a"))
@@ -883,7 +882,7 @@ func _goals_panel(cls: String, fs: int) -> Control:
 		if not got:
 			chip.modulate = Color(1, 1, 1, 0.35)
 		chip.tooltip_text = "🎁 " + tr(d.n) + "
-" + (tr(d.d) if got else (tr("Unlock: win with this class.") if d.sig == 1 else tr("Unlock: open Ascension 5 with this class.")))
+" + (tr(d.d) if got else (tr("Unlock: win with this class.") if d.sig == 1 else tr("Unlock: reach Mastery 5 with this class.")))
 		h.add_child(chip)
 	return p
 
@@ -1015,10 +1014,9 @@ func _diff_screen() -> Control:
 		UI.juice(c)
 		UI.hover_glow(c)
 		list.add_child(c)
-	v.add_child(_asc_picker())
 	var cls: Dictionary = GameData.classes[sel_cls]
 	var pet: Dictionary = GameData.pets.get(sel_pet, {})
-	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s%s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n), ("   🔥%d" % sel_asc) if sel_asc > 0 else ""], 18, UI.GOLD, true)
+	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s%s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n), ""], 18, UI.GOLD, true)
 	sum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sum)
 	v.add_child(_step_nav(func():
@@ -1027,7 +1025,8 @@ func _diff_screen() -> Control:
 		SaveGame.set_setting("pet", sel_pet)
 		SaveGame.set_setting("diff", sel_diff)
 		_send_play_log(SaveGame.load_run(), "quit")   # a saved run left unfinished
-		run = RunState.new(sel_cls, sel_pet, sel_diff, sel_asc)
+		run = RunState.new(sel_cls, sel_pet, sel_diff)
+		run.apply_mastery(Mastery.perks(sel_cls), Mastery.look(sel_cls))
 		run.plog_start()
 		title_step = 0
 		_clear_sel()
@@ -1036,7 +1035,8 @@ func _diff_screen() -> Control:
 	return v
 
 
-## Locks the signature items not earned yet (first win with the class: the 1st; Ascension 5: the 2nd).
+## Locks the signature items not earned yet (first win with the class: the 1st; Mastery 5: the 2nd).
+## Players from before v0.14 keep what Ascension had opened (old asc_<cls>_<mode> settings).
 ## Returns the ids that just unlocked.
 func _refresh_locks() -> Array:
 	var before: Dictionary = RunState.locked.duplicate()
@@ -1045,10 +1045,11 @@ func _refresh_locks() -> Array:
 		var d: Dictionary = GameData.items[id]
 		if d.sig <= 0:
 			continue
-		var open := 0
+		var old := 0
 		for df in GameData.difficulties:
-			open = maxi(open, _asc_open(d.cl, df.id))
-		if open < (1 if d.sig == 1 else 5):
+			old = maxi(old, int(SaveGame.get_setting("asc_%s_%s" % [d.cl, df.id], 0)))
+		var won := bool(SaveGame.get_setting("won_" + d.cl, false)) or old >= 1
+		if not (won if d.sig == 1 else (Mastery.level(d.cl) >= 5 or old >= 5)):
 			RunState.locked[id] = true
 	return before.keys().filter(func(k): return not RunState.locked.has(k))
 
@@ -1324,50 +1325,6 @@ func _trial_end_screen() -> Control:
 	return cc
 
 
-## Highest Ascension open for a class on a mode (beat level N to open N+1).
-func _asc_open(c: String, d: String) -> int:
-	return int(SaveGame.get_setting("asc_%s_%s" % [c, d], 0))
-
-
-## Ascension picker on the difficulty step: ◀ level ▶, and what the newest rule adds.
-func _asc_picker() -> Control:
-	var open := _asc_open(sel_cls, sel_diff)
-	sel_asc = clampi(sel_asc, 0, open)
-	if open > 0:
-		_first_tip.call_deferred("asc", "🔥 " + tr("Ascension is open! Pick a level with the arrows: each one adds a rule. Win it to open the next."))
-	var p := UI.card(Color("#2a1a12", 0.95), Color("#c8602c") if sel_asc > 0 else UI.BD, 18, 10)
-	var h := UI.hbox(10)
-	p.add_child(h)
-	var lt := UI.btn("◀", func():
-		sel_asc = maxi(0, sel_asc - 1)
-		render(), false, 20, "gray")
-	lt.disabled = sel_asc <= 0
-	lt.custom_minimum_size = Vector2(56, 52)
-	h.add_child(lt)
-	var tv := UI.vbox(2)
-	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(tv)
-	var head := "🔥 " + tr("Ascension %d") % sel_asc + "  (" + tr("open: %d/%d") % [open, GameData.ascension.size()] + ")"
-	var hl := UI.lbl(head, 18, Color("#ffb37a") if sel_asc > 0 else UI.MU, true)
-	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tv.add_child(hl)
-	var sub := ""
-	if sel_asc == 0:
-		sub = tr("Win with this class on this mode to open Ascension 1.") if open == 0 else tr("Off: normal rules. Higher levels stack new rules.")
-	else:
-		sub = tr(GameData.ascension[sel_asc - 1].d) + (("  " + tr("(+%d earlier rules)") % (sel_asc - 1)) if sel_asc > 1 else "")
-	var sl := UI.wrap_lbl(sub, 15, Color("#efe4cf"))
-	sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tv.add_child(sl)
-	var rt := UI.btn("▶", func():
-		sel_asc = mini(open, sel_asc + 1)
-		render(), false, 20, "gray")
-	rt.disabled = sel_asc >= open
-	rt.custom_minimum_size = Vector2(56, 52)
-	h.add_child(rt)
-	return p
-
-
 func _end_screen() -> Control:
 	var cc := CenterContainer.new()
 	var v := UI.vbox(10 if not _wide else 12)
@@ -1390,20 +1347,22 @@ func _end_screen() -> Control:
 		if run.day > int(SaveGame.get_setting(ck, 0)):
 			SaveGame.set_setting(ck, run.day)
 		line = tr("Endless: you reached day %d.") % run.day + "  " + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
-	if w and not run.endless:
-		# Ascension: this win opens the next level for this class on this mode
-		if not run.has_meta("asc_new"):
-			var open := _asc_open(run.cls, run.diff)
-			var nxt := mini(run.asc + 1, GameData.ascension.size())
-			run.set_meta("asc_new", nxt if nxt > open else 0)
-			if nxt > open:
-				SaveGame.set_setting("asc_%s_%s" % [run.cls, run.diff], nxt)
-			run.set_meta("sig_new", _refresh_locks())
-		for id in run.get_meta("sig_new", []):
-			line += "
-🎁 " + tr("New item unlocked: %s") % (GameData.items[id].ic + " " + tr(GameData.items[id].n))
-		if int(run.get_meta("asc_new")) > 0:
-			line += "\n🔓 " + tr("Ascension %d unlocked for %s on %s!") % [int(run.get_meta("asc_new")), tr(run.cls_def().n), tr(run.diff_def().n)]
+	# class mastery: every finished run earns XP for its class, won or lost (docs/design_v0.14.md)
+	if not run.has_meta("mst"):
+		var g := Mastery.gain(run)
+		var lv := {"from": Mastery.level(run.cls), "to": Mastery.level(run.cls)}
+		if not _dev:   # layout tests finish runs too
+			if w and not run.endless:
+				SaveGame.set_setting("won_" + run.cls, true)
+			lv = Mastery.award(run.cls, g)
+		run.set_meta("mst", {"g": g, "from": lv.from, "to": lv.to})
+		run.set_meta("sig_new", _refresh_locks())
+	for id in run.get_meta("sig_new", []):
+		line += "\n🎁 " + tr("New item unlocked: %s") % (GameData.items[id].ic + " " + tr(GameData.items[id].n))
+	var mg: Dictionary = run.get_meta("mst")
+	line += "\n🏅 " + tr("+%d Mastery XP for %s") % [mg.g, tr(run.cls_def().n)]
+	for l in range(int(mg.from) + 1, int(mg.to) + 1):
+		line += "\n⬆️ " + tr("Mastery %d!") % l + "  " + _mastery_reward_text(run.cls, l)
 	var s := UI.wrap_lbl(line, 20 if _wide else 18)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
@@ -1447,7 +1406,7 @@ func _end_header() -> Control:
 	var card := UI.card(Color(UI.PN, 0.92), run.cls_def().col, 18, 12)
 	var hb := UI.hbox(14)
 	card.add_child(hb)
-	hb.add_child(UI.lbl(run.cls_def().hero, 64 if _wide else 52))
+	hb.add_child(UI.lbl(run.dress().hero, 64 if _wide else 52))
 	var cv := UI.vbox(6)
 	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(cv)
@@ -1467,8 +1426,6 @@ func _end_header() -> Control:
 		chips.add_child(_chip("🌍 " + tr(run.mod.n), Color("#93c5fd")))
 	chips.add_child(_chip("📅 " + tr("Day %d/%d") % [run.day, GameData.days], UI.MU))
 	chips.add_child(_chip("⭐ " + tr("Lv %d") % run.lv, Color("#bae6fd")))
-	if run.asc > 0:
-		chips.add_child(_chip("🔥 " + tr("Ascension %d") % run.asc, Color("#ffb37a")))
 	chips.add_child(_chip("❤️ ×%d" % run.res, Color("#fca5a5")))
 	chips.add_child(_chip("🪙 %d" % run.gold, UI.GOLD))
 	cv.add_child(chips)
@@ -1669,7 +1626,7 @@ func _run_screen(fresh: bool) -> Control:
 				g.create_tween().tween_callback(func():
 					if is_instance_valid(g):
 						pops[uid] = 0.0
-						UI.burst(g, c, UI.GOLD, 30, 320, 9)
+						UI.burst(g, c, run.dress().fuse if run.dress().fuse.a > 0 else UI.GOLD, 30, 320, 9)   # mastery fusion burst
 						UI.burst(g, c, col, 20, 240, 7)).set_delay(0.45)
 		_fused_flash.clear()
 	held_lbl = UI.wrap_lbl(_held_text(), 16, UI.MU)
@@ -1823,7 +1780,7 @@ func _storage_section() -> Control:
 
 
 func _hud_key() -> String:
-	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size(), run.boss_on(run.day) != null or run.boss_on(run.day + 1) != null, run.path + "|a%d" % run.asc]
+	return _memo_base() + "|%d|%d|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [roundi(run.hp), roundi(run.mhp), run.res, run.max_hearts(), run.lv, run.xp, run.gold, run.phase, run.endless, run.pet, run.picks.size(), run.boss_on(run.day) != null or run.boss_on(run.day + 1) != null, run.path]
 
 
 func _storage_key() -> String:
@@ -1847,9 +1804,10 @@ func _hud() -> Control:
 	outer.add_child(h)
 	if run.mode != "puzzle":   # a puzzle is one fight, not a climb
 		outer.add_child(Timeline.new().setup(run))
-	var av := UI.panel(Color("#ffcf3f"), Color("#c47a0c"), 4, 99, 4)
+	var fr: Color = run.dress().frame
+	var av := UI.panel(Color(run.cls_def().col).darkened(0.35) if fr.a > 0 else Color("#ffcf3f"), fr if fr.a > 0 else Color("#c47a0c"), 6 if fr.a > 0 else 4, 99, 4)   # mastery frame
 	av.custom_minimum_size = Vector2(66, 66)
-	var al := UI.lbl(run.cls_def().hero, 38)
+	var al := UI.lbl(run.dress().hero, 38)
 	al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	av.add_child(al)
@@ -1910,8 +1868,6 @@ func _level_badge() -> Control:
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var hb := UI.hbox(6)
 	hb.add_child(UI.plbl("⭐ " + tr("Lv %d") % run.lv, 15, Color("#f6e3b4"), true))
-	if run.asc > 0:
-		hb.add_child(UI.plbl("🔥%d" % run.asc, 15, Color("#ffb37a"), true))
 	var xb := ProgressBar.new()
 	xb.show_percentage = false
 	xb.custom_minimum_size = Vector2(70, 10)
@@ -4153,3 +4109,169 @@ func _shot(path: String) -> void:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
+# ---------------------------------------------------------------- class mastery
+
+## What a mastery level gives, in words: the skill point and the cosmetic.
+func _mastery_reward_text(cls: String, lv: int) -> String:
+	var w := Mastery.reward(lv)
+	var dr := Mastery.dress(cls, {w.k: w.v})
+	var what := ""
+	match w.k:
+		"title": what = tr("Title: %s") % ("\"" + tr(dr.title) + "\"")
+		"theme": what = tr("Pack theme %d") % w.v
+		"skin": what = tr("Hero skin %s") % dr.hero
+		"spark": what = tr("Hit sparks")
+		"fuse": what = tr("Fusion burst")
+		"frame": what = tr("Gold frame") if w.v >= 2 else tr("Bronze frame")
+	if lv >= Mastery.max_level():
+		what += " + " + tr("Title: %s") % ("\"" + tr(Mastery.dress(cls, {"title": 2}).title) + "\"")
+	return "+1 " + tr("skill point") + " · 🎁 " + what
+
+
+## Mastery: every class with its level; the open class shows its XP, skill tree and cosmetics.
+func _mastery_screen() -> Control:
+	if mst_cls == "":
+		mst_cls = sel_cls
+	var v := UI.vbox(12)
+	var t := UI.title("🏅 " + tr("Mastery"), 36, UI.GOLD)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var sub := UI.wrap_lbl(tr("Every run earns Mastery XP for its class, won or lost. Each level gives a skill point and a cosmetic."), 16, UI.MU)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	# the classes
+	var grid := GridContainer.new()
+	grid.columns = 9
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(_center(grid))
+	for c in GameData.class_keys:
+		var cc: String = c
+		var b := UI.btn(Mastery.dress(c, Mastery.look(c)).hero + "\n" + tr("Lv %d") % Mastery.level(c), func():
+			mst_cls = cc
+			render(), false, 16 if _wide else 13, "gold" if c == mst_cls else "gray")
+		b.custom_minimum_size = Vector2(118, 84) if _wide else Vector2(70, 70)
+		grid.add_child(b)
+	# the open class
+	var cd: Dictionary = GameData.classes[mst_cls]
+	var lk := Mastery.look(mst_cls)
+	var dr := Mastery.dress(mst_cls, lk)
+	var card := UI.card(Color(cd.col).darkened(0.7), Color(cd.col), 20, 14)
+	var cv := UI.vbox(10)
+	card.add_child(cv)
+	v.add_child(card)
+	var pr := Mastery.progress(Mastery.xp(mst_cls))
+	var head := UI.hbox(10)
+	head.add_child(UI.lbl(dr.hero, 48))
+	var hv := UI.vbox(2)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.add_child(UI.lbl(tr(cd.n) + ("  ·  " + tr(dr.title) if dr.title != "" else ""), 20, Color.WHITE, true))
+	hv.add_child(UI.lbl(tr("Mastery %d/%d") % [pr[0], Mastery.max_level()] + "   " + (tr("%d / %d XP") % [pr[1], pr[2]] if pr[2] > 0 else tr("Max level")), 16, UI.GOLD))
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 14)
+	bar.max_value = 1.0
+	bar.value = float(pr[1]) / float(pr[2]) if pr[2] > 0 else 1.0
+	bar.add_theme_stylebox_override("background", UI.box(Color("#140d05"), Color(0, 0, 0, 0), 0, 99, 0))
+	bar.add_theme_stylebox_override("fill", UI.box(Color(cd.col), Color(0, 0, 0, 0), 0, 99, 0))
+	hv.add_child(bar)
+	head.add_child(hv)
+	cv.add_child(head)
+	if pr[0] < Mastery.max_level():
+		cv.add_child(UI.wrap_lbl(tr("Next: Mastery %d") % (pr[0] + 1) + "  " + _mastery_reward_text(mst_cls, pr[0] + 1), 15, Color("#efe4cf")))
+	# skill tree (left) and looks (right) side by side on PC, stacked on phones
+	var split: BoxContainer = UI.hbox(16) if _wide else UI.vbox(10)
+	cv.add_child(split)
+	var tb := UI.vbox(8)
+	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	split.add_child(tb)
+	var lb := UI.vbox(8)
+	lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	split.add_child(lb)
+	var left := Mastery.points_left(mst_cls)
+	var th := UI.hbox(8)
+	th.add_child(UI.title("🌳 " + tr("Skill tree"), 22, UI.GOLD))
+	th.add_child(UI.spacer())
+	th.add_child(UI.lbl(tr("Points: %d") % left, 17, UI.GOOD if left > 0 else UI.MU, true))
+	var rs := UI.btn("↺ " + tr("Reset"), func():
+		Mastery.reset(mst_cls)
+		render(), false, 15, "gray")
+	rs.custom_minimum_size = Vector2(100, 44)
+	th.add_child(rs)
+	tb.add_child(th)
+	tb.add_child(UI.wrap_lbl(tr("Leans the shop toward the path you want. Free to reset. Works on every difficulty."), 14, UI.MU))
+	var tree := Mastery.tree(mst_cls)
+	var cols := GridContainer.new()
+	cols.columns = 1
+	cols.add_theme_constant_override("h_separation", 10)
+	cols.add_theme_constant_override("v_separation", 8)
+	tb.add_child(cols)
+	var by_path := {}
+	for n in Mastery.nodes(mst_cls):
+		by_path[n.path] = by_path.get(n.path, []) + [n]
+	for p in cd.paths + [""]:
+		var box := UI.panel(Color(0, 0, 0, 0.3), Color(cd.col).darkened(0.2), 2, 12, 8)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var row := UI.hbox(6)
+		box.add_child(row)
+		var pl := UI.wrap_lbl((GameData.paths[p].ic + " " + tr(GameData.paths[p].n)) if p != "" else ("🎲 " + tr("Any path")), 15, Color.WHITE)
+		pl.custom_minimum_size.x = 120
+		pl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		row.add_child(pl)
+		for n in by_path.get(p, []):
+			var id: String = n.id
+			var rk := int(tree.get(id, 0))
+			var txt := ""
+			match n.k:
+				"fav": txt = "⭐ " + tr("Favoured") + " %d/%d\n" % [rk, n.max] + tr("+%d%% this path's items in the shop") % roundi(100.0 * float(Mastery.cfg("bias_per_rank", 0.08)))
+				"head": txt = "🎒 " + tr("Head start") + " %d/1\n" % rk + tr("Start with one of its items")
+				"free_rr": txt = "🎲 " + tr("Free reroll") + " %d/1\n" % rk + tr("First reroll each floor is free")
+			var nb := UI.btn(txt, func():
+				Mastery.add_point(mst_cls, id)
+				render(), false, 14, "gold" if rk > 0 else "gray")
+			nb.disabled = left <= 0 or rk >= int(n.max)
+			nb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			nb.custom_minimum_size.y = 56
+			row.add_child(nb)
+		cols.add_child(box)
+	# cosmetics
+	lb.add_child(UI.title("🎨 " + tr("Looks"), 22, UI.GOLD))
+	var lv: int = pr[0]
+	var lg := GridContainer.new()
+	lg.columns = 1 if _wide else 2
+	lg.add_theme_constant_override("h_separation", 10)
+	lg.add_theme_constant_override("v_separation", 6)
+	lb.add_child(lg)
+	for slot in ["skin", "title", "theme", "frame", "spark", "fuse"]:
+		var row := UI.hbox(6)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var nm: String = {"skin": tr("Hero"), "title": tr("Title"), "theme": tr("Pack"), "frame": tr("Frame"), "spark": tr("Hit sparks"), "fuse": tr("Fusion burst")}[slot]
+		var l := UI.lbl(nm, 15, UI.MU, true)
+		l.custom_minimum_size.x = 110 if _wide else 70
+		row.add_child(l)
+		for ch in Mastery.choices(slot, lv):
+			var d := Mastery.dress(mst_cls, {slot: ch})
+			var lab := ""
+			match slot:
+				"skin": lab = d.hero
+				"title": lab = tr(d.title) if d.title != "" else tr("None")
+				"theme": lab = tr("Classic") if ch == 0 else "■ %d" % ch
+				"frame": lab = [tr("None"), tr("Bronze"), tr("Gold")][ch]
+				_: lab = tr("On") if ch > 0 else tr("Off")
+			var s2: String = slot
+			var c2: int = ch
+			var cb := UI.btn(lab, func():
+				Mastery.equip(mst_cls, s2, c2)
+				render(), false, 15, "gold" if int(lk.get(slot, -9)) == ch else "gray")
+			cb.custom_minimum_size = Vector2(0, 40)
+			if slot == "theme" and ch > 0:
+				cb.add_theme_color_override("font_color", d.slot_bd)
+			row.add_child(cb)
+		lg.add_child(row)
+	var back := UI.btn("◀️ " + tr("Back"), func():
+		title_step = 0
+		render(), false, 20, "gray")
+	back.custom_minimum_size = Vector2(0, 64)
+	v.add_child(back)
+	return v

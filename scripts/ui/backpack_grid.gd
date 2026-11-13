@@ -67,7 +67,7 @@ func _draw() -> void:
 	var pulse := 0.5 + 0.5 * sin(_t * 4.0)
 
 	# tiles
-	var tile := UI.px_frame(Color("#130e0a"), Color("#5a4630"), 0, 0)   # pixel slot
+	var tile := UI.px_frame(run.dress().slot_bg, run.dress().slot_bd, 0, 0)   # pixel slot (mastery pack theme)
 	for y in GameData.H:
 		for x in GameData.W:
 			var c := Vector2i(x, y)
