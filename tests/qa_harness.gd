@@ -15,7 +15,7 @@ var style := "smart"
 var cls_filter := ""
 var diff := "normal"
 var endless_on := false   # --endless=1: after the day-15 win, keep going until the run ends
-var pro_cfg := {}      # --cfg=key:val,key:val  pro bot weights (aff, cap, fuse, verify, sim_w, rr, min_gain, elite)
+var pro_cfg := {}      # --cfg=key:val,key:val  pro bot weights (aff, cap, fuse, verify, sim_w, rr, min_gain, elite, fight)
 var force_boss := ""   # --boss=Name: every run meets this boss on its day (balance checks)
 var start := 0
 var count := 10
@@ -237,6 +237,9 @@ func bot_morning(r: RunState, st: String) -> void:
 	if st == "pro":
 		_pro_morning(r)
 		return
+	if st == "casual":
+		_casual_morning(r)
+		return
 	# the simple bots take the first level-up bonus offered
 	while not r.picks.is_empty():
 		r.pick_level(0)
@@ -303,6 +306,8 @@ func bot_morning(r: RunState, st: String) -> void:
 func pick_node(r: RunState, st: String) -> int:
 	if st == "pro":
 		return _pro_node(r)
+	if st == "casual":
+		return _casual_node(r)
 	var best := 0
 	match st:
 		"random":
@@ -315,6 +320,84 @@ func pick_node(r: RunState, st: String) -> int:
 			for i in r.nodes.size():
 				if RunState.EVENTS.has(r.nodes[i].k) and randf() < 0.4:
 					best = i
+	for i in r.nodes.size():
+		if r.nodes[i].k == "camp" and r.hp < r.mhp * 0.45:
+			best = i
+	return best
+
+
+## Casual: plays like the average real player in the play logs (v0.9-v0.13, 25 runs, 7 players): about
+## 2 buys a day (spends down to ~3 gold), pairs pieces that fuse, any tier it can afford (mix seen: 34% t0, 33% t1, 23% t2, 10% t3), 0.6 rerolls a day,
+## about 3 gold left at departure, a bag when the pack is nearly full, each item in the best free spot
+## (no rearranging), a random level-up bonus and path, rarely sells. Numbers from tools: plog_an.js.
+func _casual_morning(r: RunState) -> void:
+	while not r.picks.is_empty():
+		r.pick_level(randi() % maxi(1, r.picks[0].size()))
+	if r.needs_path():
+		r.choose_path(r.cls_def().paths.pick_random())
+	_unlock_all(r)
+	for it in r.storage_items():
+		if it.def().relic:
+			it.loc = "held"
+			if not _place_best(r, it):
+				it.loc = "storage"
+	if _free_tiles(r) < 4:
+		for i in r.shop.size():
+			if r.shop[i].has("bag") and r.shop[i].price <= r.gold:
+				r.buy_bag(i)
+				break
+	if r.gold >= 10 and randf() < 0.45:
+		r.reroll()
+	var buys := 0
+	while buys < 6:
+		var cand := []
+		for i in r.shop.size():
+			var e: Dictionary = r.shop[i]
+			if not e.has("bag") and e.price <= r.gold:
+				cand.append(i)
+		if cand.is_empty() or (buys >= 2 and randf() < 0.15):   # players spend nearly all of it (~3 gold left)
+			break
+		var idx: int = cand.pick_random()
+		var partners := cand.filter(func(i): return r.recipe_partner_owned(r.shop[i].id))
+		if not partners.is_empty() and randf() < 0.75:   # players fuse a lot (6-11 fusions by floor 10)
+			idx = partners.pick_random()
+		elif randf() < 0.4:
+			for i in cand:
+				if r.shop[i].price > r.shop[idx].price:
+					idx = i
+		var it := r.buy_item(idx)
+		if it == null:
+			break
+		if not _place_best(r, it):
+			it.loc = "storage"
+		buys += 1
+	for it in r.storage_items():
+		it.loc = "held"
+		if not _place_best(r, it):
+			it.loc = "storage"
+	for it in r.storage_items():
+		if it.def().tags.has("Treasure") and randf() < 0.5:
+			r.sell(it)
+	# 🪄 (v0.13.4 arranges the pack): a casual player taps it about half the mornings
+	if randf() < float(pro_cfg.get("wand", 0.5)):
+		var plan := r.plan_arrange()
+		if not plan.is_empty():
+			r.apply_arrange(plan.moves)
+
+
+## Casual road: an elite or ambush 12% of the time it is offered, an event over a fight 70%, camp when hurt.
+func _casual_node(r: RunState) -> int:
+	var best := 0
+	for i in r.nodes.size():
+		if r.nodes[i].k in ["combat", "boss", "mini"]:
+			best = i
+			break
+	for i in r.nodes.size():
+		var k: String = r.nodes[i].k
+		if k in ["elite", "ambush"] and randf() < 0.12:
+			best = i
+		elif RunState.EVENTS.has(k) and randf() < float(pro_cfg.get("ev", 0.6)):
+			best = i
 	for i in r.nodes.size():
 		if r.nodes[i].k == "camp" and r.hp < r.mhp * 0.45:
 			best = i
@@ -434,7 +517,7 @@ func _monte_carlo() -> void:
 	for cls in classes:
 		for i in range(start, start + count):
 			var pet: String = GameData.pet_keys[i % GameData.pet_keys.size()]
-			var s: int = i * 1009 + GameData.class_keys.find(cls) * 7 + {"random": 1, "greedy": 2, "smart": 3, "pro": 3}.get(style, 0) * 1000003
+			var s: int = i * 1009 + GameData.class_keys.find(cls) * 7 + {"random": 1, "greedy": 2, "smart": 3, "pro": 3, "casual": 3}.get(style, 0) * 1000003
 			var res := play_run(cls, pet, style, s, false)
 			var inf: Dictionary = res.info
 			print("RUN|%s|%s|%s|%s|%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%s|%s|%s|%d|%s|%s" % [
@@ -1104,7 +1187,8 @@ func _pro_node(r: RunState) -> int:
 				tr_day["fc"] = tr_day.get("fc", []) + [{"i": i, "won": cs.won, "lost": snappedf(lost, 0.01), "left": snappedf(maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp), 0.01), "secs": cs.tk / 10.0}]
 			h_after = cs.php if cs.won else r.mhp * 0.5
 			if cs.won:
-				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss", "mini"] else 2.2) - 1.5 * lost
+				# fight: extra pull toward a winnable fight over an event (real winners fought ~2x as often as losers)
+				s = (float(pro_cfg.get("elite", 3.0)) if n.k in ["elite", "ambush", "boss", "mini"] else 2.2 + float(pro_cfg.get("fight", 0.0))) - 1.5 * lost
 			else:
 				s = -5.0 + (1.0 - maxf(0.0, cs.ehp) / maxf(1.0, cs.e.hp))
 		else:
