@@ -53,7 +53,7 @@ func _draw() -> void:
 		var c: Vector2 = pt.call(d)
 		var boss: bool = run.boss_on(d) != null
 		var mini: bool = RunState.MINI_DAYS.has(d) and run.mode == ""
-		var fork: bool = d == GameData.path_day and run.mode == ""
+		var fork: bool = d == GameData.path_day and run.mode in ["", "rush"]
 		var cur := d == run.day
 		var past := d < run.day
 		var r := 10.0

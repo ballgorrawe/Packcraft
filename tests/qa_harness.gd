@@ -15,6 +15,7 @@ var style := "smart"
 var cls_filter := ""
 var diff := "normal"
 var endless_on := false   # --endless=1: after the day-15 win, keep going until the run ends
+var rush_on := false      # --rush=1: every run is a Boss Rush
 var pro_cfg := {}      # --cfg=key:val,key:val  pro bot weights (aff, cap, fuse, verify, sim_w, rr, min_gain, elite, fight)
 var force_boss := ""   # --boss=Name: every run meets this boss on its day (balance checks)
 var start := 0
@@ -44,6 +45,7 @@ func _init() -> void:
 			"cls": cls_filter = v
 			"diff": diff = v
 			"endless": endless_on = v == "1"
+			"rush": rush_on = v == "1"
 			"start": start = int(v)
 			"count": count = int(v)
 			"runs": runs = int(v)
@@ -415,6 +417,8 @@ func _board(r: RunState) -> String:
 func play_run(cls: String, pet: String, st: String, seed_v: int, checks: bool) -> Dictionary:
 	seed(seed_v)
 	var r := RunState.new(cls, pet, diff)
+	if rush_on:
+		r.start_rush()
 	if force_boss != "":
 		for b in GameData.bosses:
 			if b.n == force_boss:

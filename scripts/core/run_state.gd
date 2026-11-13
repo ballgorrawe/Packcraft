@@ -19,6 +19,7 @@ var pet := ""                   # companion id (a simple always-on buff), "" for
 var diff := "normal"            # difficulty mode id
 static var locked := {}         # signature item ids not unlocked yet (the game fills it; bots and tests see all)
 var mode := ""                  # "" a normal run, "trial" a class trial, "puzzle" a puzzle (neither is saved)
+var rush: Array = []            # Boss Rush: the 5 bosses (names) of floors 11-15, easiest first
 var mst := {}                   # class mastery perks for this run (Mastery.perks): shop lean, head start, free reroll
 var cos := {}                   # class mastery look for this run (Mastery.look): skin, pack theme, effects, frame, title
 var boss_wins := 0              # bosses and mini-bosses beaten this run (mastery XP)
@@ -155,7 +156,7 @@ func path_def() -> Dictionary:
 
 ## True on the path day until the player has picked one of the two class paths.
 func needs_path() -> bool:
-	return mode == "" and path == "" and day >= GameData.path_day and phase == "morning"   # trials pick theirs, puzzles have none
+	return mode in ["", "rush"] and path == "" and day >= GameData.path_day and phase == "morning"   # trials pick theirs, puzzles have none
 
 
 func choose_path(id: String) -> void:
@@ -1355,6 +1356,16 @@ func endless_mult(d: int, per_day: float) -> float:
 
 
 func boss_on(d: int):
+	if mode == "rush":
+		var i := d - (GameData.days - RUSH_BOSSES) - 1
+		if i < 0 or i >= rush.size():
+			return null
+		var src: Dictionary = GameData.bosses.filter(func(x): return x.n == rush[i])[0]
+		var b := src.duplicate()
+		b.d = d
+		b.hp = roundf(src.hp * float(enemy_hp(d)) / enemy_hp(int(src.d)) * RUSH_HP)
+		b.atk = snappedf(src.atk * foe_dps(d) / foe_dps(int(src.d)) * RUSH_DPS, 0.1)
+		return b
 	if d > GameData.days:
 		if not endless or d % 5 != 0:
 			return null
@@ -1392,6 +1403,47 @@ func boss_on(d: int):
 const EVENTS := ["smith", "merchant", "roulette", "cauldron", "altar", "chest"]
 
 
+# ---------------------------------------------------------------- Boss Rush
+# Floors 1-10 are events only (shop every morning, EXP as if you had fought), then five bosses in a
+# row on floors 11-15, chosen at the start and shown from floor 1. No shop and only a little healing
+# between bosses; losing one ends the run.
+
+const RUSH_BOSSES := 5
+const RUSH_HP := 0.65       # boss HP on top of scaling to the floor (balance knobs: tests/qa_harness --rush=1)
+const RUSH_DPS := 0.75
+const RUSH_HEAL := 0.25     # share of Max HP healed before each boss after the first
+
+
+func start_rush() -> void:
+	mode = "rush"
+	var by_d := {}
+	for b in GameData.bosses:
+		by_d[int(b.d)] = by_d.get(int(b.d), []) + [b.n]
+	var tiers: Array = by_d.keys()
+	tiers.sort()
+	rush = []
+	# easiest first: one early boss, two mid, two late (each tier shuffled, no repeats)
+	for t in [tiers[0], tiers[1], tiers[1], tiers[-1], tiers[-1]]:
+		var left: Array = by_d[t].filter(func(n): return not rush.has(n))
+		rush.append(left.pick_random())
+	begin_day()
+
+
+func _rush_day() -> void:
+	var b = boss_on(day)
+	if b != null:
+		shop = []   # no shopping between bosses: what you built is what you bring
+		if day > GameData.days - RUSH_BOSSES + 1:
+			hp = minf(mhp, hp + roundf(mhp * RUSH_HEAL))
+		nodes = [{"k": "boss", "e": boss_foe(b)}]
+		return
+	var evs := EVENTS.filter(func(k): return event_ok(k))
+	evs.shuffle()
+	nodes = evs.slice(0, 3).map(func(k): return {"k": k})
+	if hp < mhp * 0.5:
+		nodes[nodes.size() - 1] = {"k": "camp"}
+
+
 func event_ok(k: String) -> bool:
 	match k:
 		"smith":
@@ -1427,6 +1479,10 @@ func begin_day() -> void:
 			e.sale = true
 	if mode == "trial":
 		_trial_day()
+		return
+	if mode == "rush":
+		_rush_day()
+		_plog_morning()
 		return
 	var b = boss_on(day)
 	if b != null:
@@ -1788,7 +1844,7 @@ func to_dict() -> Dictionary:
 		"off": off.keys(), "nodes": nodes, "cur_node": cur_node, "result": res_d, "end_state": end_state,
 		"msg": msg, "seen": seen.keys(), "event": event, "mhp_mod": mhp_mod,
 		"lv": lv, "xp": xp, "lvl_bonus": lvl_bonus, "picks": picks, "mw_done": mw_done, "endless": endless,
-		"boss_pick": boss_pick, "plog": plog, "mst": mst, "cos": cos, "bw": boss_wins, "mnw": mini_wins,
+		"boss_pick": boss_pick, "plog": plog, "mst": mst, "cos": cos, "bw": boss_wins, "mnw": mini_wins, "mode": mode, "rush": rush,
 	}
 
 
@@ -1911,6 +1967,8 @@ static func from_dict(d: Dictionary) -> RunState:
 	for k in r.cos:
 		r.cos[k] = int(r.cos[k])
 	r.boss_wins = int(d.get("bw", 0))
+	r.mode = str(d.get("mode", ""))
+	r.rush = d.get("rush", [])
 	r.mini_wins = int(d.get("mnw", 0))
 	r.msg = d.msg
 	r.seen = {}
@@ -1976,7 +2034,8 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 					w.pc = minf(0.5, w.pc + 0.05)
 				r.lines.append(I18n.t("🔥 You are at full HP, so every weapon polishes to 5% faster."))
 		"smith", "merchant", "roulette", "cauldron", "altar", "chest":
-			pass   # their outcome came from the event screen
+			if mode == "rush":   # no fights before the bosses: events give the EXP a fight would
+				gain_xp(int(GameData.leveling.get("xp", {}).get("combat", 0)), r.rew, r.lines)
 		_:
 			if win:
 				var g := roundi((4 + ceili(day / 2.0)) * (2.5 if n.k in ["elite", "ambush", "mini"] else 1.0)) + (10 if n.k == "boss" else 0)
@@ -2020,6 +2079,8 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 				# Losing a fight you picked for its loot pays nothing: hearts keep the run alive, not the reward.
 				var c := 0 if n.k in ["elite", "ambush", "mini"] else 2 + int(day / 3)
 				gold += c
+				if mode == "rush":
+					res = 0   # Boss Rush: a lost boss ends the run
 				if res > 0:
 					res -= 1
 					hp = roundf(mhp * 0.5)

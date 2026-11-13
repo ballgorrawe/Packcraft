@@ -131,7 +131,7 @@ static func reward(lv: int) -> Dictionary:
 
 
 ## The choices unlocked in a slot at this level, always starting with the plain look (-1 / 0).
-static func choices(slot: String, lv: int) -> Array:
+static func choices(slot: String, lv: int, cls := "") -> Array:
 	var out := [-1] if slot in ["title", "skin"] else [0]
 	for l in range(1, lv + 1):
 		var w := reward(l)
@@ -139,6 +139,8 @@ static func choices(slot: String, lv: int) -> Array:
 			out.append(w.v)
 	if slot == "title" and lv >= max_level():
 		out.append(2)   # level 10 also gives the third title
+	if slot in ["title", "frame"] and cls != "" and bool(SaveGame.get_setting("rush_clear_" + cls, false)):
+		out.append(3)   # Boss Rush cleared: Boss Slayer title and crimson frame
 	return out
 
 
@@ -148,7 +150,7 @@ static func look(cls: String) -> Dictionary:
 	var saved = SaveGame.get_setting("cos_" + cls, {})
 	var out := {}
 	for slot in ["skin", "theme", "spark", "fuse", "frame", "title"]:
-		var ch := choices(slot, lv)
+		var ch := choices(slot, lv, cls)
 		var v = saved.get(slot, ch[-1]) if saved is Dictionary else ch[-1]
 		out[slot] = int(v) if ch.has(int(v)) else ch[-1]
 	return out
@@ -176,6 +178,6 @@ static func dress(cls: String, lk: Dictionary) -> Dictionary:
 		"slot_bd": [Color("#5a4630"), col.darkened(0.25), col.lightened(0.35)][th],
 		"spark": col.lightened(0.2) if int(lk.get("spark", 0)) > 0 else Color(0, 0, 0, 0),   # alpha 0 = not worn
 		"fuse": col if int(lk.get("fuse", 0)) > 0 else Color(0, 0, 0, 0),
-		"frame": Color(cfg("frames", ["", "#cd7f32", "#ffd34d"])[fr]) if fr > 0 else Color(0, 0, 0, 0),
-		"title": titles[lk.title] if int(lk.get("title", -1)) >= 0 and int(lk.title) < titles.size() else "",
+		"frame": Color(cfg("frames", ["", "#cd7f32", "#ffd34d", "#e5484d"])[fr]) if fr > 0 else Color(0, 0, 0, 0),
+		"title": "Boss Slayer" if int(lk.get("title", -1)) == 3 else titles[lk.title] if int(lk.get("title", -1)) >= 0 and int(lk.title) < titles.size() else "",
 	}

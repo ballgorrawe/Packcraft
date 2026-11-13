@@ -13,6 +13,7 @@ var sel_cls := ""
 var sel_pet := ""
 var sel_diff := "normal"
 var mst_cls := ""              # the class open on the Mastery screen
+var sel_mode := ""             # "rush" when the new run is a Boss Rush
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
@@ -617,14 +618,24 @@ func _start_screen() -> Control:
 			cb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(cb)
 	var play := UI.big_btn("⚔️ " + tr("NEW GAME"), func():
+		sel_mode = ""
 		title_step = 1
 		render(), "green", 34)
 	play.custom_minimum_size = Vector2(0, 104)
+	var rush_b := UI.btn("👑 " + tr("Boss Rush") + "  ·  " + tr("10 floors of events, then 5 bosses in a row"), func():
+		sel_mode = "rush"
+		title_step = 1
+		render(), false, 20, "red")
+	rush_b.custom_minimum_size = Vector2(640 if _wide else 0, 64)
+	rush_b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if _wide:
+		rush_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if _wide:
 		play.custom_minimum_size.x = 640
 		play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(play)
 	UI.breathe(play, 0.03)
+	v.add_child(rush_b)
 	var modes := UI.hbox(10)
 	modes.custom_minimum_size.x = 640 if _wide else 0
 	if _wide:
@@ -1016,7 +1027,7 @@ func _diff_screen() -> Control:
 		list.add_child(c)
 	var cls: Dictionary = GameData.classes[sel_cls]
 	var pet: Dictionary = GameData.pets.get(sel_pet, {})
-	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s%s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n), ""], 18, UI.GOLD, true)
+	var sum := UI.lbl("%s %s   +   %s %s   ·   %s %s%s" % [cls.hero, tr(cls.n), pet.get("ic", ""), tr(pet.get("n", "")), GameData.diff_def(sel_diff).ic, tr(GameData.diff_def(sel_diff).n), ("   ·   👑 " + tr("Boss Rush")) if sel_mode == "rush" else ""], 18, UI.GOLD, true)
 	sum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sum)
 	v.add_child(_step_nav(func():
@@ -1027,6 +1038,8 @@ func _diff_screen() -> Control:
 		_send_play_log(SaveGame.load_run(), "quit")   # a saved run left unfinished
 		run = RunState.new(sel_cls, sel_pet, sel_diff)
 		run.apply_mastery(Mastery.perks(sel_cls), Mastery.look(sel_cls))
+		if sel_mode == "rush":
+			run.start_rush()
 		run.plog_start()
 		title_step = 0
 		_clear_sel()
@@ -1347,6 +1360,17 @@ func _end_screen() -> Control:
 		if run.day > int(SaveGame.get_setting(ck, 0)):
 			SaveGame.set_setting(ck, run.day)
 		line = tr("Endless: you reached day %d.") % run.day + "  " + (("🏅 " + tr("New best!")) if run.day > best else tr("Best on this difficulty: day %d") % best)
+	if run.mode == "rush":
+		# Boss Rush: bosses beaten (best per class); clearing all five unlocks the Boss Slayer look
+		var rk := "rush_best_" + run.cls
+		if not run.has_meta("rush_best"):
+			run.set_meta("rush_best", int(SaveGame.get_setting(rk, 0)))
+			if not _dev:
+				SaveGame.set_setting(rk, maxi(run.boss_wins, int(run.get_meta("rush_best"))))
+				if w:
+					SaveGame.set_setting("rush_clear_" + run.cls, true)
+		line = (("👑 " + tr("Boss Rush cleared! All five bosses are down.") + "
+🎁 " + tr("Unlocked: the Boss Slayer title and crimson frame (Mastery screen).")) if w else tr("Boss Rush: %d of %d bosses beaten.") % [run.boss_wins, RunState.RUSH_BOSSES]) + "  " + (("🏅 " + tr("New best!")) if run.boss_wins > int(run.get_meta("rush_best")) else tr("Best: %d") % int(run.get_meta("rush_best")))
 	# class mastery: every finished run earns XP for its class, won or lost (docs/design_v0.14.md)
 	if not run.has_meta("mst"):
 		var g := Mastery.gain(run)
@@ -1644,6 +1668,8 @@ func _run_screen(fresh: bool) -> Control:
 	var shop: Control = null
 	if run.phase == "morning" and not run.nodes.is_empty() and run.nodes[0].k == "mini":
 		_first_tip.call_deferred("mini", "👺 " + tr("Mini-boss floor: one tough fight, no other road. Win it for a Rare-or-better item and +1 pack tile."))
+	if run.mode == "rush" and run.day == 1:
+		_first_tip.call_deferred("rush", "👑 " + tr("Boss Rush: floors 1-10 are events and the shop, floors 11-15 are five bosses in a row with no shop between them. Tap 📜 to see them."))
 	if run.phase != "morning":
 		arr_plan = {}
 	if not arr_plan.is_empty() and hint_moves().is_empty():
@@ -1934,7 +1960,18 @@ func _gold_pill() -> Control:
 ## Each entry: [label, colour, explanation, is_boss_warning?].
 func _effect_list() -> Array:
 	var pills := []
-	for bd in (range(run.day, run.day + 4) if run.mode != "puzzle" else []):
+	if run.mode == "rush":
+		var row := []
+		var info := []
+		for d in range(GameData.days - RunState.RUSH_BOSSES + 1, GameData.days + 1):
+			var b = run.boss_on(d)
+			if d < run.day or b == null:
+				continue   # already beaten
+			row.append(GameData.foe_icon(b.n))
+			info.append(tr("Day %d boss: %s (resists %s, weak to %s)") % [d, tr(b.n), tr(b.imm) if b.imm != "" else "-", tr(b.weak)] + "  ❤️ %d" % roundi(b.hp))
+		if not row.is_empty():
+			pills.append(["👑 " + " » ".join(row), UI.BAD, "\n".join(info), true])
+	for bd in (range(run.day, run.day + 4) if run.mode in ["", "trial"] else []):
 		var b = run.boss_on(bd)
 		if b == null:
 			continue
@@ -4193,7 +4230,7 @@ func _mastery_screen() -> Control:
 	th.add_child(UI.title("🌳 " + tr("Skill tree"), 22, UI.GOLD))
 	th.add_child(UI.spacer())
 	th.add_child(UI.lbl(tr("Points: %d") % left, 17, UI.GOOD if left > 0 else UI.MU, true))
-	var rs := UI.btn("↺ " + tr("Reset"), func():
+	var rs := UI.btn("🔄 " + tr("Reset"), func():
 		Mastery.reset(mst_cls)
 		render(), false, 15, "gray")
 	rs.custom_minimum_size = Vector2(100, 44)
@@ -4250,14 +4287,14 @@ func _mastery_screen() -> Control:
 		var l := UI.lbl(nm, 15, UI.MU, true)
 		l.custom_minimum_size.x = 110 if _wide else 70
 		row.add_child(l)
-		for ch in Mastery.choices(slot, lv):
+		for ch in Mastery.choices(slot, lv, mst_cls):
 			var d := Mastery.dress(mst_cls, {slot: ch})
 			var lab := ""
 			match slot:
 				"skin": lab = d.hero
 				"title": lab = tr(d.title) if d.title != "" else tr("None")
-				"theme": lab = tr("Classic") if ch == 0 else "■ %d" % ch
-				"frame": lab = [tr("None"), tr("Bronze"), tr("Gold")][ch]
+				"theme": lab = tr("Classic") if ch == 0 else "🎨 %d" % ch
+				"frame": lab = [tr("None"), tr("Bronze"), tr("Gold"), tr("Crimson")][ch]
 				_: lab = tr("On") if ch > 0 else tr("Off")
 			var s2: String = slot
 			var c2: int = ch

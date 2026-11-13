@@ -46,6 +46,24 @@ func _run() -> void:
 		main.sel_pet = "bee"
 		main.render()
 		await _check("title_step%d" % st)
+	# ---- Boss Rush: floor 1 (events and the line-up) and floor 11 (the first boss)
+	var ru := RunState.new("rogue", "cat", "normal")
+	ru.start_rush()
+	main.run = ru
+	main.render()
+	await _check("rush_day1")
+	main.show_effects = true
+	main.render()
+	await _check("rush_bosses")
+	main.show_effects = false
+	ru.day = 11
+	ru.begin_day()
+	main.render()
+	await _check("rush_boss")
+	ru.end_state = "over"
+	main.render()
+	await _check("rush_end")
+	main.run = null
 	# ---- class mastery: the screen, and a run wearing every cosmetic
 	main.title_step = 12
 	main.render()
