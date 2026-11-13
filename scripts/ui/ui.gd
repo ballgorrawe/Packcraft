@@ -342,6 +342,15 @@ static func rich(bb: String, size := 17) -> RichTextLabel:
 ## Chunky button. kind: green, gold, blue, red, purple, gray.
 static func btn(text: String, cb: Callable, primary := false, size := 18, kind := "") -> Button:
 	var b := Button.new()
+	# arrow emoji (blue boxes on most systems) become pixel arrows that match the buttons
+	for a in ARROWS:
+		if text.ends_with(" " + a) or text == a:
+			text = text.trim_suffix(a).strip_edges()
+			b.icon = arrow_tex(ARROWS[a], size)
+			b.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		elif text.begins_with(a + " "):
+			text = text.trim_prefix(a).strip_edges()
+			b.icon = arrow_tex(ARROWS[a], size)
 	b.text = text
 	b.add_theme_font_size_override("font_size", size)
 	b.theme_type_variation = "Btn_" + (kind if kind != "" else ("gold" if primary else "gray"))
@@ -349,6 +358,46 @@ static func btn(text: String, cb: Callable, primary := false, size := 18, kind :
 	b.pressed.connect(cb)
 	juice(b)
 	return b
+
+
+const ARROWS := {"◀️": Vector2i.LEFT, "▶️": Vector2i.RIGHT, "⏭️": Vector2i.RIGHT, "🔼": Vector2i.UP, "🔽": Vector2i.DOWN}
+static var _arrows := {}
+
+
+## A pixel-art arrow (cream, dark outline) pointing dir, about the height of a font size; cached.
+static func arrow_tex(dir: Vector2i, size := 18) -> Texture2D:
+	var k := "%d,%d,%d" % [dir.x, dir.y, size]
+	if _arrows.has(k):
+		return _arrows[k]
+	const N := 9   # a 9x9 pixel triangle, then scaled up with hard edges
+	var img := Image.create(N, N, false, Image.FORMAT_RGBA8)
+	var fill := Color("#f6e3b4")
+	var edge := Color("#2a1a0c")
+	for y in N:
+		var half := y if y <= N / 2 else N - 1 - y   # right-pointing: widest in the middle row
+		for x in half + 1:
+			var c := edge if x == half or x == 0 or y == 0 or y == N - 1 else fill
+			var p := Vector2i(x + 1, y)
+			match dir:
+				Vector2i.LEFT: p = Vector2i(N - 2 - x, y)
+				Vector2i.UP: p = Vector2i(y, N - 2 - x)
+				Vector2i.DOWN: p = Vector2i(y, x + 1)
+			if p.x >= 0 and p.x < N and p.y >= 0 and p.y < N:
+				img.set_pixelv(p, c)
+	var px := maxi(N, roundi(size * 1.35))
+	img.resize(px, px, Image.INTERPOLATE_NEAREST)
+	_arrows[k] = ImageTexture.create_from_image(img)
+	return _arrows[k]
+
+
+## A pixel arrow on its own (book rows: A + B -> R).
+static func arrow(dir: Vector2i, size := 22) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = arrow_tex(dir, size)
+	t.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 
 ## Big call-to-action button.

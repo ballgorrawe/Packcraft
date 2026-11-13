@@ -1603,10 +1603,19 @@ func start_event(k: String) -> void:
 				var id := roll_tiered(_event_rank(), 2)
 				stock.append({"id": id, "price": roundi(GameData.items[id].cost * 1.3)})
 			event.stock = stock
-		"roulette":
-			event.bullet = randi() % 6
-			event.pulls = 0
+		"roulette":   # the gambling den: one of three games
+			event.game = ["russian", "dice", "wheel"].pick_random()
 			event.pot = 0
+			match event.game:
+				"russian":
+					event.bullet = randi() % 6
+					event.pulls = 0
+				"dice":
+					event.die = randi_range(1, 6)
+					event.wins = 0
+				"wheel":
+					event.spins = 0
+					event.net = 0
 		"altar":
 			var pool := GameData.items.keys().filter(func(id): return GameData.items[id].tier == 4 and in_class_pool(id) and not GameData.items[id].relic and not GameData.items[id].tags.has("Treasure"))
 			pool.shuffle()
@@ -1684,7 +1693,7 @@ func roulette_pot(pulls: int) -> int:
 ## Russian roulette: each empty chamber grows the pot; the bullet costs 35% of your Max HP and the pot.
 ## Returns "click", "bang" or "max" (five empty pulls: the sixth must be the bullet, so you're done).
 func ev_pull() -> String:
-	if event.get("done", false):
+	if event.get("done", false) or event.get("game", "russian") != "russian":
 		return ""
 	_pl({"a": "ev", "k": "pull", "n": event.pulls + 1})
 	if event.pulls == event.bullet:
@@ -1703,16 +1712,84 @@ func ev_pull() -> String:
 
 
 func ev_cash_out() -> void:
-	if event.get("done", false) or event.pulls == 0:
+	var n := int(event.get("wins", 0) if event.get("game", "") == "dice" else event.get("pulls", 0))
+	if event.get("done", false) or n == 0:
 		return
 	event.done = true
 	gold += event.pot
 	event.rew.append({"k": "gold", "v": event.pot})
-	event.lines.append(I18n.t("🎲 You walk away with %d gold after %d empty chambers.") % [event.pot, event.pulls])
-	if event.pulls >= 4:
+	if event.get("game", "") == "dice":
+		event.lines.append(I18n.t("🎲 You walk away with %d gold after %d right guesses.") % [event.pot, n])
+	else:
+		event.lines.append(I18n.t("🎲 You walk away with %d gold after %d empty chambers.") % [event.pot, n])
+	if n >= 4:
 		var id := roll_tiered(_event_rank(), 1)
 		items.append(make_item(id, "storage"))
 		event.rew.append({"k": "loot", "id": id})
+
+
+## High-low dice: guess whether the next roll is higher or lower. Right: the pot grows (like the
+## roulette pot); same number: roll again; wrong: lose the pot and 15% of Max HP. Five right: done.
+## Returns "win", "same", "lose" or "max".
+func ev_dice(higher: bool) -> String:
+	if event.get("done", false) or event.get("game", "") != "dice":
+		return ""
+	var roll := randi_range(1, 6)
+	_pl({"a": "ev", "k": "dice", "hi": higher, "from": event.die, "to": roll})
+	var was: int = event.die
+	event.die = roll
+	if roll == was:
+		return "same"
+	if (roll > was) != higher:
+		var dmg := roundf(mhp * DICE_HP)
+		hp = maxf(1.0, hp - dmg)
+		event.done = true
+		event.lines.append(I18n.t("🎲 Wrong guess: you lose %d HP and the pot.") % roundi(dmg))
+		event.rew.append({"k": "hp", "v": -roundi(dmg)})
+		return "lose"
+	event.wins += 1
+	event.pot = roulette_pot(event.wins)
+	if event.wins >= 5:
+		ev_cash_out()
+		return "max"
+	return "win"
+
+
+const DICE_HP := 0.15
+const WHEEL_SLOTS := 13          # slot 0 is green, then red and black in turn
+const WHEEL_SPINS := 3
+
+
+## The colour of a wheel slot: "green", "red" or "black".
+static func wheel_color(slot: int) -> String:
+	return "green" if slot == 0 else ("red" if slot % 2 == 1 else "black")
+
+
+## Roulette wheel: bet gold on a colour. Red or black pays 2x, green 12x; three spins at most.
+## Returns the slot it landed on, or -1 when the bet is not allowed.
+func ev_spin(color: String, stake: int) -> int:
+	if event.get("done", false) or event.get("game", "") != "wheel" or stake <= 0 or stake > gold:
+		return -1
+	var slot := randi() % WHEEL_SLOTS
+	var won := wheel_color(slot) == color
+	var back := stake * (12 if color == "green" else 2) if won else 0
+	gold += back - stake
+	event.net += back - stake
+	event.spins += 1
+	event.last = {"slot": slot, "color": color, "won": won}
+	_pl({"a": "ev", "k": "spin", "c": color, "bet": stake, "slot": slot})
+	if event.spins >= WHEEL_SPINS:
+		_wheel_done()
+	return slot
+
+
+func _wheel_done() -> void:
+	if event.get("done", false):
+		return
+	event.done = true
+	if event.net != 0:
+		event.rew.append({"k": "gold", "v": event.net})
+	event.lines.append((I18n.t("🎯 You leave the wheel %d gold up.") if event.net >= 0 else I18n.t("🎯 You leave the wheel %d gold down.")) % absi(event.net))
 
 
 ## Alchemist's cauldron: two of your items in, one better item out.
@@ -1788,7 +1865,11 @@ func ev_leave() -> void:
 		return
 	_pl({"a": "ev", "k": "leave", "ev": event.k})
 	if event.k == "roulette" and not event.done:
-		ev_cash_out()
+		if event.get("game", "russian") == "wheel":
+			if event.spins > 0:
+				_wheel_done()
+		else:
+			ev_cash_out()
 	go_night(nodes[cur_node], true, null)
 
 
@@ -1801,9 +1882,16 @@ func auto_event() -> void:
 					ev_smith(it)
 					break
 		"roulette":
-			for _i in 2:
-				if ev_pull() != "click":
-					break
+			match event.get("game", "russian"):
+				"russian":
+					for _i in 2:
+						if ev_pull() != "click":
+							break
+				"dice":
+					for _i in 2:
+						if event.get("done", false) or ev_dice(event.die <= 3) == "lose":
+							break
+				# the wheel: walk past it
 		"chest":
 			ev_chest(randi() % 3)
 	ev_leave()
@@ -1882,6 +1970,9 @@ static func from_dict(d: Dictionary) -> RunState:
 			c.v = int(c.v)
 	if r.event.has("picked"):
 		r.event.picked = int(r.event.picked)
+	for k in ["die", "wins", "spins", "net"]:
+		if r.event.has(k):
+			r.event[k] = int(r.event[k])
 	if r.event.has("bullet"):
 		r.event.bullet = int(r.event.bullet)
 		r.event.pulls = int(r.event.pulls)
@@ -2116,11 +2207,11 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 		r.rew.append({"k": "fusion", "a": l.a.id, "b": l.b.id, "c": lc.id if lc != null else "", "r": l.r, "evo": l.evo, "mw": lc != null, "stored": pl == null})
 		r.fused.append(f.uid)
 		if lc != null:
-			r.lines.append(I18n.t("👑 Masterwork! %s + %s + %s ➡️ %s %s!") % [a.ic, GameData.items[l.b.id].ic, GameData.items[lc.id].ic, rd.ic, I18n.t(rd.n)] + tail)
+			r.lines.append(I18n.t("👑 Masterwork! %s + %s + %s » %s %s!") % [a.ic, GameData.items[l.b.id].ic, GameData.items[lc.id].ic, rd.ic, I18n.t(rd.n)] + tail)
 		elif l.evo:
 			r.lines.append(I18n.t("✨ Evolution! Two %s %s became %s %s!") % [a.ic, I18n.t(a.n), rd.ic, I18n.t(rd.n)] + tail)
 		else:
-			r.lines.append(I18n.t("✨ Fusion! %s + %s ➡️ %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
+			r.lines.append(I18n.t("✨ Fusion! %s + %s » %s %s!") % [a.ic, GameData.items[l.b.id].ic, rd.ic, I18n.t(rd.n)] + tail)
 	_pl({"a": "night", "win": win, "hp": hp, "mhp": mhp, "res": res, "lv": lv, "fused": r.rew.filter(func(w): return w.k == "fusion").map(func(w): return w.r), "loot": r.rew.filter(func(w): return w.k == "loot").map(func(w): return w.id)})
 	if not win and hp <= 0:
 		r.over = true

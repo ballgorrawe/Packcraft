@@ -191,6 +191,19 @@ func _run() -> void:
 		r.nodes = [{"k": k}]
 		main._choose(0)
 		await _check("event_" + k)
+		if k == "roulette":   # the gambling den: every game, the wheel after one spin
+			for g in ["russian", "dice", "wheel"]:
+				r.phase = "afternoon"
+				main._choose(0)
+				r.event.game = g
+				match g:
+					"russian": r.event.merge({"bullet": 5, "pulls": 0})
+					"dice": r.event.merge({"die": 3, "wins": 1, "pot": 6})
+					"wheel":
+						r.event.merge({"spins": 0, "net": 0})
+						r.ev_spin("red", 5)
+				main.render()
+				await _check("event_game_" + g)
 	# a big pack (long fight stats list), then a boss fight (move bar) and the night
 	for _u in 40:
 		r.expand += 1

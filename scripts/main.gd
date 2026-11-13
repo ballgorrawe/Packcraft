@@ -1386,7 +1386,7 @@ func _end_screen() -> Control:
 	var mg: Dictionary = run.get_meta("mst")
 	line += "\n🏅 " + tr("+%d Mastery XP for %s") % [mg.g, tr(run.cls_def().n)]
 	for l in range(int(mg.from) + 1, int(mg.to) + 1):
-		line += "\n⬆️ " + tr("Mastery %d!") % l + "  " + _mastery_reward_text(run.cls, l)
+		line += "\n🎉 " + tr("Mastery %d!") % l + "  " + _mastery_reward_text(run.cls, l)
 	var s := UI.wrap_lbl(line, 20 if _wide else 18)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
@@ -2074,7 +2074,7 @@ func _arrange_panel() -> Control:
 		elif e[0].loc == "storage":
 			lines.append(["📥 " + tr("Drag %s from storage to its blue outline") % nm.call(e[0].id), UI.GOOD])
 		else:
-			lines.append(["➡️ " + tr("Move %s to its blue outline") % nm.call(e[0].id), Color("#bfe3ff")])
+			lines.append(["» " + tr("Move %s to its blue outline") % nm.call(e[0].id), Color("#bfe3ff")])
 	for c in arr_plan.combos:
 		if c.k == "link":
 			var t: String = "🔗 " + " + ".join(c.ids.map(nm)) + " » " + nm.call(c.r)
@@ -2642,7 +2642,7 @@ func _recipe_row(r: Dictionary) -> Control:
 	if r.get("c", "") != "":
 		h.add_child(UI.lbl("+", 20, UI.MU, true))
 		h.add_child(UI.item_chip(r.c, run.owns(r.c)))
-	h.add_child(UI.lbl("➡️", 18))
+	h.add_child(UI.arrow(Vector2i.RIGHT, 18))
 	var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 	if known:
 		h.add_child(UI.item_chip(r.r, run.owns(r.r)))
@@ -2722,7 +2722,7 @@ const NK := {
 const EV := {
 	"smith": ["🔨", "Blacksmith", "Pay to evolve one item right now: no second copy needed."],
 	"merchant": ["🛒", "Wandering Merchant", "Rare wares, and he buys your items at full price."],
-	"roulette": ["🎲", "Russian Roulette", "One bullet, six chambers. Every empty click grows the pot. Walk away any time."],
+	"roulette": ["🎲", "Gambling Den", "A game of chance: Russian roulette, high-low dice or the roulette wheel. Walk away any time."],
 	"cauldron": ["⚗️", "Alchemist's Cauldron", "Put in two items, get one better item back."],
 	"altar": ["🗿", "Cursed Altar", "Take a Legendary item. The price: one Heart."],
 	"chest": ["📦", "Mystery Chests", "Open one. Treasure, gold... or a trap."],
@@ -3225,7 +3225,7 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 	var lr: Label = mk.call(rd.ic)
 	lr.scale = Vector2.ZERO
 	var parts_txt := "%s + %s" % [tr(GameData.items[w.a].n), tr(GameData.items[w.b].n)] + ((" + " + tr(GameData.items[w.c].n)) if three else "")
-	var cap := UI.wrap_lbl("%s ➡️ %s" % [parts_txt, tr(rd.n)] + (("  (" + tr("in storage") + ")") if w.get("stored", false) else ""), 18, Color("#fff3c4"))
+	var cap := UI.wrap_lbl("%s » %s" % [parts_txt, tr(rd.n)] + (("  (" + tr("in storage") + ")") if w.get("stored", false) else ""), 18, Color("#fff3c4"))
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.modulate.a = 0
 	vb.add_child(cap)
@@ -3268,6 +3268,8 @@ var _cauldron_pick: Array = []   # uids picked for the cauldron
 func _event_overlay() -> Control:
 	var ev: Dictionary = run.event
 	var info: Array = EV.get(ev.k, ["❔", "Event", ""])
+	if ev.k == "roulette":
+		info = GAMES[ev.get("game", "russian")]
 	# PC: the Merchant gets the full width so its buy + sell cards fit without scrolling
 	var o := _overlay("", Callable(), _wide and ev.k == "merchant")
 	var v: VBoxContainer = o[1]
@@ -3290,7 +3292,11 @@ func _event_overlay() -> Control:
 		match ev.k:
 			"smith": _ev_smith(v)
 			"merchant": _ev_merchant(v)
-			"roulette": _ev_roulette(v)
+			"roulette":
+				match ev.get("game", "russian"):
+					"dice": _ev_dice(v)
+					"wheel": _ev_wheel(v)
+					_: _ev_roulette(v)
 			"cauldron": _ev_cauldron(v)
 			"altar": _ev_altar(v)
 			"chest": _ev_chest(v)
@@ -3355,7 +3361,7 @@ func _ev_smith(v: VBoxContainer) -> void:
 		any = true
 		var nx: Dictionary = GameData.items[it.def().evo]
 		var itr: PItem = it
-		fl.add_child(_item_pick_card(it, "➡️ " + nx.ic + " " + tr(nx.n), false, func():
+		fl.add_child(_item_pick_card(it, "» " + nx.ic + " " + tr(nx.n), false, func():
 			if run.ev_smith(itr):
 				render()
 			else:
@@ -3432,7 +3438,7 @@ func _ev_roulette(v: VBoxContainer) -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)
 	var row := UI.hbox(10)
-	var pull := UI.btn("🎲 " + tr("PULL"), func():
+	var pull := UI.btn("💥 " + tr("PULL"), func():
 		var r := run.ev_pull()
 		if r == "click":
 			toast("*click* 😅", UI.GOOD)
@@ -3449,6 +3455,100 @@ func _ev_roulette(v: VBoxContainer) -> void:
 	cash.custom_minimum_size.y = 84
 	cash.disabled = ev.pulls == 0
 	row.add_child(cash)
+	v.add_child(row)
+
+
+const GAMES := {
+	"russian": ["💀", "Russian Roulette", "One bullet, six chambers. Every empty click grows the pot. Walk away any time."],
+	"dice": ["🎲", "High or Low", "Guess if the next roll is higher or lower. Every right guess grows the pot. Walk away any time."],
+	"wheel": ["🎯", "Roulette Wheel", "Bet gold on a colour: red or black pays 2x, green pays 12x. Three spins."],
+}
+
+
+## High-low dice: the last roll, the odds of each guess, the pot.
+func _ev_dice(v: VBoxContainer) -> void:
+	var ev: Dictionary = run.event
+	var d: int = ev.die
+	var face := UI.title("🎲 %d" % d, 64, Color.WHITE)
+	face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(face)
+	var pot := UI.title(tr("Pot: %d🪙") % ev.pot, 40, UI.GOLD)
+	pot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(pot)
+	var hint := UI.wrap_lbl(tr("Right guess: pot becomes %d🪙. Wrong: lose %d%% Max HP and the pot. A tie rolls again. 4+ right also wins an item.") % [run.roulette_pot(ev.wins + 1), roundi(RunState.DICE_HP * 100)], 16, UI.MU)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(hint)
+	var row := UI.hbox(10)
+	for hi in [true, false]:
+		var odds := (6 - d) if hi else (d - 1)
+		var up: bool = hi
+		var b := UI.btn((tr("Higher") + " %d/6 🔼" if hi else tr("Lower") + " %d/6 🔽") % odds, func():
+			var r := run.ev_dice(up)
+			match r:
+				"win", "max": toast("🎲 " + tr("Right!"), UI.GOOD)
+				"same": toast("🎲 " + tr("Same number: roll again."), UI.MU)
+				"lose": toast("🎲 " + tr("Wrong!"), UI.BAD)
+			render(), false, 24, "red" if odds <= 2 else "blue")
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = 84
+		b.disabled = odds == 0
+		row.add_child(b)
+	v.add_child(row)
+	var cash := UI.btn("💰 " + tr("Take %d🪙") % ev.pot, func():
+		run.ev_cash_out()
+		render(), false, 22, "green")
+	cash.custom_minimum_size.y = 72
+	cash.disabled = ev.wins == 0
+	v.add_child(cash)
+
+
+var _wheel_stake := 0
+
+
+## Roulette wheel: the 13 slots (the last spin lit), a stake, and a bet on each colour.
+func _ev_wheel(v: VBoxContainer) -> void:
+	var ev: Dictionary = run.event
+	var last: Dictionary = ev.get("last", {})
+	var ring := UI.hbox(4)
+	ring.alignment = BoxContainer.ALIGNMENT_CENTER
+	for i in RunState.WHEEL_SLOTS:
+		var c := UI.lbl({"green": "🟢", "red": "🔴", "black": "⚫"}[RunState.wheel_color(i)], 30)
+		if not last.is_empty() and int(last.slot) != i:
+			c.modulate = Color(1, 1, 1, 0.35)
+		ring.add_child(c)
+	v.add_child(ring)
+	var msg := tr("Spins left: %d") % (RunState.WHEEL_SPINS - ev.spins) + "   ·   " + (tr("So far: +%d🪙") % ev.net if ev.net >= 0 else tr("So far: -%d🪙") % -ev.net)
+	if not last.is_empty():
+		msg = (("✅ " + tr("Won!")) if last.won else ("❌ " + tr("Lost."))) + "   ·   " + msg
+	var ml := UI.title(msg, 22, UI.GOLD)
+	ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ml)
+	var stakes := [5, 10, 25].filter(func(x): return x <= run.gold)
+	if stakes.is_empty():
+		v.add_child(UI.wrap_lbl(tr("Not enough gold to bet."), 18, UI.BAD))
+		return
+	if not stakes.has(_wheel_stake):
+		_wheel_stake = stakes[0]
+	var sr := UI.hbox(8)
+	sr.alignment = BoxContainer.ALIGNMENT_CENTER
+	sr.add_child(UI.lbl(tr("Bet:"), 18, UI.MU, true))
+	for x in stakes:
+		var xs: int = x
+		var sb := UI.btn("%d🪙" % x, func():
+			_wheel_stake = xs
+			render(), false, 18, "gold" if x == _wheel_stake else "gray")
+		sb.custom_minimum_size.x = 90
+		sr.add_child(sb)
+	v.add_child(sr)
+	var row := UI.hbox(8)
+	for c in [["red", "🔴", 2], ["black", "⚫", 2], ["green", "🟢", 12]]:
+		var col: String = c[0]
+		var b := UI.btn("%s ×%d" % [c[1], c[2]], func():
+			run.ev_spin(col, _wheel_stake)
+			render(), false, 24, {"red": "red", "black": "gray", "green": "green"}[col])
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.y = 80
+		row.add_child(b)
 	v.add_child(row)
 
 
@@ -3616,7 +3716,7 @@ func _book_overlay() -> Control:
 	return o[0]
 
 
-## One book line with big icons and names: A ×2 ➡️ B ×2 ➡️ C, or A + B ➡️ R.
+## One book line with big icons and names: A ×2 » B ×2 » C, or A + B » R.
 func _book_entry(e: Dictionary) -> Control:
 	var p := UI.panel(Color(1, 1, 1, 0.45), Color("#c9a876"), 2, 16, 10)
 	var h := UI.hbox(6)
@@ -3629,7 +3729,7 @@ func _book_entry(e: Dictionary) -> Control:
 			var known: bool = i == 0 or run.seen.has(id) or run.seen.has(chain[i - 1])
 			h.add_child(_book_chip(id, known, "×2" if i < chain.size() - 1 else ""))
 			if i < chain.size() - 1:
-				h.add_child(UI.lbl("➡️", 22))
+				h.add_child(UI.arrow(Vector2i.RIGHT, 22))
 	else:
 		var r: Dictionary = e.r
 		h.add_child(_book_chip(r.a, true, ""))
@@ -3638,7 +3738,7 @@ func _book_entry(e: Dictionary) -> Control:
 		if r.get("c", "") != "":
 			h.add_child(UI.title("+", 28, Color("#5a3300"), Color("#f3e6c4")))
 			h.add_child(_book_chip(r.c, true, ""))
-		h.add_child(UI.lbl("➡️", 22))
+		h.add_child(UI.arrow(Vector2i.RIGHT, 22))
 		var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 		var path_tag := ""
 		if r.path != "":
