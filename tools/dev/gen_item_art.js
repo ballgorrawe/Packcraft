@@ -395,8 +395,50 @@ const nugget = D([["ell", 16, 18, 12, 9, "a"], ["ell", 15, 17, 10, 8, "A"], ["el
 const totem = D([["rect", 8, 8, 16, 54, "m"], ["poly", [[2, 10], [8, 8], [8, 14]], "A"], ["poly", [[30, 10], [24, 8], [24, 14]], "A"], ...[14, 32, 50].flatMap((y) => [["rect", 11, y - 3, 3, 3, "x"], ["rect", 18, y - 3, 3, 3, "x"], ["rect", 12, y + 3, 8, 2, "n"], ["rect", 8, y + 7, 16, 2, "a"]]), ["ell", 16, 6, 8, 4, "A"]], 32, 64);
 const crownArt = D(SP.ic_crown || []);
 
+// ---- batch 4: creatures (existing pet / monster sprites fitted to the footprint, plus a few new ones) ----
+const SPL = JSON.parse(fs.readFileSync("data/sprites.json", "utf8")).looks;
+// a sprite's ops with some colour letters swapped, plus extra ops, fitted evenly
+const from = (sid, map = {}, extra = []) => D(SP[sid].map((o) => { const c = o.slice(); if (map[c[c.length - 1]]) c[c.length - 1] = map[c[c.length - 1]]; return c; }).concat(extra));
+const shark = D([["poly", [[4, 16], [0, 5], [6, 14]], "g"], ["poly", [[4, 16], [0, 27], [6, 18]], "g"], ["poly", [[4, 16], [14, 10], [40, 8], [56, 12], [62, 17], [56, 22], [40, 24], [14, 22]], "g"],
+  ["poly", [[14, 19], [40, 21], [56, 20], [60, 18], [56, 23], [40, 25], [14, 22]], "w"], ["poly", [[28, 9], [38, 0], [41, 9]], "g"], ["poly", [[30, 21], [35, 30], [39, 22]], "d"],
+  ["px", 52, 14, "k"], ["rect", 45, 13, 1, 5, "d"], ["rect", 47, 13, 1, 5, "d"], ["px", 57, 19, "w"], ["px", 59, 18, "w"], ["rect", 20, 15, 18, 1, "A"]], 64, 32);
+const puffer = D([...Array.from({ length: 12 }, (_, i) => ["poly", [[16 + Math.cos(i * 0.52) * 14, 16 + Math.sin(i * 0.52) * 13], [16 + Math.cos(i * 0.52 + 0.15) * 9, 16 + Math.sin(i * 0.52 + 0.15) * 9], [16 + Math.cos(i * 0.52 - 0.15) * 9, 16 + Math.sin(i * 0.52 - 0.15) * 9]], "Y"]),
+  ["ell", 16, 16, 11, 10, "y"], ["ell", 15, 20, 7, 5, "w"], ["ell", 20, 12, 2.5, 2.5, "w"], ["px", 21, 12, "k"], ["poly", [[4, 16], [0, 11], [0, 21]], "o"], ["ell", 26, 17, 1.5, 1, "R"]]);
+const bear = (armored) => D([["rect", 18, 48, 8, 14, "n"], ["rect", 44, 48, 8, 14, "n"], ["ell", 36, 40, 24, 17, "n"], ["ell", 18, 24, 13, 12, "n"], ["ell", 9, 13, 4.5, 4.5, "n"], ["ell", 27, 12, 4.5, 4.5, "n"],
+  ["ell", 9, 13, 2, 2, "m"], ["ell", 27, 12, 2, 2, "m"], ["ell", 11, 29, 6, 4.5, "m"], ["ell", 7, 27, 2, 1.5, "k"], ["px", 17, 21, "k"], ["px", 24, 21, "k"],
+  ...(armored ? [["rect", 24, 26, 30, 7, "g"], ["rect", 24, 26, 30, 2, "l"], ["rect", 30, 35, 22, 6, "d"], ["ell", 18, 15, 10, 4, "g"], ["px", 28, 29, "y"], ["px", 44, 29, "y"]] : [["ell", 40, 34, 12, 6, "b"]])], 64, 64);
+const deer = D([["rect", 26, 44, 4, 16, "n"], ["rect", 46, 44, 4, 16, "n"], ["ell", 38, 38, 18, 10, "m"], ["poly", [[18, 24], [26, 22], [30, 36], [22, 38]], "m"], ["ell", 17, 21, 7, 6, "m"], ["ell", 11, 23, 3, 2.5, "b"], ["px", 9, 22, "k"], ["px", 16, 19, "k"],
+  ["poly", [[20, 15], [24, 2], [26, 3], [23, 14]], "C"], ["poly", [[23, 8], [30, 4], [30, 6], [24, 10]], "C"], ["poly", [[14, 15], [8, 4], [10, 3], [16, 14]], "C"], ["poly", [[10, 9], [3, 7], [3, 9], [10, 11]], "C"],
+  ["px", 34, 34, "w"], ["px", 40, 32, "w"], ["px", 46, 35, "w"], ["ell", 56, 34, 3, 2, "w"], ["ell", 38, 30, 12, 2, "A"]], 64, 64);
+
 // ---- which drawing each item gets: [regex on id, drawing, orientation "v" upright / "h" lying] ----
 const RULES = [
+  // batch 4: creatures ("@sprite" takes that sprite's own colours)
+  [/^wolf_pup$/, from("pet_pup"), "v", true],
+  [/^dire_wolf$/, from("fpet_wolf"), "v", true, "@fpet_wolf"],
+  [/^pack_alpha$/, from("elite_alpha_wolf"), "v", true, "@elite_alpha_wolf"],
+  [/^hawk$/, from("fpet_hawk"), "v", true],
+  [/storm_hawk/, from("pet_owl", {}, [["poly", [[26, 4], [22, 11], [25, 11], [22, 17], [29, 9], [26, 9]], "y"]]), "v", true],
+  [/tiger_cub/, from("pet_cat", { G: "y" }, [["rect", 11, 21, 1, 5, "x"], ["rect", 15, 20, 1, 6, "x"], ["rect", 19, 21, 1, 5, "x"], ["rect", 15, 8, 2, 2, "x"], ["rect", 9, 13, 2, 1, "x"], ["rect", 21, 13, 2, 1, "x"]]), "v", true],
+  [/sabertooth/, from("pet_cat", { G: "y" }, [["rect", 11, 21, 1, 5, "x"], ["rect", 15, 20, 1, 6, "x"], ["rect", 19, 21, 1, 5, "x"], ["rect", 15, 8, 2, 2, "x"], ["rect", 9, 13, 2, 1, "x"], ["rect", 21, 13, 2, 1, "x"]].concat([["poly", [[13.5, 18], [15.5, 18], [14.5, 23]], "w"], ["poly", [[17.5, 18], [19.5, 18], [18.5, 23]], "w"]])), "v", true],
+  [/stray_kitten/, from("pet_cat"), "v", true],
+  [/nurse_cat/, from("pet_cat", {}, [["rect", 3, 3, 7, 2, "r"], ["rect", 5, 1, 2, 6, "r"]]), "v", true],
+  [/fox_kit|lucky_fox/, from("pet_fox"), "v", true],
+  [/odd_couple|den_mother/, from("pet_mouse", { p: "g" }), "v", true],
+  [/armored_grizzly/, bear(true), "v", true],
+  [/grizzly/, bear(false), "v", true],
+  [/world_spirit/, deer, "v", true, "ice"],
+  [/boar_tusk/, from("foe_wild_boar"), "v", true, "@foe_wild_boar"],
+  [/shark|great_white|megalodon/, shark, "h", true, "sea"],
+  [/puffer/, puffer, "v", true],
+  [/octopus|kraken/, from("boss_abyss_kraken"), "v", true],
+  [/electric_eel|thunder_eel/, (w, h) => {   // a long wavy eel down the footprint
+    const cx = w / 2, ops = [];
+    for (let y = h - 4; y > 8; y -= 2) { const r = Math.min(4.5, 1.5 + (h - y) * 0.15); ops.push(["ell", cx + Math.sin(y / 9) * 6, y, r, 2.5, "A"]); }
+    for (let y = 14; y < h - 6; y += 9) ops.push(["px", Math.floor(cx + Math.sin(y / 9) * 6), y, "C"]);
+    ops.push(["ell", cx, 6, 5.5, 4.5, "A"], ["px", cx - 3, 5, "k"], ["px", cx + 2, 5, "k"], ["rect", cx - 2, 9, 4, 1, "a"], ["poly", [[cx + 6, 2], [cx + 3, 7], [cx + 6, 7], [cx + 3, 12]], "C"]);
+    return ops;
+  }, "v", false, "shock"],
   // batch 3 (fixed designs, fitted evenly into the footprint)
   [/forge_bellows|stoke_bellows/, copy("it_bellows"), "v", true],
   [/phoenix_crown/, crownArt, "v", true],
@@ -576,7 +618,7 @@ for (const [id, it] of Object.entries(d.items)) {
   else if (orient === "v") ops = draw(H, W).map((op) => turn(op, W, true));   // upright art in a wide footprint: lies down
   else ops = draw(H, W).map((op) => turn(op, H, false));                       // lying art in a tall footprint: stands up
   art["it_" + id] = ops.map(round);
-  looks["it_" + id] = [EL[elx || element(id, it)]];
+  looks["it_" + id] = [elx && elx[0] === "@" ? (SPL[elx.slice(1)] || [EL.steel])[0] : EL[elx || element(id, it)]];
 }
 
 // ---- write: drop old generated entries, insert the new ones ----
