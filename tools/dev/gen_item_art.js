@@ -493,6 +493,13 @@ const tentacle = (w, h) => { const ops = []; for (let y = 2; y < h - 2; y += 2) 
 const dropArt = (sid) => D(SP[sid]);
 const swarm = (sid, src) => (w, h) => { const ops = []; const n = Math.max(2, Math.round((w * h) / (C * C)) + 1);
   for (let i = 0; i < n; i++) ops.push(...fit(SP[sid], 32, 32, 22, 22).map((op) => shift(op, (i * 37) % Math.max(1, w - 22), (i * 23 + (i % 2) * 9) % Math.max(1, h - 22)))); return ops; };
+const bowTall = (w, h) => { const cx = w / 2, outer = [], inner = [];
+  for (let i = 0; i <= 12; i++) { const t = i / 12, y = 2 + t * (h - 4); outer.push([cx - 4 + Math.sin(Math.PI * t) * 12, y]); inner.unshift([cx - 4 + Math.sin(Math.PI * t) * 6.5, y]); }
+  return [["poly", outer.concat(inner), "n"], ["rect", cx - 6, 3, 1, h - 6, "w"], ["rect", cx - 5, h / 2 - 1, w / 2 + 3, 2, "m"], ["poly", [[w - 1, h / 2], [w - 6, h / 2 - 4], [w - 6, h / 2 + 4]], "l"], ["poly", [[cx - 8, h / 2 - 4], [cx - 4, h / 2], [cx - 8, h / 2 + 4]], "A"], ["rect", cx + 4, h / 2 - 3, 3, 6, "A"]]; };
+const krakenWide = (w, h) => { const r = h * 0.4, ops = [];
+  for (let k = 0; k < 4; k++) for (let x = r; x < w - 3; x += 3) { const y = h * (0.2 + k * 0.2) + Math.sin(x / 7 + k) * 3; ops.push(["ell", x, y, 2.5 - x / w, 2.2 - x / w, "t"]); if (x % 9 < 3) ops.push(["px", Math.floor(x), Math.floor(y + 1), "p"]); }
+  ops.push(["ell", r + 2, h / 2, r, r, "t"], ["ell", r - 1, h / 2 - r * 0.4, r * 0.5, r * 0.35, "T"], ["ell", r + 4, h / 2 - 2, 2.5, 2.5, "y"], ["px", r + 4, h / 2 - 2, "k"]);
+  return ops; };
 const MRULES = [
   [/rat_crown/, crownArt, "v", true],
   [/death_rattle/, (w, h) => fit(SP.ic_skull, 32, 32, w, h), "v", true],
@@ -505,8 +512,9 @@ const MRULES = [
   [/pack_snarl|pounce|hunting_pack/, from("fpet_wolf"), "v", true, "@fpet_wolf"],
   [/m_dive$|sky_dive/, from("fpet_hawk"), "v", true],
   [/raise_dead/, from("foe_skeleton"), "v", true],
-  [/crossbow/, crossbow, "v", true],
-  [/bow/, bow, "v", true],
+  [/crossbow/, (w, h) => (w > h ? [["rect", 4, h / 2 - 2, w - 18, 5, "n"], ["rect", 4, h / 2 - 2, w - 18, 1, "b"], ["poly", [[4, h / 2 + 3], [16, h / 2 + 3], [12, h - 2], [4, h - 2]], "n"],
+    ["poly", [[w - 16, 2], [w - 10, 4], [w - 10, h - 4], [w - 16, h - 2], [w - 13, h / 2]], "d"], ["rect", w - 30, 3, 1, h - 6, "w"], ["rect", w - 34, h / 2 - 1, 30, 2, "l"], ["poly", [[w - 1, h / 2], [w - 5, h / 2 - 3], [w - 5, h / 2 + 3]], "A"], ["rect", 22, h / 2 + 3, 3, 5, "d"]] : crossbow(w, h)), "v", true],
+  [/bow/, (w, h) => (h > w ? bowTall(w, h) : bow(w, h)), "v", true],
   [/net|web|silk/, web, "v", true],
   [/claw|talon|swipe|rend|trample/, (w, h) => (w * h > C * C ? paw(w, h) : claw(w, h)), "v", true],
   [/banner/, banner, "v", true, "blood"],
@@ -575,7 +583,8 @@ const RULES = [
   [/boar_tusk/, from("foe_wild_boar"), "v", true, "@foe_wild_boar"],
   [/shark|great_white|megalodon/, shark, "h", true, "sea"],
   [/puffer/, puffer, "v", true],
-  [/octopus|kraken/, from("boss_abyss_kraken"), "v", true],
+  [/octopus|kraken$/, (w, h) => (w > h ? krakenWide(w, h) : from("boss_abyss_kraken")(w, h)), "v", true],
+  [/kraken_ink/, from("boss_abyss_kraken"), "v", true],
   [/electric_eel|thunder_eel/, (w, h) => {   // a long wavy eel down the footprint
     const cx = w / 2, ops = [];
     for (let y = h - 4; y > 8; y -= 2) { const r = Math.min(4.5, 1.5 + (h - y) * 0.15); ops.push(["ell", cx + Math.sin(y / 9) * 6, y, r, 2.5, "A"]); }
@@ -769,6 +778,50 @@ for (const [id, it0] of Object.entries({ ...d.items, ...d.monster_items })) {
   else ops = draw(H, W).map((op) => turn(op, H, false));                       // lying art in a tall footprint: stands up
   art["it_" + id] = ops.map(round);
   looks["it_" + id] = [elx && elx[0] === "@" ? (SPL[elx.slice(1)] || [EL.steel])[0] : EL[elx || element(id, it)]];
+}
+
+// ---- class signature items: drawn one by one ----
+const SIG = {
+  stoke_bellows: () => [...SP.it_bellows, ["rect", 14, 15, 24, 2, "o"], ["ell", 60, 16, 4, 6, "o"], ["ell", 61, 16, 2, 3, "y"], ["poly", [[50, 8], [56, 3], [54, 11]], "o"], ["poly", [[52, 24], [58, 29], [55, 21]], "o"]],
+  ash_urn: () => [["poly", [[10, 5], [22, 5], [20, 9], [26, 17], [24, 27], [20, 31], [12, 31], [8, 27], [6, 17], [12, 9]], "g"], ["rect", 10, 4, 12, 3, "d"], ["rect", 7, 16, 18, 3, "d"],
+    ["poly", [[12, 20], [15, 23], [13, 28], [11, 24]], "o"], ["poly", [[19, 21], [22, 25], [20, 28]], "o"], ["px", 13, 24, "y"], ["ell", 16, 4, 4, 1.5, "x"], ["ell", 14, 1, 2, 1, "l"], ["ell", 19, 0.5, 1.5, 1, "l"]],
+  plague_mask: () => [...mask(32, 64), ["rect", 2, 5, 28, 3, "x"], ["rect", 9, 0, 14, 6, "x"], ["rect", 9, 4, 14, 1, "r"], ["ell", 11, 14, 3, 3, "r"], ["ell", 21, 14, 3, 3, "r"], ["px", 10, 13, "e"], ["px", 20, 13, "e"]],
+  catalyst_vial: () => [...potion(32, 32), ["ell", 13, 5, 2, 2, "C"], ["ell", 18, 2, 1.5, 1.5, "C"], ["ell", 15, 0.5, 1, 1, "A"], ["px", 4, 10, "C"], ["px", 27, 14, "C"], ["px", 25, 6, "A"]],
+  overclock_core: () => [["ell", 16, 12, 10, 10, "y"], ["ell", 16, 12, 7, 7, "e"], ["poly", [[13, 14], [15, 9], [17, 14], [19, 9]], "o"], ["rect", 11, 21, 10, 3, "g"], ["rect", 11, 24, 10, 2, "d"], ["rect", 11, 26, 10, 2, "g"], ["rect", 13, 28, 6, 3, "d"],
+    ["px", 3, 4, "y"], ["px", 28, 3, "y"], ["px", 2, 18, "y"], ["px", 29, 17, "y"], ["ell", 26, 25, 4, 4, "g"], ["ell", 26, 25, 1.5, 1.5, "d"]],
+  scrap_cannon: () => [["ell", 16, 24, 7, 7, "n"], ["ell", 16, 24, 2.5, 2.5, "Y"], ["poly", [[8, 10], [56, 6], [60, 20], [10, 24]], "d"], ["rect", 14, 9, 12, 12, "m"], ["rect", 30, 8, 10, 11, "g"], ["rect", 44, 7, 8, 11, "r"],
+    ...[[16, 11], [24, 11], [32, 10], [38, 10], [46, 9], [50, 9], [16, 18], [24, 18], [32, 17], [38, 17]].map(([x, y]) => ["px", x, y, "y"]), ["ell", 58, 13, 3, 7, "x"], ["rect", 4, 4, 4, 8, "g"], ["ell", 6, 2, 3, 2, "l"]],
+  thornheart: () => [["poly", [[8, 50], [24, 50], [22, 62], [10, 62]], "m"], ["rect", 7, 48, 18, 3, "b"], ["rect", 15, 22, 2, 28, "D"],
+    ...[26, 32, 38, 44].flatMap((y, i) => [["ell", i % 2 ? 20 : 12, y, 4, 2, "G"], ["px", i % 2 ? 18 : 13, y - 2, "L"]]), ["ell", 10, 10, 6.5, 6.5, "r"], ["ell", 22, 10, 6.5, 6.5, "r"], ["poly", [[4, 12], [28, 12], [16, 25]], "r"], ["ell", 9, 8, 2, 2, "p"],
+    ["rect", 3, 14, 26, 2, "D"], ["px", 6, 13, "L"], ["px", 16, 16, "L"], ["px", 25, 13, "L"]],
+  stone_idol: () => [["poly", [[9, 3], [23, 3], [25, 29], [7, 29]], "g"], ["rect", 7, 27, 18, 4, "d"], ["rect", 9, 9, 14, 3, "d"], ["rect", 10, 12, 4, 3, "x"], ["rect", 18, 12, 4, 3, "x"], ["poly", [[16, 12], [19, 21], [13, 21]], "l"], ["rect", 12, 23, 8, 2, "d"], ["ell", 12, 6, 3, 2, "l"], ["px", 11, 13, "G"], ["px", 19, 13, "G"]],
+  fang_ring: () => [...ring(32, 32), ["poly", [[9, 6], [13, 6], [11, 14]], "w"], ["poly", [[19, 6], [23, 6], [21, 14]], "w"], ["poly", [[11, 6], [13, 6], [11, 14]], "l"], ["poly", [[21, 6], [23, 6], [21, 14]], "l"]],
+  smoke_mirror: () => [...mirror(32, 32), ["ell", 14, 10, 4, 3, "V"], ["ell", 18, 14, 5, 3, "P"], ["ell", 14, 16, 3, 2, "V"], ["px", 17, 9, "e"]],
+  echo_prism: () => [["ell", 16, 16, 15, 15, "U"], ["ell", 16, 16, 13, 13, "x"], ["ell", 16, 16, 11, 11, "P"], ["ell", 16, 16, 9, 9, "x"], ...crystal(32, 32).map((op) => fit([op], 32, 32, 20, 20)[0]).map((op) => shift(op, 6, 6))],
+  arcane_battery: () => [["rect", 4, 6, 50, 20, "d"], ["rect", 54, 11, 6, 10, "g"], ["rect", 6, 8, 46, 16, "a"], ["rect", 6, 8, 30, 16, "A"], ["rect", 6, 8, 30, 4, "C"],
+    ...[[12, 16], [22, 14], [30, 18]].map(([x, y]) => ["poly", [[x, y - 4], [x + 3, y], [x, y + 4], [x - 3, y]], "e"]), ["rect", 36, 8, 2, 16, "x"], ["px", 44, 15, "C"]],
+  verdict_bell: () => [["rect", 4, 25, 24, 5, "n"], ["rect", 4, 25, 24, 1, "b"], ["ell", 16, 23, 11, 3, "Y"], ["poly", [[6, 23], [8, 14], [12, 10], [20, 10], [24, 14], [26, 23]], "Y"], ["poly", [[8, 22], [9, 15], [12, 12], [14, 12], [11, 16], [10, 22]], "y"],
+    ["rect", 15, 5, 2, 5, "d"], ["ell", 16, 5, 3, 1.5, "d"], ["rect", 2, 2, 6, 3, "m"], ["rect", 4, 0, 2, 8, "m"]],
+  penitent_chain: () => [...chain(64, 32), ["ell", 56, 16, 7, 8, "g"], ["ell", 56, 16, 4, 5, "x"], ["rect", 6, 6, 3, 14, "Y"], ["rect", 2, 10, 11, 3, "Y"], ["px", 7, 11, "e"]],
+  alpha_horn: () => [...horn(32, 32), ["rect", 8, 18, 6, 8, "l"], ["px", 9, 19, "w"], ["px", 12, 24, "w"], ["poly", [[22, 8], [25, 3], [27, 8]], "A"], ["px", 25, 6, "e"]],
+  feeding_bowl: () => [...fit([["poly", [[4, 14], [60, 14], [50, 30], [14, 30]], "r"], ["ell", 32, 14, 28, 4, "m"], ["rect", 4, 13, 56, 2, "R"]], 64, 32, 32, 32),
+    ["rect", 11, 10, 10, 3, "w"], ["ell", 10, 10, 2.5, 2.5, "w"], ["ell", 10, 13, 2.5, 2.5, "w"], ["ell", 22, 10, 2.5, 2.5, "w"], ["ell", 22, 13, 2.5, 2.5, "w"], ["ell", 16, 22, 3, 2.5, "w"], ["ell", 13, 19.5, 1, 1, "w"], ["ell", 19, 19.5, 1, 1, "w"]],
+  kraken_ink: () => [["rect", 12, 4, 8, 4, "m"], ["rect", 11, 8, 10, 3, "c"], ["poly", [[11, 11], [21, 11], [26, 18], [26, 30], [6, 30], [6, 18]], "c"], ["poly", [[8, 18], [24, 18], [24, 28], [8, 28]], "x"], ["rect", 9, 21, 14, 5, "w"], ["px", 15, 23, "x"],
+    ["poly", [[20, 4], [26, 0], [30, 4], [27, 6], [24, 3], [21, 7]], "T"], ["ell", 27, 2, 1, 1, "p"]],
+  boarding_hook: () => [...Array.from({ length: 13 }, (_, i) => ["rect", 2 + i * 3, 15 + Math.round(Math.sin(i / 1.6) * 3), 3, 2, "m"]), ["rect", 40, 14, 6, 4, "d"], ["rect", 44, 15, 10, 2, "l"],
+    ["poly", [[54, 16], [60, 4], [63, 5], [58, 14]], "l"], ["poly", [[54, 16], [60, 28], [63, 27], [58, 18]], "l"], ["poly", [[54, 15], [62, 16], [54, 17]], "l"], ["px", 61, 4, "e"], ["px", 61, 27, "e"]],
+};
+for (const [id, draw] of Object.entries(SIG)) if (art["it_" + id]) art["it_" + id] = draw().map(round);
+
+// ---- Legendary and up: outline in the tier colour, plus sparkles (Unique 2, Mythical 3) ----
+const dark = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, "0")).join("");
+const spark = (x, y, r, col) => ["poly", [[x, y - r], [x + 1, y - 1], [x + r, y], [x + 1, y + 1], [x, y + r], [x - 1, y + 1], [x - r, y], [x - 1, y - 1]], col];
+for (const [id, it] of Object.entries(d.items)) {
+  if (!art["it_" + id] || it.t < 4) continue;
+  const w = (Math.max(...it.c.map((p) => p[0])) + 1) * C, h = (Math.max(...it.c.map((p) => p[1])) + 1) * C;
+  looks["it_" + id] = [{ ...looks["it_" + id][0], K: dark(d.tier_colors[it.t], 0.55) }];
+  const sp = [spark(w - 5, 5, 4, "e"), spark(5, h - 6, 3, "y"), spark(w - 6, h - 7, 3, "e")].slice(0, it.t - 3);
+  art["it_" + id] = art["it_" + id].concat(sp.map(round));
 }
 
 // ---- write: drop old generated entries, insert the new ones ----
