@@ -3131,9 +3131,12 @@ func _summary_rows(cs: CombatSim, max_rows := 99) -> Control:
 		var parts: Array = row[1]
 		var tot: float = row[2]
 		var line := UI.hbox(8)
-		var nl := UI.lbl(x.d.ic + " " + tr(x.d.n), 15, UI.TX, true)
+		var art := Sprites.item(x.i.id)
+		var nl := UI.lbl(("" if art != null else x.d.ic + " ") + tr(x.d.n), 15, UI.TX, true)
 		nl.clip_text = true
-		nl.custom_minimum_size.x = 170 if not _wide else 210
+		nl.custom_minimum_size.x = (170 if not _wide else 210) - (26 if art != null else 0)
+		if art != null:
+			line.add_child(UI.icon(art, "", 18))
 		line.add_child(nl)
 		# stacked bar, grows in
 		var track := UI.panel(Color(0, 0, 0, 0.45), Color(0, 0, 0, 0), 0, 99, 0)
@@ -3194,6 +3197,7 @@ func _reward_row(list: Array, delay0: float) -> Control:
 func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 	var col := UI.GOLD
 	var icon := ""
+	var art: Texture2D = null
 	var cap := ""
 	var num := 0
 	var fmt := "+%d"
@@ -3247,6 +3251,7 @@ func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 		"loot", "forge":
 			var d: Dictionary = GameData.items[w.id]
 			icon = d.ic
+			art = Sprites.item(w.id)
 			col = GameData.tier_colors[d.tier]
 			cap = tr(d.n)
 			fmt = ""
@@ -3255,7 +3260,7 @@ func _reward_tile(w: Dictionary, delay: float, tw := 148.0) -> Control:
 	p.custom_minimum_size = Vector2(tw, 168 if _wide else (116 if small else 148))
 	var vb := UI.vbox(2)
 	p.add_child(vb)
-	var il := UI.lbl(icon, 38 if small else 56)
+	var il := UI.icon(art, icon, 38 if small else 56)
 	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(il)
 	if w.k in ["loot", "forge"]:
@@ -3297,19 +3302,19 @@ func _fusion_card(w: Dictionary, delay: float) -> Control:
 	stage.custom_minimum_size = Vector2(0, 120)
 	stage.clip_contents = false
 	vb.add_child(stage)
-	var mk := func(ic: String) -> Label:
-		var l := UI.lbl(ic, 64)
+	var mk := func(id: String) -> Label:
+		var l := UI.icon(Sprites.item(id) if id != "" else null, "", 64)
 		l.size = Vector2(96, 96)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		l.pivot_offset = Vector2(48, 48)
 		stage.add_child(l)
 		return l
-	var la: Label = mk.call(GameData.items[w.a].ic)
-	var lb: Label = mk.call(GameData.items[w.b].ic)
-	var lc: Label = mk.call(GameData.items[w.c].ic if three else "")
+	var la: Label = mk.call(w.a)
+	var lb: Label = mk.call(w.b)
+	var lc: Label = mk.call(w.c if three else "")
 	lc.visible = three
-	var lr: Label = mk.call(rd.ic)
+	var lr: Label = mk.call(w.r)
 	lr.scale = Vector2.ZERO
 	var parts_txt := "%s + %s" % [tr(GameData.items[w.a].n), tr(GameData.items[w.b].n)] + ((" + " + tr(GameData.items[w.c].n)) if three else "")
 	var cap := UI.wrap_lbl("%s » %s" % [parts_txt, tr(rd.n)] + (("  (" + tr("in storage") + ")") if w.get("stored", false) else ""), 18, Color("#fff3c4"))
@@ -3422,7 +3427,7 @@ func _item_pick_card(it: PItem, sub: String, on: bool, cb: Callable) -> Control:
 	var vb := UI.vbox(2)
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(vb)
-	vb.add_child(UI.add_badge(UI.plbl(d.ic, 40, UI.TX, false, true), d.bd, 40))
+	vb.add_child(_center(UI.add_badge(UI.icon(Sprites.item(it.id), d.ic, 40), d.bd, 40)))
 	var nl := UI.plbl(tr(d.n), 15, UI.TX, true, true)
 	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nl.custom_minimum_size.x = 130
@@ -3469,7 +3474,7 @@ func _ev_merchant(v: VBoxContainer) -> void:
 		p.custom_minimum_size = Vector2(200, 0)
 		var vb := UI.vbox(4)
 		p.add_child(vb)
-		vb.add_child(UI.add_badge(UI.plbl(d.ic, 48, UI.TX, false, true), d.bd, 48))
+		vb.add_child(_center(UI.add_badge(UI.icon(Sprites.item(s.id), d.ic, 48), d.bd, 48)))
 		var nl := UI.plbl(tr(d.n), 16, UI.TX, true, true)
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.custom_minimum_size.x = 180
@@ -3681,7 +3686,7 @@ func _ev_altar(v: VBoxContainer) -> void:
 		var p := UI.card(col.darkened(0.55), col, 20, 12)
 		var h := UI.hbox(12)
 		p.add_child(h)
-		h.add_child(UI.add_badge(UI.lbl(d.ic, 56), d.bd, 56))
+		h.add_child(UI.add_badge(UI.icon(Sprites.item(id), d.ic, 56), d.bd, 56))
 		var tv := UI.vbox(4)
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(tv)
@@ -3813,8 +3818,7 @@ func _book_entry(e: Dictionary) -> Control:
 		var chain: Array = e.chain
 		for i in chain.size():
 			var id: String = chain[i]
-			var known: bool = i == 0 or run.seen.has(id) or run.seen.has(chain[i - 1])
-			h.add_child(_book_chip(id, known, "×2" if i < chain.size() - 1 else ""))
+			h.add_child(_book_chip(id, true, "×2" if i < chain.size() - 1 else ""))
 			if i < chain.size() - 1:
 				h.add_child(UI.arrow(Vector2i.RIGHT, 22))
 	else:
@@ -3826,11 +3830,10 @@ func _book_entry(e: Dictionary) -> Control:
 			h.add_child(UI.title("+", 28, Color("#5a3300"), Color("#f3e6c4")))
 			h.add_child(_book_chip(r.c, true, ""))
 		h.add_child(UI.arrow(Vector2i.RIGHT, 22))
-		var known: bool = run.seen.has(r.r) or (run.seen.has(r.a) and run.seen.has(r.b))
 		var path_tag := ""
 		if r.path != "":
 			path_tag = GameData.paths[r.path].ic + " " + tr(GameData.paths[r.path].n)
-		h.add_child(_book_chip(r.r, known, path_tag))
+		h.add_child(_book_chip(r.r, true, path_tag))
 	return p
 
 
@@ -3842,7 +3845,7 @@ func _book_chip(id: String, known: bool, tag: String) -> Control:
 	var c := UI.card(col.darkened(0.35) if known else Color("#8f8170"), _owned_col(run.owns(id), col), 16, 4)
 	c.custom_minimum_size = Vector2(80, 80)
 	c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var il := UI.add_badge(UI.lbl(d.ic if known else "❓", 44), d.bd if known else "", 44)
+	var il := UI.add_badge(UI.icon(Sprites.item(id) if known else null, d.ic if known else "❓", 44), d.bd if known else "", 44)
 	il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	il.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	c.add_child(il)

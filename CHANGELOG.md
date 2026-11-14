@@ -4,6 +4,10 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.15.3
+- 📖 สมุดสูตรเปิดให้ดูครบทุกสูตรแล้ว ไม่มี ❓ ปิดไว้ แตะดูรายละเอียดของได้ทุกชิ้น
+- 🎨 เปลี่ยนไอคอนอิโมจิเป็นภาพพิกเซลในหน้าผสมของ/วิวัฒนาการ รางวัลหลังสู้ อีเวนต์ (แท่นบูชา พ่อค้า ช่างตีเหล็ก หม้อปรุง) สรุปผลไอเทมหลังสู้ และกระเป๋าเริ่มต้นของคลาส
+
 ## v0.15.2
 - ⏸️ **ปุ่มพักเกม** ระหว่างเล่น (มุมบนข้าง 📜 หรือมุมซ้ายบนตอนมีหน้าต่างเปิดอยู่)
 - 🏠 กลับหน้าหลักได้ทุกเมื่อ รอบที่เล่นอยู่ถูกบันทึกไว้ กด เล่นต่อ ที่หน้าหลักเพื่อกลับมาเล่น

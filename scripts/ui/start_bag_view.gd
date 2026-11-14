@@ -11,6 +11,7 @@ func setup(class_id: String, cell_px: float) -> StartBagView:
 	cls = class_id
 	cell = cell_px
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var c: Dictionary = GameData.classes[cls]
 	var mn := Vector2i(99, 99)
 	var mx := Vector2i(-99, -99)
@@ -35,8 +36,9 @@ func _draw() -> void:
 		var id: String = st[0]
 		var at := Vector2i(int(st[1]), int(st[2]))
 		var col: Color = GameData.tier_color(id)
+		var art := Sprites.item(id)
 		var body := StyleBoxFlat.new()
-		body.bg_color = col.darkened(0.2)
+		body.bg_color = Color(col.darkened(0.2), 0.3) if art != null else col.darkened(0.2)   # faint footprint under pixel art
 		body.border_color = col.darkened(0.55)
 		body.set_border_width_all(2)
 		body.border_width_bottom = 5
@@ -49,6 +51,12 @@ func _draw() -> void:
 		var f: Font = UI.font if UI.font else get_theme_default_font()
 		var fs := int(cell * 0.55)
 		var ic: String = GameData.items[id].ic
+		if art != null:   # pixel art over the whole footprint, like the pack
+			var bb := Rect2(_rect(at + shp[0]).position, Vector2.ZERO)
+			for sc in shp:
+				bb = bb.merge(_rect(at + sc))
+			draw_texture_rect(art, bb.grow(-4), false)
+			continue
 		var w := f.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(f, Vector2(r.position.x + (r.size.x - w) / 2.0, r.position.y + (r.size.y + f.get_ascent(fs) - f.get_descent(fs)) / 2.0), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 
