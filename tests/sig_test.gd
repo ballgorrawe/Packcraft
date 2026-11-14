@@ -64,7 +64,10 @@ func _fight(id: String, special: bool) -> Dictionary:
 	var keep: String = d.sp
 	if not special:
 		d.sp = ""
+	var bands: Dictionary = GameData.foe_bands
+	GameData.foe_bands = {"1": bands["1"]}   # the floor 1-5 families: the marks below were set against them
 	var e := r.foe(false)
+	GameData.foe_bands = bands
 	e.hp = 5000.0
 	var cs := CombatSim.new(r, {"k": "combat", "e": e}, true)
 	var guard := 0

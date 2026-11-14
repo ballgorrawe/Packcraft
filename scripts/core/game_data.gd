@@ -6,7 +6,6 @@ extends RefCounted
 
 const DATA_PATH := "res://data/game_data.json"
 const ELEMENTS := ["Fire", "Nature", "Physical", "Shock"]
-const FOE_NAMES := ["Cave Rat", "Goblin", "Bandit", "Slime", "Skeleton"]
 ## Buff keys an `adj` / `all` entry may use.
 const BUFF_KEYS := ["dmg", "cdr", "crit", "shield", "heal", "burn", "poison", "thorns", "bleed", "soaked", "pierce", "to_fire"]
 ## Elements whose damage counts as Magic (everything else, and "Physical", is Physical).
@@ -24,6 +23,8 @@ static var class_keys: Array = []
 static var paths := {}
 static var monster_items: Array = []   # ids of enemy-only items (also stored in `items`)
 static var families := {}              # foe name -> monster item ids
+static var foe_bands := {}             # first floor (as text) -> the families met from that floor on
+static var elites := {}                # family -> its unique Elite {n, ic, tr, d, item}
 static var foe_styles := {}            # foe name -> {ic, n, d}: what its pack is built around
 static var foe_pets := {}              # id -> {ic, n, d, dmg/shield/leech/st/haste/hp}: monster pets (Hard and up)
 static var foe_ults := {}              # foe name -> Ultimate move (Very Hard and up), same keys as boss moves
@@ -84,6 +85,8 @@ static func ensure_loaded() -> void:
 		items[k] = _norm_item(m)
 		monster_items.append(k)
 	families = d.get("families", {})
+	foe_bands = d.get("foe_bands", {})
+	elites = d.get("elites", {})
 	foe_styles = d.get("foe_styles", {})
 	foe_pets = d.get("foe_pets", {})
 	foe_ults = d.get("foe_ults", {})
@@ -397,6 +400,19 @@ static func foe_style_txt(e: Dictionary) -> String:
 	if st.is_empty() or e.get("tier", "") == "boss":
 		return ""
 	return "%s %s: %s" % [st.ic, I18n.t(st.n), I18n.t(st.d)]
+
+
+## The monster families a floor can draw: the newest band it has reached (Endless: every band).
+static func foe_names(day: int, all := false) -> Array:
+	var best := 0
+	var out := []
+	for k in foe_bands:
+		if all:
+			out.append_array(foe_bands[k])
+		elif int(k) <= day and int(k) >= best:
+			best = int(k)
+			out = foe_bands[k]
+	return out
 
 
 static func foe_icon(name: String) -> String:

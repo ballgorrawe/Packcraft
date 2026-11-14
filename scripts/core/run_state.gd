@@ -923,7 +923,7 @@ func foe_dps(d: int) -> float:
 
 
 func foe_base(elite: bool) -> Dictionary:
-	var fam: String = GameData.FOE_NAMES.pick_random()
+	var fam: String = GameData.foe_names(day, endless and day > GameData.days).pick_random()
 	var e := {"n": fam, "fam": fam, "hp": float(roundi(enemy_hp(day) * diff_def().hp * endless_mult(day, 0.03))), "dps": foe_dps(day) * diff_def().dps * endless_mult(day, 0.01), "imm": "", "weak": "", "tier": "", "tr": "", "dmg_mult": 1.0, "cd_mult": 1.0}
 	# monsters follow the player's power curve: weak on the first floors, strong once core items
 	# come together after the first boss (data: foe_curve; a mode may override floors 1-4 with early_ease)
@@ -939,9 +939,14 @@ func foe_base(elite: bool) -> Dictionary:
 		e.hp = float(roundi(e.hp * f))
 		e.dps *= fd
 	if elite:
-		e.n = "Elite " + fam
+		# each family has one unique Elite: its own name, skills and signature item
+		var el: Dictionary = GameData.elites.get(fam, {})
+		e.n = el.get("n", "Elite " + fam)
+		e.sig = el.get("item", "")
 		e.hp = float(roundi(e.hp * 1.5))
 		e.dps *= 1.3
+		for k in str(el.get("tr", "")).split(",", false):
+			_apply_trait(e, k)
 		if randf() < 0.5:
 			e.imm = GameData.ELEMENTS.pick_random()
 	return e
@@ -968,7 +973,7 @@ func foe(elite: bool, boost := Vector2.ONE) -> Dictionary:
 		e.dps *= 1.25
 	_add_skills(e)
 	_add_mode_extras(e)
-	e.merge(build_pack(e.fam, elite), true)
+	e.merge(build_pack(e.fam, elite, str(e.get("sig", ""))), true)
 	_tune_pack(e)
 	return e
 
@@ -1015,17 +1020,27 @@ func _add_skills(e: Dictionary) -> void:
 		pool = pool.filter(func(x): return x != k)
 		if (k == "armored" and got.has("warded")) or (k == "warded" and got.has("armored")):
 			continue
+		_apply_trait(e, k)
 		got.append(k)
-		match k:
-			"swift":
-				e.cd_mult *= 0.7
-				e.dps *= 0.85
-			"brute":
-				e.hp = float(roundi(e.hp * 1.4))
-				e.dps *= 1.4
-				e.cd_mult *= 1.3
-			"regen":
-				e.hp = float(roundi(e.hp * 1.1))
+	e.tr = ",".join(got)
+
+
+## Gives a monster a skill (trait), with the stat changes some of them bring.
+func _apply_trait(e: Dictionary, k: String) -> void:
+	var got: Array = str(e.get("tr", "")).split(",", false)
+	if got.has(k):
+		return
+	match k:
+		"swift":
+			e.cd_mult *= 0.7
+			e.dps *= 0.85
+		"brute":
+			e.hp = float(roundi(e.hp * 1.4))
+			e.dps *= 1.4
+			e.cd_mult *= 1.3
+		"regen":
+			e.hp = float(roundi(e.hp * 1.1))
+	got.append(k)
 	e.tr = ",".join(got)
 
 
@@ -1054,7 +1069,7 @@ static func m_dps(id: String) -> float:
 
 
 ## A random pack for a monster family: bigger, with more and better items on later days.
-func build_pack(fam: String, elite: bool) -> Dictionary:
+func build_pack(fam: String, elite: bool, sig := "") -> Dictionary:
 	var gw := 4 if day <= 3 else 5 if day <= 10 else 6
 	var gh := 3 if day <= 6 else 4
 	if elite:
@@ -1064,6 +1079,8 @@ func build_pack(fam: String, elite: bool) -> Dictionary:
 	var hitters := pool.filter(func(id): return m_dps(id) > 0)
 	var want := mini(8, 2 + int(day / 3) + (1 if elite else 0))
 	var picks := [hitters.pick_random()]
+	if sig != "" and GameData.items.has(sig):
+		picks.push_front(sig)   # a unique Elite always brings its signature item
 	while picks.size() < want and not pool.is_empty():
 		# better items are likelier, but every tier keeps a chance
 		var tot := 0.0
@@ -1510,7 +1527,6 @@ func begin_day() -> void:
 			extra.append({"k": "elite", "e": foe(true)})
 		if day >= 3:
 			var am := foe(true)
-			am.n = "Ambusher " + am.fam
 			am.hp = float(roundi(am.hp * 1.15))
 			extra.append({"k": "ambush", "e": am})
 		if not extra.is_empty():

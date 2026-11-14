@@ -43,8 +43,11 @@ static func hero(cls: String, look: Dictionary) -> Texture2D:
 
 ## A monster or boss by its name ("Elite Goblin" draws the Goblin); null if it has no sprite.
 static func foe(name: String) -> Texture2D:
-	var snake := name.replace("Elite ", "").replace("Ambusher ", "").to_lower().replace(" ", "_")
-	return tex("boss_" + snake) if has("boss_" + snake) else tex("foe_" + snake)
+	var snake := name.replace("Elite ", "").replace("Ambusher ", "").to_lower().replace(" ", "_").replace("'", "")
+	for pre in ["elite_", "boss_", "foe_"]:
+		if has(pre + snake):
+			return tex(pre + snake)
+	return null
 
 
 static func _hit(op: Array, p: Vector2) -> bool:
