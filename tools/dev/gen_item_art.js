@@ -831,10 +831,30 @@ for (const [id, it] of Object.entries(d.items)) {
   art["it_" + id] = art["it_" + id].concat(sp.map(round));
 }
 
+// ---- more pixel glyphs for emoji used in text (data "glyphs": codepoint hex -> sprite "gl_<name>") ----
+const GLY = {
+  "2699": ["gear", gear, "steel"], "1f43e": ["paw", paw, "leather"], "1fa84": ["wand", (w, h) => fit(wand(32, 64), 32, 64, w, h), "arcane"], "1f3af": ["target", target, "blood"],
+  "1f4dc": ["scroll", scroll, "gold"], "1f517": ["link", D([["ell", 11, 16, 8, 5, "g"], ["ell", 11, 16, 5, 2.5, "x"], ["ell", 21, 16, 8, 5, "l"], ["ell", 21, 16, 5, 2.5, "x"]]), "steel"],
+  "2696": ["scales", scales, "gold"], "1f4d6": ["book", book, "arcane"], "1f9ea": ["vial", (w, h) => fit(vial(32, 64), 32, 64, w, h), "nature"], "1f33f": ["herb", sprig, "nature"],
+  "1f49a": ["greenheart", heart, "nature"], "1f3f9": ["bow", bow, "steel"], "1f5e1": ["dagger", (w, h) => fit(dagger(32, 64), 32, 64, w, h).map((op) => op), "steel"], "1fa93": ["axe", (w, h) => fit(axe(64, 64), 64, 64, w, h), "steel"],
+  "1f528": ["hammer", (w, h) => fit(hammer(32, 64), 32, 64, w, h), "steel"], "1f4a8": ["wind", D([["rect", 3, 9, 18, 3, "w"], ["ell", 22, 7, 4, 4, "w"], ["ell", 22, 7, 2, 2, "x"], ["rect", 6, 15, 22, 3, "l"], ["rect", 3, 21, 14, 3, "w"], ["ell", 18, 24, 4, 4, "w"], ["ell", 18, 24, 2, 2, "x"]]), "steel"],
+  "1f311": ["darkmoon", D([["ell", 16, 16, 12, 12, "U"], ["ell", 19, 13, 10, 10, "x"], ["px", 7, 14, "V"], ["px", 9, 20, "V"]]), "shadow"], "1fab6": ["feather", feather, "steel"],
+  "1f5ff": ["moai", () => SIG.stone_idol(), "stone"], "1f479": ["ogre", from("foe_goblin", { G: "r", D: "R" }), "steel"], "1f43a": ["wolf", from("fpet_wolf"), "@fpet_wolf"],
+  "1f577": ["spider", from("foe_cave_spider"), "@foe_cave_spider"], "1f30b": ["volcano", D([["poly", [[2, 30], [12, 10], [20, 10], [30, 30]], "d"], ["poly", [[12, 10], [14, 6], [18, 6], [20, 10]], "o"], ["poly", [[14, 10], [12, 20], [16, 16], [18, 22], [18, 10]], "o"], ["ell", 12, 3, 3, 2, "l"], ["ell", 18, 1.5, 3, 1.5, "g"]]), "fire"],
+  "1faa8": ["rock", stone, "stone"], "1f3c5": ["medal", D([["poly", [[8, 2], [14, 2], [18, 12], [12, 12]], "r"], ["poly", [[24, 2], [18, 2], [14, 12], [20, 12]], "B"], ["ell", 16, 20, 9, 9, "Y"], ["ell", 16, 20, 6, 6, "y"], ["px", 15, 19, "w"]]), "gold"],
+};
+const glyphMap = {};
+for (const [hex, [name, draw, el]] of Object.entries(GLY)) {
+  art["gl_" + name] = draw(32, 32).map(round);
+  looks["gl_" + name] = [el[0] === "@" ? (SPL[el.slice(1)] || [EL.steel])[0] : EL[el]];
+  glyphMap[hex] = "gl_" + name;
+}
+
 // ---- write: drop old generated entries, insert the new ones ----
 let j = fs.readFileSync("data/sprites.json", "utf8");
 const gen = new Set(Object.keys(art));
-j = j.split("\n").filter((l) => { const m = l.match(/^  "(it_[a-z0-9_]+)":/); return !(m && gen.has(m[1])); }).join("\n");
+j = j.split("\n").filter((l) => { const m = l.match(/^  "((?:it|gl)_[a-z0-9_]+)":/); return !(m && gen.has(m[1])); }).join("\n");
+j = j.replace(/\n "glyphs": (\{.*\}),\n/, (_, g) => '\n "glyphs": ' + JSON.stringify({ ...JSON.parse(g), ...glyphMap }) + ",\n");
 const put = (sect, obj) => {
   const a = '\n "' + sect + '": {\n', i = j.indexOf(a);
   j = j.slice(0, i + a.length) + Object.entries(obj).map(([k, v]) => '  "' + k + '": ' + JSON.stringify(v) + ",\n").join("") + j.slice(i + a.length);
