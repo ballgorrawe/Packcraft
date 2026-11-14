@@ -71,14 +71,17 @@ func _draw() -> void:
 	var morning := run.phase == "morning"
 	var pulse := 0.5 + 0.5 * sin(_t * 4.0)
 
-	# tiles
-	var tile := UI.px_frame(run.dress().slot_bg, run.dress().slot_bd, 0, 0)   # pixel slot (mastery pack theme)
+	# a leather backpack behind the unlocked tiles; each tile is a stitched pocket (mastery pack theme colours)
+	_draw_bag(run)
+	var dr: Dictionary = run.dress()
 	for y in GameData.H:
 		for x in GameData.W:
 			var c := Vector2i(x, y)
 			var r := cell_rect(c).grow(-3)
 			if run.tiles.has(c):
-				draw_style_box(tile, r)
+				draw_rect(r, dr.slot_bg)
+				draw_rect(Rect2(r.position, Vector2(r.size.x, 5)), Color(0, 0, 0, 0.35))
+				_stitch(r.grow(-4), Color(dr.slot_bd.lightened(0.25), 0.8), 5.0)
 			elif morning and run.can_unlock(c):
 				draw_style_box(UI.px_frame(Color("#1c3a16"), UI.GOOD, 0, 0), r.grow(-1 + 2 * pulse))
 				_text("+", r, cell * 0.55, Color(1, 1, 1, 0.95))
@@ -217,6 +220,63 @@ func _draw() -> void:
 				draw_rect(hr, hc, false, 4.5)
 			var gm := Vector2i(e[2], e[3]) + GameData.mid_cell(it.id, e[4])
 			_text(it.def().ic, cell_rect(gm), cell * 0.46, Color(1, 1, 1, 0.7))
+
+
+## The backpack (the whole grid): leather body with grain and a stitched seam, a top flap with two buckled straps and a handle.
+func _draw_bag(run: RunState) -> void:
+	var p := cell * 0.3
+	var body := Rect2(Vector2.ZERO, Vector2(GameData.W, GameData.H) * cell).grow(-2)   # the whole bag; unlocked tiles are its pockets
+	var leather: Color = Color("#5a3820").lerp(run.dress().slot_bd, 0.25)
+	var dark := leather.darkened(0.35)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = leather
+	sb.border_color = dark
+	sb.set_border_width_all(3)
+	sb.border_width_bottom = 7
+	sb.set_corner_radius_all(int(cell * 0.32))
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 6)
+	draw_style_box(sb, body)
+	for i in 4:   # worn, darker towards the edges
+		var e := body.grow(-p * 0.25 * i)
+		draw_rect(Rect2(e.position.x, e.end.y - p * 0.5, e.size.x, p * 0.5), Color(0, 0, 0, 0.06))
+	draw_rect(Rect2(body.position.x + p * 0.3, body.position.y + p * 0.3, body.size.x - p * 0.6, p * 0.25), Color(1, 1, 1, 0.05))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var inner := body.grow(-p * 0.5)
+	for i in int(inner.size.x * inner.size.y / 700.0):   # leather grain
+		var q := inner.position + Vector2(rng.randf() * inner.size.x, rng.randf() * inner.size.y)
+		draw_rect(Rect2(q.floor(), Vector2(rng.randi_range(2, 5), 2)), Color(dark, 0.45) if i % 3 else Color(leather.lightened(0.15), 0.3))
+	_stitch(body.grow(-p * 0.35), Color("#e8c99a", 0.75), 9.0)
+	# flap, straps with buckles, handle
+	var fw := body.size.x * 0.62
+	var flap := Rect2(body.get_center().x - fw / 2.0, body.position.y - p * 0.5, fw, p * 2.8)
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = leather.darkened(0.12)
+	fs.border_color = dark
+	fs.set_border_width_all(3)
+	fs.corner_radius_top_left = int(cell * 0.4)
+	fs.corner_radius_top_right = int(cell * 0.4)
+	fs.corner_radius_bottom_left = int(cell * 0.15)
+	fs.corner_radius_bottom_right = int(cell * 0.15)
+	draw_arc(Vector2(flap.get_center().x, flap.position.y + 2), fw * 0.16, PI, TAU, 18, dark, p * 0.4)
+	draw_style_box(fs, flap)
+	_stitch(flap.grow(-p * 0.3), Color("#e8c99a", 0.6), 7.0)
+	for sx in [0.22, 0.78]:
+		var x: float = flap.position.x + flap.size.x * sx
+		var strap := Rect2(x - p * 0.4, flap.position.y + 2, p * 0.8, flap.size.y + p * 0.6)
+		draw_rect(strap, dark)
+		draw_rect(Rect2(strap.position.x + 2, strap.position.y, 2, strap.size.y), Color(1, 1, 1, 0.08))
+		var bk := Rect2(x - p * 0.6, flap.end.y - p * 0.5, p * 1.2, p * 0.9)
+		draw_rect(bk, UI.GOLD, false, 3.0)
+		draw_rect(Rect2(bk.get_center().x - 1.5, bk.position.y, 3, bk.size.y), UI.GOLD.darkened(0.3))
+
+
+## A dashed seam around r.
+func _stitch(r: Rect2, col: Color, dash: float) -> void:
+	for e in [[r.position, Vector2(r.end.x, r.position.y)], [Vector2(r.end.x, r.position.y), r.end], [r.end, Vector2(r.position.x, r.end.y)], [Vector2(r.position.x, r.end.y), r.position]]:
+		draw_dashed_line(e[0], e[1], col, 2.0, dash)
 
 
 ## Aura items: a corner badge with the tag they buff, and a green arrow on every side that touches
