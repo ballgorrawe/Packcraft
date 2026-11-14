@@ -20,6 +20,10 @@ const EL = {
   shadow: { A: "#6b4fa0", a: "#2e2147", C: "#c9a7ff" },
   gold: { A: "#f6c445", a: "#b98226", C: "#fff3c4" },
   steel: { A: "#8f97a3", a: "#4c5361", C: "#f6c445" },
+  medic: { A: "#f7f2e8", a: "#c9c2b5", C: "#d9433a" },
+  wood: { A: "#a0703f", a: "#5b3a29", C: "#5bb35a" },
+  stone: { A: "#8f97a3", a: "#4c5361", C: "#d3d6db" },
+  leather: { A: "#8c5a3c", a: "#5b3a29", C: "#c08552" },
 };
 function element(id, it) {
   const n = id + " " + it.n.toLowerCase(), t = it.tags;
@@ -210,8 +214,132 @@ function tornado(W, H) {
   return ops;
 }
 
+// ---- batch 2: armour and shields ----
+// fit: ops drawn for a bw x bh design, scaled evenly into w x h and centred (keeps proportions)
+function fit(ops, bw, bh, w, h) {
+  const k = Math.min(w / bw, h / bh), ox = (w - bw * k) / 2, oy = (h - bh * k) / 2;
+  return ops.map((op) => {
+    const o = op.slice();
+    if (o[0] === "poly") o[1] = o[1].map(([x, y]) => [ox + x * k, oy + y * k]);
+    else if (o[0] === "ell" || o[0] === "rect") { o[1] = ox + o[1] * k; o[2] = oy + o[2] * k; o[3] *= k; o[4] *= k; }
+    else if (o[0] === "px") return ["rect", ox + o[1] * k, oy + o[2] * k, k, k, o[3]];
+    return o;
+  });
+}
+function roundShield(w, h) {
+  const r = Math.min(w, h) / 2 - 2, cx = w / 2, cy = h / 2, ops = [["ell", cx, cy, r, r, "g"], ["ell", cx, cy, r - 3, r - 3, "A"]];
+  for (let i = 0; i < 8; i++) ops.push(["px", Math.floor(cx + Math.cos(i * Math.PI / 4) * (r - 1.5)), Math.floor(cy + Math.sin(i * Math.PI / 4) * (r - 1.5)), "l"]);
+  ops.push(["ell", cx, cy, r * 0.3, r * 0.3, "l"], ["ell", cx - 1, cy - 1, r * 0.12, r * 0.12, "e"], ["ell", cx - r * 0.5, cy - r * 0.5, 2, 1.5, "C"]);
+  return ops;
+}
+function tower(w, h, o = {}) {
+  const ops = [["rect", 3, 2, w - 6, h - 4, o.wood ? "n" : "g"], ["rect", 5, 4, w - 10, h - 8, "A"]];
+  if (o.wood) for (let x = 11; x < w - 6; x += 6) ops.push(["rect", x, 4, 1, h - 8, "a"]);
+  if (o.brick) for (let y = 4, i = 0; y < h - 6; y += 6, i++) {
+    ops.push(["rect", 5, y, w - 10, 1, "a"]);
+    for (let x = 13 + (i % 2) * 4; x < w - 6; x += 8) ops.push(["rect", x, y, 1, 6, "a"]);
+  }
+  ops.push(["rect", 3, h * 0.28, w - 6, 3, o.wood ? "d" : "l"], ["rect", 3, h * 0.7, w - 6, 3, o.wood ? "d" : "l"]);
+  for (const [x, y] of [[5, 4], [w - 7, 4], [5, h - 7], [w - 7, h - 7]]) ops.push(["rect", x, y, 2, 2, "y"]);
+  if (o.leaves) ops.push(["ell", 8, 8, 4, 2.5, "G"], ["ell", w - 9, h * 0.5, 4, 2.5, "G"], ["ell", 10, h - 12, 3.5, 2, "L"]);
+  if (o.emblem) ops.push(["rect", w / 2 - 1.5, h * 0.36, 3, h * 0.3, "C"], ["rect", w / 2 - 6, h * 0.44, 12, 3, "C"]);
+  return ops;
+}
+function chest(w, h, o = {}) {
+  const body = o.leather ? "m" : "g", dk = o.leather ? "n" : "d";
+  const ops = [["ell", 14, 15, 10, 7, dk], ["ell", 50, 15, 10, 7, dk], ["poly", [[12, 13], [52, 13], [50, 52], [40, 58], [24, 58], [14, 52]], body], ["poly", [[24, 11], [40, 11], [36, 21], [28, 21]], "x"]];
+  if (o.mail) for (let y = 24; y < 52; y += 4) for (let x = 18 + (y % 8 ? 2 : 0); x < 46; x += 4) ops.push(["px", x, y, "d"]);
+  else if (o.studs) for (let y = 26; y < 50; y += 7) for (let x = 20; x < 46; x += 7) ops.push(["px", x, y, "y"], ["px", x + 1, y, "Y"]);
+  else ops.push(["rect", 18, 27, 28, 3, dk], ["rect", 18, 37, 28, 3, dk], ["rect", 20, 46, 24, 3, dk]);
+  if (o.pipes) ops.push(["rect", 16, 20, 3, 30, "Y"], ["rect", 45, 20, 3, 30, "Y"], ["ell", 17.5, 19, 3, 3, "l"], ["ell", 46.5, 19, 3, 3, "l"]);
+  ops.push(["rect", 31, 21, 2, 32, o.leather ? "b" : "l"], ["rect", 16, 53, 32, 4, "n"], ["rect", 30, 53, 4, 4, "A"], ["rect", 14, 13, 36, 2, "A"]);
+  return fit(ops, 64, 64, w, h);
+}
+function cloak(w, h, o = {}) {
+  const ops = o.wings
+    ? [["poly", [[32, 10], [62, 6], [56, 30], [60, 54], [44, 46], [32, 60], [20, 46], [4, 54], [8, 30], [2, 6]], "A"], ["poly", [[32, 14], [52, 12], [48, 42], [32, 54], [16, 42], [12, 12]], "a"]]
+    : [["poly", [[32, 14], [52, 30], [56, 62], [8, 62], [12, 30]], "A"], ["poly", [[32, 18], [46, 34], [44, 62], [20, 62], [18, 34]], "a"], ["rect", 31, 30, 2, 32, "A"]];
+  ops.push(["ell", 32, 13, 11, 11, "A"], ["ell", 32, 15, 7, 7, "x"], ["px", 29, 15, "C"], ["px", 35, 15, "C"], ["ell", 32, 25, 2.5, 2.5, "Y"]);
+  return fit(ops, 64, 64, w, h);
+}
+function mountain(w, h) {
+  return fit([["poly", [[2, 60], [24, 10], [44, 60]], "g"], ["poly", [[22, 60], [44, 18], [62, 60]], "d"], ["poly", [[24, 10], [30, 22], [26, 20], [22, 24], [18, 22]], "w"],
+    ["poly", [[44, 18], [49, 28], [44, 26], [40, 29]], "w"], ["rect", 2, 58, 60, 4, "A"]], 64, 64, w, h);
+}
+function wall(w, h, o = {}) {
+  const ops = [["rect", 2, 3, w - 4, h - 5, o.wood ? "n" : "d"]];
+  for (let y = 3, i = 0; y < h - 4; y += 8, i++) for (let x = 2 - (i % 2) * 7; x < w - 2; x += 14) {
+    const x0 = Math.max(2, x + 1), x1 = Math.min(w - 2, x + 13);
+    if (x1 > x0) ops.push(["rect", x0, y + 1, x1 - x0, 6, o.wood ? "m" : (i + x) % 3 ? "g" : "l"]);
+  }
+  ops.push(["rect", 2, 3, w - 4, 2, "A"]);
+  if (o.leaves) for (let x = 6; x < w - 4; x += 11) ops.push(["ell", x, 5, 5, 3.5, "G"], ["ell", x + 3, 4, 2, 1.5, "L"]);
+  if (o.cross) ops.push(["rect", w / 2 - 2, h * 0.3, 4, h * 0.45, "C"], ["rect", w / 2 - 7, h * 0.4, 14, 4, "C"]);
+  return ops;
+}
+function smoke(w, h) {
+  const m = Math.min(w, h), ops = [], puffs = [[0.3, 0.6, 0.26], [0.55, 0.45, 0.3], [0.75, 0.62, 0.22], [0.45, 0.72, 0.24], [0.2, 0.42, 0.16]];
+  for (const [x, y, r] of puffs) ops.push(["ell", x * w, y * h, r * m * 1.2, r * m, "g"]);
+  for (const [x, y, r] of puffs) ops.push(["ell", x * w - 2, y * h - 2, r * m * 0.8, r * m * 0.6, "l"]);
+  ops.push(["ell", 0.55 * w, 0.5 * h, 3, 2, "A"]);
+  return ops;
+}
+function shell(w, h, o = {}) {
+  const ops = [["poly", [[32, 58], [6, 30], [8, 16], [20, 6], [44, 6], [56, 16], [58, 30]], "A"]];
+  for (const x of [14, 23, 32, 41, 50]) ops.push(["poly", [[32, 56], [x - 1.5, 8], [x + 1.5, 8]], "a"]);
+  ops.push(["rect", 26, 54, 12, 6, "a"]);
+  if (o.pearl) ops.push(["ell", 32, 40, 7, 7, "w"], ["ell", 30, 38, 2, 2, "e"]);
+  return fit(ops, 64, 64, w, h);
+}
+function heart(w, h, o = {}) {
+  const ops = [["ell", 10, 12, 7.5, 7.5, "A"], ["ell", 22, 12, 7.5, 7.5, "A"], ["poly", [[3, 14], [29, 14], [16, 29]], "A"], ["ell", 9, 10, 2, 2, "C"]];
+  if (o.stone) ops.push(["rect", 12, 8, 1, 10, "a"], ["rect", 18, 14, 6, 1, "a"], ["rect", 9, 18, 5, 1, "a"]);
+  if (o.thorns) ops.push(["rect", 2, 16, 28, 2, "D"], ["px", 6, 15, "L"], ["px", 14, 18, "L"], ["px", 24, 15, "L"]);
+  return fit(ops, 32, 32, w, h);
+}
+function brazier(w, h) {
+  return fit([["poly", [[8, 30], [56, 30], [48, 50], [16, 50]], "d"], ["rect", 8, 28, 48, 4, "g"], ["rect", 22, 50, 4, 10, "d"], ["rect", 38, 50, 4, 10, "d"],
+    ["ell", 20, 28, 6, 4, "x"], ["ell", 32, 27, 7, 5, "x"], ["ell", 44, 28, 6, 4, "x"], ["ell", 26, 27, 2, 1.5, "o"], ["ell", 39, 27, 2, 1.5, "o"],
+    ["poly", [[32, 4], [40, 16], [42, 26], [22, 26], [24, 16]], "A"], ["poly", [[32, 12], [36, 22], [28, 22]], "C"], ["poly", [[20, 12], [24, 24], [16, 24]], "A"], ["poly", [[44, 10], [48, 24], [40, 24]], "A"]], 64, 64, w, h);
+}
+function bark(w, h) {
+  return fit([["poly", [[6, 4], [26, 3], [28, 28], [4, 29]], "n"], ["rect", 9, 5, 2, 22, "b"], ["rect", 15, 4, 2, 24, "b"], ["rect", 21, 5, 2, 22, "b"], ["ell", 12, 16, 2, 3, "x"], ["ell", 24, 8, 5, 3, "G"], ["ell", 25, 7, 2, 1.5, "L"]], 32, 32, w, h);
+}
+function mask(w, h) {
+  const cx = w / 2;
+  return [["ell", cx, 16, 12, 13, "n"], ["poly", [[cx - 7, 20], [cx + 7, 20], [cx, h - 3]], "n"], ["poly", [[cx - 2, 22], [cx + 4, 22], [cx, h - 6]], "b"], ["ell", cx - 5, 14, 3.5, 3.5, "A"], ["ell", cx + 5, 14, 3.5, 3.5, "A"],
+    ["px", cx - 6, 13, "e"], ["px", cx + 4, 13, "e"], ["rect", cx - 12, 6, 24, 3, "d"], ["rect", cx - 4, 2, 8, 5, "d"]];
+}
+
 // ---- which drawing each item gets: [regex on id, drawing, orientation "v" upright / "h" lying] ----
 const RULES = [
+  // batch 2: armour and shields
+  [/mountain_aegis|world_wall/, mountain, "v", true],
+  [/medic_shield/, shield, "v", false, "medic"],
+  [/wooden_shield/, (w, h) => tower(w, h, { wood: true }), "v", false, "wood"],
+  [/living_shield/, (w, h) => tower(w, h, { wood: true, leaves: true }), "v", false, "wood"],
+  [/stone_shield|granite_shield/, (w, h) => tower(w, h, { brick: true }), "v", false, "stone"],
+  [/tower_shield|bastion$|templar_shield/, (w, h) => tower(w, h, { emblem: true }), "v", true],
+  [/tidal_shield|monsoon_shield|buckler/, roundShield, "v", true],
+  [/shield|aegis|ward$|bulwark/, (w, h) => (w > h ? roundShield(w, h) : shield(w, h)), "v", true],
+  [/living_wall/, (w, h) => wall(w, h, { wood: true, leaves: true }), "v", true, "wood"],
+  [/crusader_wall/, (w, h) => wall(w, h, { cross: true }), "v", true, "holy"],
+  [/wall/, wall, "v", true, "stone"],
+  [/nightweave_cloak/, (w, h) => cloak(w, h, { wings: true }), "v", true],
+  [/cloak/, cloak, "v", true],
+  [/smoke|veil/, smoke, "v", true],
+  [/pearl_remedy/, (w, h) => shell(w, h, { pearl: true }), "v", true, "sea"],
+  [/shell_guard/, shell, "v", true, "sea"],
+  [/golem_heart/, (w, h) => heart(w, h, { stone: true }), "v", true, "stone"],
+  [/thornheart/, (w, h) => heart(w, h, { thorns: true }), "v", true, "blood"],
+  [/rebirth_coal|hearth/, brazier, "v", true],
+  [/bark/, bark, "v", true],
+  [/plague_mask/, mask, "v", false, "nature"],
+  [/leather_vest/, (w, h) => chest(w, h, { leather: true }), "v", true, "leather"],
+  [/brigandine/, (w, h) => chest(w, h, { leather: true, studs: true }), "v", true, "leather"],
+  [/mail/, (w, h) => chest(w, h, { mail: true }), "v", true],
+  [/steam_plate|steam_bulwark/, (w, h) => chest(w, h, { pipes: true }), "v", true],
+  [/plate|vest/, chest, "v", true],
   [/twin_daggers|fan_of_knives/, (w, h) => knives(w, h, w / C), "h", true],
   [/blade_storm/, tornado, "h"],
   [/twin_flames/, flames, "h", true],
@@ -282,14 +410,14 @@ for (const [id, it] of Object.entries(d.items)) {
   if (it.c.length < w * h) { skipped.push(id + " (L/T shape)"); continue; }
   const rule = RULES.find((r) => r[0].test(id));
   if (!rule) { skipped.push(id); continue; }
-  const [, draw, orient, fixed] = rule;
+  const [, draw, orient, fixed, elx] = rule;
   const W = w * C, H = h * C;
   let ops;
   if (fixed || (orient === "v" && h >= w) || (orient === "h" && w >= h)) ops = draw(W, H);
   else if (orient === "v") ops = draw(H, W).map((op) => turn(op, W, true));   // upright art in a wide footprint: lies down
   else ops = draw(H, W).map((op) => turn(op, H, false));                       // lying art in a tall footprint: stands up
   art["it_" + id] = ops.map(round);
-  looks["it_" + id] = [EL[element(id, it)]];
+  looks["it_" + id] = [EL[elx || element(id, it)]];
 }
 
 // ---- write: drop old generated entries, insert the new ones ----
