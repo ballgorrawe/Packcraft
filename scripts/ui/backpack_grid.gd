@@ -9,6 +9,7 @@ var main: Node
 var cell := 48.0
 var _t := 0.0
 var _idle := 0.0
+var _hover := Vector2i(-1, -1)   # cell under the mouse (shows an item's footprint)
 
 
 func setup(m: Node, cell_px: float) -> BackpackGrid:
@@ -16,6 +17,8 @@ func setup(m: Node, cell_px: float) -> BackpackGrid:
 	cell = cell_px
 	custom_minimum_size = Vector2(GameData.W, GameData.H) * cell
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST   # item art is pixel art
+	mouse_exited.connect(func(): _hover = Vector2i(-1, -1))
 	return self
 
 
@@ -51,6 +54,8 @@ func cell_rect(c: Vector2i) -> Rect2:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		_hover = Vector2i(floori(event.position.x / cell), floori(event.position.y / cell))
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var c := Vector2i(floori(event.position.x / cell), floori(event.position.y / cell))
 		if c.x >= 0 and c.y >= 0 and c.x < GameData.W and c.y < GameData.H:
@@ -147,6 +152,9 @@ func _draw() -> void:
 		if t < 0.35:
 			sq = 1.0 + 0.16 * sin(t / 0.35 * PI) * (1.0 - t / 0.35)
 		draw_set_transform(center, 0.0, Vector2(sq, 2.0 - sq))
+		# items with art are loose objects: their cells show only while pointed at or selected
+		var art := Sprites.item(it.id, it.rot)
+		var show_cells: bool = art == null or main.selected == it or it.cells().has(_hover)
 		var body := StyleBoxFlat.new()
 		# dark iron body tinted by rarity, with a bright rarity rim: the icon stands out
 		body.bg_color = Color("#1a130e").lerp(col, 0.42)
@@ -158,7 +166,7 @@ func _draw() -> void:
 		shine.bg_color = Color(1, 1, 1, 0.14)
 		shine.set_corner_radius_all(int(cell * 0.16))
 
-		for c in shp:
+		for c in (shp if show_cells else []):
 			var r := Rect2((base + Vector2(c)) * cell - center, Vector2(cell, cell)).grow(-4)
 			var g := Rect2(r)
 			if shp.has(c + Vector2i(1, 0)): g = g.grow_side(SIDE_RIGHT, 4.5)
@@ -180,7 +188,10 @@ func _draw() -> void:
 				draw_rect(r.grow(2), Color(UI.GOLD, 0.6 + 0.4 * pulse), false, 3.0)
 			if main.selected == it:
 				draw_rect(r.grow(2), Color.WHITE, false, 3.0)
-		_text(it.def().ic, Rect2(-cell / 2, -cell / 2, cell, cell), cell * 0.6, Color.WHITE)
+		if art != null:
+			draw_texture_rect(art, Rect2(base * cell - center, art.get_size() / Sprites.N * cell), false)
+		else:
+			_text(it.def().ic, Rect2(-cell / 2, -cell / 2, cell, cell), cell * 0.6, Color.WHITE)
 		if it.def().bd != "":
 			_text(it.def().bd, Rect2(cell * 0.02, -cell / 2, cell * 0.48, cell * 0.48), cell * 0.32, Color.WHITE)   # top-right: the other corners mark buffs, relics and links
 		if it.def().relic:

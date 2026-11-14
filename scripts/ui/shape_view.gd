@@ -17,6 +17,7 @@ func setup(item_id: String, rotation_steps: int, cell_px: float, icon := false) 
 	cell = cell_px
 	show_icon = icon
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_relayout()
 	return self
 
@@ -44,10 +45,12 @@ func _draw() -> void:
 		return
 	var cs: Array = GameData.shape(id, rot).c
 	var c: Color = GameData.tier_color(id)
+	var art := Sprites.item(id, rot)
+	var ft := Color(tint, tint.a * 0.4) if art != null else tint   # with art the cells are only a faint footprint
 	var pad := maxf(1.0, cell * 0.06)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = c.lerp(Color.WHITE, 0.15) * tint
-	sb.border_color = c.darkened(0.35) * tint
+	sb.bg_color = c.lerp(Color.WHITE, 0.15) * ft
+	sb.border_color = c.darkened(0.35) * ft
 	sb.set_border_width_all(maxi(1, int(cell / 18)))
 	sb.set_corner_radius_all(int(cell * 0.18))
 	for p in cs:
@@ -55,7 +58,12 @@ func _draw() -> void:
 		if cs.has(p + Vector2i(1, 0)): r = r.grow_side(SIDE_RIGHT, pad)
 		if cs.has(p + Vector2i(0, 1)): r = r.grow_side(SIDE_BOTTOM, pad)
 		draw_style_box(sb, r)
-	if show_icon:
+	if art != null:
+		var ar := Rect2(origin_offset, art.get_size() / Sprites.N * cell)
+		if cs.size() == 1 and icon_px > cell:   # a one-cell item on a shop card: as big as the icon was
+			ar = Rect2(ar.get_center() - Vector2(icon_px, icon_px) / 2.0, Vector2(icon_px, icon_px))
+		draw_texture_rect(art, ar, false, tint)
+	elif show_icon:
 		var m := GameData.mid_cell(id, rot)
 		var fs := icon_px if icon_px > 0 else cell * 0.6
 		_center_text(GameData.items[id].ic, Rect2(origin_offset + Vector2(m) * cell, Vector2(cell, cell)), fs, Color(1, 1, 1, tint.a))

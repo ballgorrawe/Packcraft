@@ -50,6 +50,26 @@ static func foe(name: String) -> Texture2D:
 	return null
 
 
+## An item's art ("it_<id>") over its real footprint (N px a cell), turned like GameData.shape(id, rot);
+## null while the item has no art yet.
+static func item(id: String, rot := 0) -> Texture2D:
+	var key := "it_%s#%d" % [id, posmod(rot, 4)]
+	if _cache.has(key):
+		return _cache[key]
+	if not has("it_" + id):
+		return null
+	var w := 1
+	var h := 1
+	for p in GameData.items[id].c:
+		w = maxi(w, int(p.x) + 1)
+		h = maxi(h, int(p.y) + 1)
+	var img := raster(_data.sprites["it_" + id], _data.palette, w * N, h * N)
+	for _r in posmod(rot, 4):
+		img.rotate_90(CLOCKWISE)
+	_cache[key] = ImageTexture.create_from_image(img)
+	return _cache[key]
+
+
 ## A bitmap font whose glyphs are the sprites in data "glyphs" (emoji codepoint hex -> sprite id).
 ## Put it before the emoji fonts in a fallback chain and those emoji draw as pixel art everywhere.
 static func glyph_font() -> FontFile:

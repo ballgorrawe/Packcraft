@@ -215,6 +215,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	pack.custom_minimum_size = span * pcell
 	pack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pack.draw.connect(_draw_pack)
+	pack.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST   # item art is pixel art
 	v.add_child(pack)
 
 	log_lbl = UI.lbl("", roundi(13 * ks), Color("#cbd5e1"))
@@ -522,7 +523,17 @@ func _draw_pack() -> void:
 		var fill := StyleBoxFlat.new()
 		fill.bg_color = col.lerp(Color.WHITE, 0.15 + lit * 0.7)
 		fill.set_corner_radius_all(8)
-		for c in cells:
+		# items with art: the piece itself is dark while it charges and fills with its colours from the bottom
+		var art := Sprites.item(it.id, it.rot)
+		if art != null:
+			var ar := Rect2(Vector2(Vector2i(it.x, it.y) - porg) * pcell, art.get_size() / Sprites.N * pcell)
+			pack.draw_texture_rect(art, ar, false, Color(0.3, 0.3, 0.36, 0.45 if used else 1.0))
+			if not used and level < ar.end.y:
+				var fy := maxf(level, ar.position.y)
+				var k := (fy - ar.position.y) / ar.size.y
+				var gl := 1.0 + lit * 0.9 + (0.12 + 0.12 * sin(_t * 18.0) if charged or ratio > 0.85 else 0.0)
+				pack.draw_texture_rect_region(art, Rect2(ar.position.x, fy, ar.size.x, ar.end.y - fy), Rect2(0, k * art.get_height(), art.get_width(), (1.0 - k) * art.get_height()), Color(gl, gl, gl))
+		for c in (cells if art == null else []):
 			var r := Rect2(Vector2(c - porg) * pcell, Vector2(pcell, pcell)).grow(-3)
 			var g := Rect2(r)
 			if cells.has(c + Vector2i(1, 0)): g = g.grow_side(SIDE_RIGHT, 3.5)
@@ -543,7 +554,8 @@ func _draw_pack() -> void:
 		var ic: String = it.def().ic
 		var sz := int(pcell * 0.56 * (1.0 + lit * 0.4))
 		var w := f.get_string_size(ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
-		pack.draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(1, 1, 1, 0.3 if used else 1.0))
+		if art == null:
+			pack.draw_string(f, mc + Vector2(-w / 2.0, sz * 0.36), ic, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, Color(1, 1, 1, 0.3 if used else 1.0))
 		if it.def().bd != "":
 			pack.draw_string(f, mc + Vector2(pcell * 0.08, pcell * 0.42), it.def().bd, HORIZONTAL_ALIGNMENT_LEFT, -1, int(pcell * 0.26), Color(1, 1, 1, 0.3 if used else 1.0))
 		if sim and sim.grab_t > 0 and sim.grab_uids.has(it.uid):
