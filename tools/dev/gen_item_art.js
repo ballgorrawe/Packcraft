@@ -411,6 +411,71 @@ const deer = D([["rect", 26, 44, 4, 16, "n"], ["rect", 46, 44, 4, 16, "n"], ["el
   ["poly", [[20, 15], [24, 2], [26, 3], [23, 14]], "C"], ["poly", [[23, 8], [30, 4], [30, 6], [24, 10]], "C"], ["poly", [[14, 15], [8, 4], [10, 3], [16, 14]], "C"], ["poly", [[10, 9], [3, 7], [3, 9], [10, 11]], "C"],
   ["px", 34, 34, "w"], ["px", 40, 32, "w"], ["px", 46, 35, "w"], ["ell", 56, 34, 3, 2, "w"], ["ell", 38, 30, 12, 2, "A"]], 64, 64);
 
+// ---- batch 5: L / T / cross shaped items, one drawing each over the whole bounding box (cells outside are cut) ----
+const mirrorX = (ops, W) => ops.map((op) => { const o = op.slice();
+  if (o[0] === "poly") o[1] = o[1].map(([x, y]) => [W - x, y]); else if (o[0] === "ell") o[1] = W - o[1]; else if (o[0] === "rect") o[1] = W - o[1] - o[3]; else if (o[0] === "px") o[1] = W - 1 - o[1];
+  return o; });
+const at = (ops, dx, dy) => ops.map((op) => shift(op, dx, dy));
+function hammerLT(hx0, hx1, hy, col, y0, y1) {   // head across [hx0,hx1] at row hy, handle down column col from y0 to y1
+  const cx = col * C + 16, ops = [["rect", cx - 2.5, y0, 5, y1 - y0, "n"]];
+  for (let y = y1 - 16; y < y1 - 3; y += 4) ops.push(["rect", cx - 2.5, y, 5, 1, "b"]);
+  ops.push(["rect", hx0, hy + 4, hx1 - hx0, 24, "d"], ["rect", hx0, hy + 4, hx1 - hx0, 4, "g"], ["rect", hx0, hy + 24, hx1 - hx0, 4, "x"], ["rect", cx - 5, hy + 4, 10, 24, "A"], ["rect", cx - 2, hy + 10, 4, 12, "C"], ["rect", cx - 4, y1 - 4, 8, 4, "d"]);
+  return ops;
+}
+function crossArt(center, arm) {   // 96 x 96 plus shape: arms to the four edges, a big centre piece
+  const ops = [];
+  for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) ops.push(...arm(dx, dy));
+  ops.push(...fit(center, 32, 32, 48, 48).map((op) => shift(op, 24, 24)));
+  return ops;
+}
+const rayArm = (col) => (dx, dy) => [["poly", [[48 + dx * 46, 48 + dy * 46], [48 - dy * 12 + dx * 14, 48 + dx * 12 + dy * 14], [48 + dy * 12 + dx * 14, 48 - dx * 12 + dy * 14]], col], ["poly", [[48 + dx * 40, 48 + dy * 40], [48 - dy * 5 + dx * 16, 48 + dx * 5 + dy * 16], [48 + dy * 5 + dx * 16, 48 - dx * 5 + dy * 16]], "C"]];
+const pipeArm = (dx, dy) => [dx ? ["rect", dx > 0 ? 56 : 2, 41, 38, 14, "Y"] : ["rect", 41, dy > 0 ? 56 : 2, 14, 38, "Y"], dx ? ["rect", dx > 0 ? 88 : 2, 38, 6, 20, "d"] : ["rect", 38, dy > 0 ? 88 : 2, 20, 6, "d"], dx ? ["rect", dx > 0 ? 60 : 6, 46, 26, 4, "A"] : ["rect", 46, dy > 0 ? 60 : 6, 4, 26, "A"]];
+const vineArm = (dx, dy) => { const ops = []; for (let i = 0; i < 6; i++) { const t = 18 + i * 5; ops.push(["ell", 48 + dx * t + dy * Math.sin(i) * 5, 48 + dy * t + dx * Math.sin(i) * 5, 7, 7, i % 2 ? "D" : "G"]); ops.push(["px", Math.floor(48 + dx * t + dy * 6), Math.floor(48 + dy * t + dx * 6), "L"]); } return ops; };
+const LT = {
+  tectonic_maul: () => hammerLT(2, 94, 0, 1, 26, 94),
+  quake_hammer: () => hammerLT(2, 62, 0, 0, 26, 94),
+  tectonic_hammer: () => hammerLT(2, 62, 0, 0, 26, 94),
+  magma_hammer: () => hammerLT(2, 62, 32, 0, 4, 40).map((op) => op).concat([["px", 40, 44, "C"], ["px", 50, 50, "C"]]),
+  storm_engine: () => [...cloud(96, 32), ["poly", [[52, 26], [38, 48], [46, 48], [40, 62], [58, 42], [50, 42], [56, 26]], "C"], ["rect", 44, 50, 8, 10, "d"]],
+  reapers_edge: () => [["rect", 13, 4, 5, 84, "n"], ["rect", 12, 40, 7, 4, "A"], ["poly", [[16, 66], [44, 66], [62, 74], [60, 88], [48, 78], [16, 80]], "l"], ["poly", [[48, 78], [60, 88], [62, 74], [56, 76]], "A"], ["ell", 15.5, 4, 4, 3, "A"]],
+  midas_cannon: () => [["ell", 16, 46, 13, 13, "n"], ["ell", 16, 46, 5, 5, "Y"], ["rect", 6, 26, 24, 8, "n"], ["poly", [[4, 10], [56, 6], [60, 24], [8, 30]], "Y"], ["poly", [[4, 10], [56, 6], [57, 11], [5, 15]], "y"], ["ell", 58, 15, 4, 9, "a"], ["rect", 24, 8, 4, 20, "a"], ["ell", 50, 26, 3, 2, "y"], ["ell", 22, 58, 3, 2, "y"]],
+  razor_turret: () => [["poly", [[2, 62], [30, 62], [26, 50], [6, 50]], "d"], ["rect", 10, 22, 12, 28, "g"], ["rect", 12, 14, 34, 6, "d"], ...Array.from({ length: 8 }, (_, i) => ["poly", [[48 + Math.cos(i * 0.785) * 15, 16 + Math.sin(i * 0.785) * 15], [48 + Math.cos(i * 0.785 + 0.4) * 10, 16 + Math.sin(i * 0.785 + 0.4) * 10], [48 + Math.cos(i * 0.785 - 0.3) * 10, 16 + Math.sin(i * 0.785 - 0.3) * 10]], "l"]), ["ell", 48, 16, 11, 11, "g"], ["ell", 48, 16, 4, 4, "A"], ["ell", 16, 36, 3, 3, "A"]],
+  leviathan_song: () => { const ops = []; for (let t = 0; t <= 1; t += 0.04) { const x = 12 + t * 40, y = 58 - Math.sin(t * Math.PI * 0.8) * 46; ops.push(["ell", x, y, 7 - t * 2, 6 - t * 2, t > 0.5 ? "A" : "a"]); } ops.push(["ell", 52, 12, 8, 6, "A"], ["poly", [[58, 10], [63, 6], [62, 14]], "A"], ["px", 51, 10, "C"], ["poly", [[44, 8], [48, 0], [50, 8]], "C"], ["ell", 22, 22, 3, 2, "C"], ["ell", 30, 28, 2, 1.5, "C"]); return ops; },
+  starfall: () => [["poly", [[6, 60], [40, 22], [46, 28], [12, 62]], "a"], ["poly", [[10, 56], [42, 24], [44, 26], [12, 58]], "A"], ...fit(SP.ic_star, 32, 32, 34, 34).map((op) => shift(op, 30, -2)), ["px", 16, 40, "C"], ["px", 24, 36, "C"]],
+  wishing_star: () => [["poly", [[4, 62], [38, 24], [44, 30], [10, 62]], "a"], ...fit(SP.ic_star, 32, 32, 36, 36).map((op) => shift(op, 28, -2)), ["px", 8, 44, "C"], ["px", 20, 50, "C"], ["px", 14, 30, "C"]],
+  dragon_lung: () => dragon(false),
+  dragon_forge: () => dragon(true),
+  mother_of_rot: () => [...[-1, 1].flatMap((s) => [0, 1, 2].map((i) => ["poly", [[32 + s * 10, 30 + i * 6], [32 + s * 30, 16 + i * 14], [32 + s * 31, 20 + i * 14], [32 + s * 12, 34 + i * 6]], "x"])),
+    ["ell", 32, 40, 16, 14, "x"], ["ell", 32, 22, 10, 8, "x"], ["ell", 28, 38, 6, 4, "A"], ["ell", 36, 44, 4, 3, "A"], ["px", 28, 20, "r"], ["px", 31, 19, "r"], ["px", 34, 19, "r"], ["px", 37, 20, "r"],
+    ["rect", 15, 54, 2, 10, "w"], ["ell", 16, 78, 11, 13, "w"], ["ell", 13, 74, 3, 3, "A"], ["ell", 19, 82, 3, 2, "A"]],
+  sacred_bulwark: () => [["poly", [[2, 16], [32, 2], [62, 16]], "w"], ["rect", 4, 16, 56, 4, "Y"], ...[8, 22, 36, 50].map((x) => ["rect", x, 20, 6, 36, "w"]), ["rect", 2, 56, 60, 6, "Y"], ["ell", 32, 10, 3, 3, "C"],
+    ...shield(32, 32).map((op) => shift(op, 0, 64))],
+  storm_cannon: () => railgunLT(false),
+  railgun: () => railgunLT(true),
+  alpha_den: () => [["poly", [[2, 30], [10, 8], [30, 2], [66, 2], [86, 8], [94, 30]], "d"], ["poly", [[10, 26], [16, 10], [32, 6], [64, 6], [80, 10], [86, 26]], "g"], ["rect", 2, 28, 28, 34, "d"], ["rect", 66, 28, 28, 34, "d"],
+    ["rect", 6, 30, 20, 30, "g"], ["rect", 70, 30, 20, 30, "g"], ["ell", 20, 6, 8, 3, "G"], ["ell", 70, 5, 10, 3, "G"], ["ell", 42, 20, 2, 1.5, "y"], ["ell", 54, 20, 2, 1.5, "y"], ["poly", [[44, 6], [48, 0], [52, 6]], "A"]],
+  sunforge_crown: () => crossArt(SP.ic_crown, rayArm("A")),
+  phoenix_ascendant: () => crossArt([["ell", 16, 18, 8, 10, "A"], ["ell", 16, 8, 5, 5, "A"], ["poly", [[19, 7], [24, 9], [19, 10]], "y"], ["px", 17, 7, "k"], ["ell", 16, 20, 4, 6, "C"]], rayArm("a")),
+  philosophers_engine: () => crossArt([["ell", 16, 16, 13, 13, "g"], ["ell", 16, 16, 10, 10, "A"], ["ell", 13, 13, 3, 3, "C"], ["ell", 16, 16, 4, 4, "C"]], pipeArm),
+  perpetual_core: () => crossArt([["rect", 4, 4, 24, 24, "g"], ["rect", 6, 6, 20, 20, "d"], ["ell", 16, 16, 8, 8, "A"], ["ell", 16, 16, 4, 4, "C"]], pipeArm),
+  bramble_bastion: () => crossArt([["rect", 6, 6, 20, 24, "g"], ...[6, 13, 20].map((x) => ["rect", x, 2, 6, 5, "g"]), ["rect", 13, 18, 6, 12, "x"], ["ell", 16, 18, 3, 3, "x"], ["ell", 9, 12, 3, 2, "G"]], vineArm),
+};
+function dragon(forge) {   // #. / ## : neck up the left cell, body along the bottom row
+  const ops = [["ell", 15, 27, 7, 6, "A"], ["ell", 13, 35, 7.5, 6, "A"], ["poly", [[4, 62], [8, 40], [22, 30], [28, 36], [18, 46], [20, 62]], "A"], ["ell", 40, 50, 20, 11, "A"], ["poly", [[56, 44], [64, 36], [62, 52]], "a"],
+    ["poly", [[30, 42], [44, 30], [50, 42]], "a"], ["ell", 18, 18, 11, 9, "A"], ["poly", [[24, 16], [31, 20], [24, 24]], "A"], ["poly", [[10, 10], [8, 2], [14, 9]], "C"], ["poly", [[18, 9], [20, 1], [22, 9]], "C"],
+    ["px", 20, 15, "y"], ["rect", 26, 20, 4, 1, "x"], ["ell", 40, 54, 14, 4, "C"]];
+  if (forge) ops.push(["poly", [[34, 40], [58, 40], [58, 44], [52, 46], [44, 46], [38, 43]], "d"], ["rect", 42, 46, 8, 8, "d"], ["poly", [[30, 22], [36, 18], [34, 26]], "o"]);
+  else ops.push(["ell", 36, 50, 6, 5, "r"], ["ell", 46, 50, 6, 5, "r"], ["rect", 40, 42, 2, 6, "R"]);
+  return ops;
+}
+function railgunLT(rail) {   // ### / ..# : barrel along the top row pointing left, grip down the right cell
+  const ops = mirrorX(gun(96, 32, { long: true }), 96);
+  ops.push(["poly", [[66, 26], [86, 26], [82, 62], [70, 62]], "n"], ["rect", 70, 40, 12, 2, "b"]);
+  if (rail) ops.push(["rect", 6, 6, 50, 2, "A"], ["rect", 6, 22, 50, 2, "A"], ["px", 10, 14, "C"], ["px", 30, 14, "C"]);
+  else ops.push(["poly", [[6, 4], [2, 10], [6, 10], [2, 16]], "C"]);
+  return ops;
+}
+
 // ---- which drawing each item gets: [regex on id, drawing, orientation "v" upright / "h" lying] ----
 const RULES = [
   // batch 4: creatures ("@sprite" takes that sprite's own colours)
@@ -608,7 +673,12 @@ const art = {}, looks = {}, skipped = [];
 for (const [id, it] of Object.entries(d.items)) {
   if (HAND.has(id) || (only && !only.test(id) && !it.tags.some((t) => only.test(t)))) continue;
   const w = Math.max(...it.c.map((p) => p[0])) + 1, h = Math.max(...it.c.map((p) => p[1])) + 1;
-  if (it.c.length < w * h) { skipped.push(id + " (L/T shape)"); continue; }
+  if (it.c.length < w * h) {   // L / T / cross: its own drawing
+    if (!LT[id]) { skipped.push(id + " (L/T shape)"); continue; }
+    art["it_" + id] = LT[id]().map(round);
+    looks["it_" + id] = [EL[element(id, it)]];
+    continue;
+  }
   const rule = RULES.find((r) => r[0].test(id));
   if (!rule) { skipped.push(id); continue; }
   const [, draw, orient, fixed, elx] = rule;

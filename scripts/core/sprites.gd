@@ -68,6 +68,11 @@ static func item(id: String, rot := 0) -> Texture2D:
 	if not looks.is_empty():
 		pal.merge(looks[0], true)   # element colours for the generated art (slots A / a / C)
 	var img := raster(_data.sprites["it_" + id], pal, w * N, h * N)
+	var cells: Array = GameData.items[id].c
+	for cy in h:   # L / T shapes: nothing outside the item's own cells
+		for cx in w:
+			if not cells.has(Vector2i(cx, cy)):
+				img.fill_rect(Rect2i(cx * N, cy * N, N, N), Color(0, 0, 0, 0))
 	for _r in posmod(rot, 4):
 		img.rotate_90(CLOCKWISE)
 	_cache[key] = ImageTexture.create_from_image(img)
