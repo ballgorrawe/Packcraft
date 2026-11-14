@@ -117,6 +117,9 @@ static func path_items(path: String) -> Array:
 		for d in r.trial_plan(path).days.values():
 			for id in d.get("buy", []):
 				ids[id] = true
+		for k in GameData.items:   # plus the path's own items (data "pth")
+			if GameData.items[k].pth == path:
+				ids[k] = true
 		_path_items[path] = ids.keys()
 	return _path_items[path]
 

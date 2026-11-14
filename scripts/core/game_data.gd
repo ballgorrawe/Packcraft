@@ -205,7 +205,7 @@ static func _norm_item(src: Dictionary) -> Dictionary:
 			"shield": float(ps.get("shield", 0.0)), "income": int(ps.get("income", 0)),
 		},
 		"bd": str(src.get("bd", "")),   # corner badge: tells apart items that share an icon
-		"sp": str(src.get("sp", "")), "evo": str(src.get("evo", "")), "d": str(src.get("d", "")),
+		"sp": str(src.get("sp", "")), "pth": str(src.get("pth", "")), "evo": str(src.get("evo", "")), "d": str(src.get("d", "")),
 		"grow": src.get("grow", {}),   # ⭐ grows each won fight: {k: dmg|shield|heal|<status>, v, max} or {adj: true, v, max}
 	}
 

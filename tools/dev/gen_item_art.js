@@ -570,8 +570,49 @@ const MRULES = [
   [/sig_/, (w, h) => (w * h > C * C ? banner(w, h) : sigil(w, h)), "v", true],
 ];
 
+// ---- batch 7: path items (v0.15) ----
+const boots = D([["rect", 4, 8, 9, 16, "A"], ["poly", [[4, 24], [13, 24], [15, 30], [2, 30]], "a"], ["rect", 4, 8, 9, 3, "C"], ["rect", 18, 6, 9, 16, "A"], ["poly", [[18, 22], [27, 22], [30, 28], [17, 28]], "a"], ["rect", 18, 6, 9, 3, "C"]]);
+const goblet = D([["poly", [[7, 3], [25, 3], [22, 14], [10, 14]], "Y"], ["rect", 9, 4, 14, 4, "A"], ["rect", 15, 14, 2, 9, "Y"], ["rect", 10, 23, 12, 3, "Y"], ["px", 10, 5, "e"], ["ell", 16, 10, 2, 1.5, "C"]]);
+const beltArt = D([["rect", 2, 12, 60, 9, "n"], ["rect", 2, 14, 60, 1, "b"], ["rect", 26, 9, 14, 15, "Y"], ["rect", 29, 12, 8, 9, "n"], ["rect", 32, 14, 2, 5, "Y"], ...[8, 16, 46, 54].map((x) => ["ell", x, 16.5, 1.5, 1.5, "A"])], 64, 32);
+const PATHART = [
+  [/^cinder_quill$/, feather, "v", true],
+  [/^phoenix_mantle$/, cloak, "v", true],
+  [/^pyre_brand$|^bulwark_blade$|^squall_blade$/, blade, "v"],
+  [/^duskreaver$/, (w, h) => blade(w, h, { bw: 9 }), "v"],
+  [/^fuse_pouch$/, pouch, "v", true],
+  [/^chain_grenade$/, bomb, "v", true],
+  [/^rot_harvester$/, scythe, "v"],
+  [/^alchemy_crucible$/, cauldron, "v", true],
+  [/^spark_plug$|^overdrive_coil$/, coil, "v", true],
+  [/^arc_relay$/, core, "v", true],
+  [/^ammo_crate$/, toolbox, "v", true],
+  [/^tremor_boots$|^shadow_boots$/, boots, "v", true],
+  [/^briar_coat$/, (w, h) => chest(w, h, { leather: true }), "v", true],
+  [/^titan_belt$/, beltArt, "v", true],
+  [/^colossus_fist$/, (w, h) => fist(w, h, { stone: true }), "h"],
+  [/^whetted_edge$/, stone, "v", true, "stone"],
+  [/^hemo_hook$/, (w, h) => chain(w, h, { hook: true }), "h"],
+  [/^sanguine_chalice$/, goblet, "v", true, "blood"],
+  [/^phantom_knives$/, dagger, "v"],
+  [/^astral_loom$/, orrery, "v", true],
+  [/^frost_bead$/, orb, "v", true, "ice"],
+  [/^hollow_candle$/, lantern, "v", true],
+  [/^abyss_pact$/, scroll, "v", true, "shadow"],
+  [/^jackal$/, from("pet_pup", { m: "Y" }), "v", true],
+  [/^den_banner$/, banner, "v", true],
+  [/^bone_talisman$/, fang, "v", true],
+  [/^dire_lynx$/, from("pet_cat", { o: "g", G: "y" }), "v", true],
+  [/^moss_totem$/, totem, "v", true],
+  [/^elder_stag$/, deer, "v", true],
+  [/^swivel_gun$/, gun, "h"],
+  [/^serrated_gaff$/, (w, h) => spear(w, h, { barbs: true }), "v"],
+  [/^tide_pearl$/, (w, h) => shell(w, h, { pearl: true }), "v", true, "sea"],
+  [/^siren_conch$/, shell, "v", true, "sea"],
+];
+
 // ---- which drawing each item gets: [regex on id, drawing, orientation "v" upright / "h" lying] ----
 const RULES = [
+  ...PATHART,
   // batch 4: creatures ("@sprite" takes that sprite's own colours)
   [/^wolf_pup$/, from("pet_pup"), "v", true],
   [/^dire_wolf$/, from("fpet_wolf"), "v", true, "@fpet_wolf"],

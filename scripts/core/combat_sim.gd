@@ -55,6 +55,7 @@ var _revived := false       # Phoenix: rose again this fight
 var _shock_n := 0           # Voltmaster: Shock hits toward the next chain lightning
 var _chaining := false
 var _spell_n := 0           # Starcaller: Spells toward the next echo
+var _relay_n := 0           # Arc Relay: Shock hits toward the next zap
 var _echoing := false
 var _templar_bank := 0.0    # Templar: bonus for the next weapon hit
 var _ranged_n := 0          # Cannoneer: Ranged hits toward the next broadside
@@ -158,6 +159,8 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 		evade = minf(0.35, 0.10 + empty_tiles * 0.03)
 	if sp.has("riposte"):
 		evade = minf(0.4, evade + 0.08)
+	if sp.has("phantom_dodge"):
+		evade = minf(0.4, evade + 0.06)
 	hero_dmg = 1.0 + r.pv("dmg")
 	if sp.has("gold_power"):
 		gold_mult += minf(0.5, r.gold * 0.01)
@@ -495,6 +498,8 @@ func heal(v: float, uid := -1) -> float:
 	if h > 0:
 		php += h
 		_num("hero", "+" + GameData._num(roundf(h)), Color("#4ade80"), false, uid)
+		if h >= 1.0 and sp.has("heal_burn"):   # Phoenix Mantle
+			add_status("burn", 1, uid)
 	return h
 
 
@@ -532,17 +537,47 @@ func fire(idx: int) -> void:
 		_templar_bank = 0.0
 	if sp.has("pack_whistle") and d.tags.has("Beast"):
 		dmg *= 1.0 + 0.06 * maxi(0, beasts_n - 1)
+	# path items (data "pth")
+	if _isp(d, "burn_feed"):
+		dmg += minf(12.0, fs.get("burn", 0.0) * 0.4)
+	if _isp(d, "empty_dmg"):
+		dmg += minf(8.0, float(empty_tiles))
+	if _isp(d, "shatter"):
+		dmg += minf(16.0, fs.get("soaked", 0.0) * 2.0)
+	if _isp(d, "blood_scent") and fs.get("bleed", 0.0) > 0:
+		dmg *= 1.4
+	if _isp(d, "execute_low") and ehp < e.hp * 0.3:
+		dmg *= 1.5
 	var broadside := false
 	if sp.has("powder_keg") and d.tags.has("Ranged") and d.tags.has("Weapon"):
 		dmg += 3.0
 		_ranged_n += 1
 		broadside = _ranged_n % 3 == 0
 	if dmg > 0:
-		damage(x, dmg, f.el if f.el != "" else "Physical", f.crit, f.critx)
+		var el: String = f.el if f.el != "" else "Physical"
+		var dealt: float = damage(x, dmg, el, f.crit, f.critx)
+		if _isp(d, "turret_volley"):
+			dealt += damage(x, dmg * 0.5, el)
+		if _isp(d, "aftershock"):
+			dealt += damage(x, dmg * 0.3, "Physical", 0, 2, "🪨")
+		if _isp(d, "poison_harvest") and fs.get("poison", 0.0) > 0:
+			damage(x, fs.poison * 0.25, "Nature")
+		if _isp(d, "leech"):
+			heal(dealt * 0.15, x.i.uid)
+		if sp.has("spell_leech") and d.tags.has("Spell"):
+			heal(dealt * 0.1, x.i.uid)
+		if sp.has("shock_relay") and el == "Shock":
+			_relay_n += 1
+			if _relay_n % 4 == 0:
+				damage(null, 8.0, "Shock", 0, 2, "⚡")
 	if broadside:
 		damage(null, 20.0, "Physical", 0, 2, "💥")   # Cannoneer: every 3rd Ranged hit
 	if sp.has("bomb_fuse") and d.tags.has("Bomb"):
 		add_status("burn", 4, x.i.uid)
+	if _isp(d, "bomb_chain"):
+		for c in items.size():
+			if c != idx and items[c].d.tags.has("Bomb"):
+				_charge(c, 0.5)
 	if x.get("bonus", 0.0) > 0:
 		# Equilibrium: a Magic item next to this weapon charged it with bonus Magic damage
 		damage(x, x["bonus"], "Arcane", 0, 2, "", 1)
@@ -556,7 +591,10 @@ func fire(idx: int) -> void:
 		gain_shield(f.shield, x.i.uid)
 		x.st.shield += shield - before
 	if f.heal > 0:
-		x.st.heal += heal(f.heal, x.i.uid)
+		var hv: float = heal(f.heal, x.i.uid)
+		x.st.heal += hv
+		if _isp(d, "heal_shield"):
+			gain_shield(hv * 0.5, x.i.uid)
 	if not f.haste.is_empty():
 		hastes.append({"v": f.haste[0], "t": roundi(f.haste[1] * 10)})
 		_num("hero", "💨+%d%%" % roundi(f.haste[0] * 100), Color("#ffe14a"), false, x.i.uid)
@@ -1066,6 +1104,8 @@ func _reflect() -> void:
 	for _t in times:
 		var v := damage(null, total, GameData.statuses.thorns.el, 0, 2, "🌵", 1)   # Thorns hit back with Magic
 		stat_dmg["thorns"] = stat_dmg.get("thorns", 0.0) + v
+		if sp.has("thorn_shield"):   # Bramble Heart
+			gain_shield(1.0)
 
 
 func _finish(w: bool) -> void:

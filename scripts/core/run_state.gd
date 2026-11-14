@@ -8,6 +8,7 @@ const MAX_HEARTS := 3
 const ENDLESS_HEARTS := 5
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
+const PATH_BIAS := 0.3          # chance a shop roll picks one of the chosen path's own items (data "pth")
 const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
 const EVENTS_FROM_DAY := 3      # days 1-2 are fights only (events come later and scale with the day)
 const MINI_DAYS := [3, 8, 13]   # a mini-boss guards these floors (the climb before each boss)
@@ -771,6 +772,10 @@ func roll_tiered(rk: int, min_tier := 0, partner_bias := 0.0) -> String:
 					var mp := pool.filter(func(k): return Mastery.path_items(p).has(k))
 					if mp.size() > 0:
 						return mp.pick_random()
+			if path != "" and randf() < PATH_BIAS:
+				var own := pool.filter(func(k): return GameData.items[k].pth == path)
+				if own.size() > 0:
+					return own.pick_random()
 			if partner_bias > 0.0 and randf() < partner_bias:
 				var pp := pool.filter(func(k): return recipe_partner_owned(k))
 				if pp.size() > 0:
