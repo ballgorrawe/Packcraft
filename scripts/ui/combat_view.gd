@@ -387,21 +387,91 @@ func _sprite(icon: String, fs: int, ax: float, ay: float, tex: Texture2D = null)
 
 # --------------------------------------------------------------- drawing
 
+## Fight backdrops, one per floor band (1-5 cave, 6-10 night forest, 11-15 volcano; Endless cycles):
+## sky top / sky bottom / far shapes / their light edge / ground / ground edge / small detail colour.
+const SCENES := [
+	["#1d1714", "#3a2c24", "#40322a", "#4a3a2f", "#3a3330", "#57504a", "#7fd1c8"],
+	["#0f1a2a", "#24384a", "#14251f", "#1f3a2e", "#22402e", "#3f7a4a", "#e9f58a"],
+	["#1a0c0c", "#4a1a12", "#2a1512", "#3d1d17", "#2b1d1a", "#5a2a1c", "#ff8a3d"],
+]
+
+
+func _scene() -> int:
+	var d := maxi(run.day if run else 1, 1)
+	return 0 if d < 6 else (1 if d < 11 else (2 if d <= 15 else ((d - 1) / 5) % 3))
+
+
 func _draw_stage() -> void:
 	var s := stage.size
-	var sky := StyleBoxFlat.new()
-	sky.bg_color = Color("#3c3026")
-	sky.set_corner_radius_all(22)
-	stage.draw_style_box(sky, Rect2(Vector2.ZERO, s))
-	for i in 6:
-		var y := s.y * (0.1 + i * 0.1)
-		stage.draw_rect(Rect2(0, y, s.x, s.y * 0.1), Color(1, 0.6, 0.9, 0.025 * i))
-	var gr := StyleBoxFlat.new()
-	gr.bg_color = Color("#2a5c45")
-	gr.corner_radius_bottom_left = 22
-	gr.corner_radius_bottom_right = 22
-	stage.draw_style_box(gr, Rect2(0, s.y * 0.8, s.x, s.y * 0.2))
-	stage.draw_rect(Rect2(0, s.y * 0.8, s.x, 6), Color("#3fa36f"))
+	var sc: Array = SCENES[_scene()].map(func(h): return Color(h))
+	var p := maxf(3.0, roundf(s.y / 48.0))   # one "pixel" of the backdrop
+	var gy := floorf(s.y * 0.8 / p) * p       # top of the ground
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7 + _scene()
+	# sky in 8 hard steps
+	for i in 8:
+		stage.draw_rect(Rect2(0, gy * i / 8.0, s.x, gy / 8.0 + 1), sc[0].lerp(sc[1], i / 7.0))
+	var cols := ceili(s.x / p)
+	match _scene():
+		0:   # cave: brick wall, stalactites, glowing crystals
+			for row in range(int(gy * 0.35 / p), int(gy / p), 3):
+				var off := (row / 3 % 2) * 3
+				for c in range(-off, cols, 6):
+					stage.draw_rect(Rect2(c * p + p * 0.5, row * p + p * 0.5, p * 5, p * 2), sc[2])
+					stage.draw_rect(Rect2(c * p + p * 0.5, row * p + p * 0.5, p * 5, p * 0.5), sc[3])
+			for i in 7:
+				var x := rng.randf() * s.x
+				var h := rng.randi_range(3, 8)
+				for k in h:
+					var w := maxf(1.0, (h - k) * 0.6)
+					stage.draw_rect(Rect2(x - w * p / 2, k * p, w * p, p), sc[2].darkened(0.2))
+			for i in 4:
+				var cx := rng.randf() * s.x
+				var cy := gy - p * rng.randi_range(1, 2)
+				var glow := 0.55 + 0.25 * sin(Time.get_ticks_msec() / 500.0 + i)
+				stage.draw_rect(Rect2(cx, cy - p * 3, p, p * 3), Color(sc[6], glow))
+				stage.draw_rect(Rect2(cx + p, cy - p * 2, p, p * 2), Color(sc[6], glow * 0.8))
+		1:   # night forest: moon, pine silhouettes, fireflies
+			var mx := s.x * 0.78
+			var my := gy * 0.1
+			stage.draw_rect(Rect2(mx - p * 2, my - p * 3, p * 4, p * 6), Color("#f3ecc8"))
+			stage.draw_rect(Rect2(mx - p * 3, my - p * 2, p * 6, p * 4), Color("#f3ecc8"))
+			stage.draw_rect(Rect2(mx - p, my - p, p, p), Color("#d8cfa2"))
+			stage.draw_rect(Rect2(mx + p, my + p, p, p), Color("#d8cfa2"))
+			for i in 9:
+				var x := s.x * (i + rng.randf() * 0.6) / 8.5
+				var h := rng.randi_range(14, 22)
+				stage.draw_rect(Rect2(x - p, gy - p * 3, p * 2, p * 3), sc[2].darkened(0.3))
+				for k in range(3, h):
+					var w := float(h - k) * 0.5 + float(3 - k % 4) * 0.6   # wider low down, in tiers
+					stage.draw_rect(Rect2(x - w * p / 2, gy - k * p, w * p, p), sc[2] if k % 4 else sc[3])
+			var t := Time.get_ticks_msec() / 1000.0
+			for i in 8:
+				var fx := fposmod(rng.randf() * s.x + sin(t * 0.7 + i) * p * 4, s.x)
+				var fy := gy * (0.45 + 0.4 * rng.randf()) + cos(t * 0.9 + i * 2.0) * p * 2
+				stage.draw_rect(Rect2(fx, fy, p, p), Color(sc[6], 0.4 + 0.6 * absf(sin(t * 1.3 + i))))
+		2:   # volcano: lava glow, jagged spires, rising embers
+			stage.draw_rect(Rect2(0, gy - p * 6, s.x, p * 6), Color(sc[6], 0.18))
+			for i in 7:
+				var x := s.x * (i + rng.randf() * 0.5) / 6.5
+				var h := rng.randi_range(10, 24)
+				for k in h:
+					var w := float(h - k) * 0.45 + 1.0
+					var jag := (k % 3) * 0.3 * p
+					stage.draw_rect(Rect2(x - w * p / 2 + jag, gy - (k + 1) * p, w * p, p), sc[2])
+				stage.draw_rect(Rect2(x - p * 0.5, gy - h * p, p, p * 2), sc[3])
+			var t := Time.get_ticks_msec() / 1000.0
+			for i in 10:
+				var ex := rng.randf() * s.x + sin(t + i) * p * 2
+				var ey := gy - fposmod(t * p * 6.0 + rng.randf() * gy, gy)
+				stage.draw_rect(Rect2(ex, ey, p, p), Color(sc[6], clampf(ey / gy, 0.1, 0.9)))
+	# ground with a light edge and stones / tufts
+	stage.draw_rect(Rect2(0, gy, s.x, s.y - gy), sc[4])
+	stage.draw_rect(Rect2(0, gy, s.x, p), sc[5])
+	for i in 14:
+		var x := floorf(rng.randf() * cols) * p
+		var y := gy + p * rng.randi_range(2, maxi(2, int((s.y - gy) / p) - 1))
+		stage.draw_rect(Rect2(x, y, p * rng.randi_range(1, 3), p), sc[5].darkened(0.25))
 	for l in [foe, hero]:
 		var c: Vector2 = l.get_global_rect().get_center() - stage.get_global_rect().position
 		stage.draw_set_transform(Vector2(c.x, c.y + l.size.y * 0.45), 0, Vector2(1, 0.28))
