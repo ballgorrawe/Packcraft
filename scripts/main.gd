@@ -2154,7 +2154,7 @@ func _storage_card(it: PItem, w := 112.0) -> Control:
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.custom_minimum_size.y = 50
 	var isz := (24 if w < 56.0 else 28) if narrow else 36
-	top.add_child(UI.add_badge(UI.plbl(d.ic, isz), d.bd, isz))
+	top.add_child(UI.add_badge(UI.icon(Sprites.item(it.id), d.ic, isz), d.bd, isz))
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(ShapeView.new().setup(it.id, it.rot, (6 if w < 56.0 else 8) if narrow else 11))

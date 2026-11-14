@@ -533,7 +533,7 @@ static func item_chip(id: String, owned := false) -> PanelContainer:
 	var p := panel(c.darkened(0.45), GOOD if owned else c.lightened(0.1), 3, 12, 2)
 	p.custom_minimum_size = Vector2(48, 48)
 	p.tooltip_text = I18n.t(d.n) + (I18n.t(" (owned)") if owned else "")
-	var l := add_badge(lbl(d.ic, 26), d.bd, 26)
+	var l := add_badge(icon(Sprites.item(id), d.ic, 26), d.bd, 26)   # pixel art when the item has it
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	p.add_child(l)

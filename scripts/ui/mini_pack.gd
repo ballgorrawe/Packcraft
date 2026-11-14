@@ -16,6 +16,7 @@ func setup(e: Dictionary, cell_px: float, sim_items: Array = []) -> MiniPack:
 	gw = int(e.get("gw", 4))
 	gh = int(e.get("gh", 3))
 	cell = cell_px
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	live = not sim_items.is_empty()
 	if live:
 		entries = sim_items
@@ -68,6 +69,16 @@ func _draw() -> void:
 			top = minf(top, (x.y + c.y) * cell)
 			bot = maxf(bot, (x.y + c.y + 1) * cell)
 		var level := bot - (bot - top) * ratio
+		var art := Sprites.item(x.id, x.rot)
+		if art != null:   # the piece itself: dark while it charges, its colours rising from the bottom
+			var ar := Rect2(Vector2(x.x, x.y) * cell, art.get_size() / Sprites.N * cell)
+			draw_texture_rect(art, ar, false, Color(0.32, 0.3, 0.36))
+			if level < ar.end.y:
+				var fy := maxf(level, ar.position.y)
+				var k := (fy - ar.position.y) / ar.size.y
+				var gl := 1.0 + lit * 0.9
+				draw_texture_rect_region(art, Rect2(ar.position.x, fy, ar.size.x, ar.end.y - fy), Rect2(0, k * art.get_height(), art.get_width(), (1.0 - k) * art.get_height()), Color(gl, gl, gl))
+			continue
 		var dark := StyleBoxFlat.new()
 		dark.bg_color = col.darkened(0.75)
 		dark.border_color = col.darkened(0.3)
