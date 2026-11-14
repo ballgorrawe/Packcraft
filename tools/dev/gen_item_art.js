@@ -432,6 +432,7 @@ const rayArm = (col) => (dx, dy) => [["poly", [[48 + dx * 46, 48 + dy * 46], [48
 const pipeArm = (dx, dy) => [dx ? ["rect", dx > 0 ? 56 : 2, 41, 38, 14, "Y"] : ["rect", 41, dy > 0 ? 56 : 2, 14, 38, "Y"], dx ? ["rect", dx > 0 ? 88 : 2, 38, 6, 20, "d"] : ["rect", 38, dy > 0 ? 88 : 2, 20, 6, "d"], dx ? ["rect", dx > 0 ? 60 : 6, 46, 26, 4, "A"] : ["rect", 46, dy > 0 ? 60 : 6, 4, 26, "A"]];
 const vineArm = (dx, dy) => { const ops = []; for (let i = 0; i < 6; i++) { const t = 18 + i * 5; ops.push(["ell", 48 + dx * t + dy * Math.sin(i) * 5, 48 + dy * t + dx * Math.sin(i) * 5, 7, 7, i % 2 ? "D" : "G"]); ops.push(["px", Math.floor(48 + dx * t + dy * 6), Math.floor(48 + dy * t + dx * 6), "L"]); } return ops; };
 const LT = {
+  m_war_axe: () => [["rect", 13, 4, 6, 58, "n"], ["rect", 13, 46, 6, 1, "b"], ["rect", 13, 52, 6, 1, "b"], ["poly", [[18, 6], [58, 0], [62, 28], [18, 22]], "l"], ["rect", 58, 1, 3, 27, "e"], ["rect", 12, 4, 10, 20, "d"], ["rect", 15, 8, 4, 12, "A"]],
   tectonic_maul: () => hammerLT(2, 94, 0, 1, 26, 94),
   quake_hammer: () => hammerLT(2, 62, 0, 0, 26, 94),
   tectonic_hammer: () => hammerLT(2, 62, 0, 0, 26, 94),
@@ -475,6 +476,84 @@ function railgunLT(rail) {   // ### / ..# : barrel along the top row pointing le
   else ops.push(["poly", [[6, 4], [2, 10], [6, 10], [2, 16]], "C"]);
   return ops;
 }
+
+// ---- batch 6: monster items (ids m_*) ----
+const bow = D([["poly", [[10, 2], [18, 8], [22, 16], [18, 24], [10, 30], [12, 26], [16, 20], [16, 12], [12, 6]], "n"], ["rect", 9, 3, 1, 26, "w"], ["rect", 6, 15, 22, 2, "m"], ["poly", [[28, 16], [24, 12], [24, 20]], "l"], ["poly", [[6, 13], [3, 16], [6, 19]], "A"], ["rect", 16, 14, 3, 4, "A"]]);
+const crossbow = D([["rect", 14, 4, 4, 26, "n"], ["poly", [[2, 10], [16, 6], [30, 10], [30, 13], [16, 9], [2, 13]], "d"], ["rect", 2, 11, 28, 1, "w"], ["rect", 15, 2, 2, 8, "l"], ["poly", [[16, 0], [14, 4], [18, 4]], "A"], ["rect", 12, 20, 8, 3, "d"]]);
+const web = D([...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ["poly", [[16, 16], [16 + Math.cos(i * 0.785) * 15, 16 + Math.sin(i * 0.785) * 15], [16 + Math.cos(i * 0.785) * 15 + 1, 16 + Math.sin(i * 0.785) * 15 + 1]], "w"]),
+  ...[5, 10, 14].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ["poly", [[16 + Math.cos(i * 0.785) * r, 16 + Math.sin(i * 0.785) * r], [16 + Math.cos((i + 1) * 0.785) * r, 16 + Math.sin((i + 1) * 0.785) * r], [16 + Math.cos((i + 1) * 0.785) * r, 16 + Math.sin((i + 1) * 0.785) * r + 1]], "l"])), ["ell", 16, 16, 2, 2, "A"]]);
+const paw = D([["ell", 16, 21, 8, 7, "A"], ["ell", 7, 12, 3.5, 4, "A"], ["ell", 13, 7, 3.5, 4, "A"], ["ell", 20, 7, 3.5, 4, "A"], ["ell", 26, 12, 3.5, 4, "A"], ["ell", 14, 19, 3, 2, "C"]]);
+const banner = D([["rect", 6, 2, 3, 29, "n"], ["ell", 7.5, 2, 2.5, 2.5, "Y"], ["poly", [[9, 4], [28, 4], [24, 12], [28, 20], [9, 20]], "A"], ["poly", [[9, 4], [28, 4], [27, 6], [9, 6]], "a"], ["ell", 17, 12, 3.5, 3.5, "C"]]);
+const tombstone = D([["rect", 8, 10, 16, 18, "g"], ["ell", 16, 10, 8, 7, "g"], ["rect", 4, 27, 24, 4, "n"], ["rect", 15, 9, 2, 10, "d"], ["rect", 12, 12, 8, 2, "d"], ["ell", 12, 6, 3, 2, "l"], ["ell", 22, 26, 3, 2, "G"]]);
+const nest = D([["ell", 16, 22, 14, 7, "n"], ["ell", 16, 19, 11, 4, "x"], ["ell", 12, 18, 4, 5, "w"], ["ell", 20, 18, 4, 5, "c"], ...[6, 12, 18, 24].map((x) => ["rect", x, 24, 6, 1, "b"]), ["rect", 3, 20, 26, 1, "m"]]);
+const sound = D([["poly", [[4, 12], [10, 12], [18, 5], [18, 27], [10, 20], [4, 20]], "A"], ["rect", 21, 11, 2, 10, "C"], ["rect", 25, 7, 2, 18, "C"], ["rect", 29, 3, 2, 26, "a"]]);
+const egg = D([["ell", 16, 18, 10, 12, "w"], ["ell", 12, 14, 3, 4, "e"], ["ell", 19, 20, 3, 2, "A"], ["ell", 13, 24, 2, 1.5, "A"], ["ell", 21, 12, 1.5, 1.5, "A"]]);
+const tentacle = (w, h) => { const ops = []; for (let y = 2; y < h - 2; y += 2) { const r = 2 + (y / h) * 4; ops.push(["ell", w / 2 + Math.sin(y / 8) * 5, y, r, 2.5, "A"]); }
+  for (let y = 10; y < h - 4; y += 7) ops.push(["ell", Math.floor(w / 2 + Math.sin(y / 8) * 5) + 2, y, 1.5, 1.5, "C"]); return ops; };
+const dropArt = (sid) => D(SP[sid]);
+const swarm = (sid, src) => (w, h) => { const ops = []; const n = Math.max(2, Math.round((w * h) / (C * C)) + 1);
+  for (let i = 0; i < n; i++) ops.push(...fit(SP[sid], 32, 32, 22, 22).map((op) => shift(op, (i * 37) % Math.max(1, w - 22), (i * 23 + (i % 2) * 9) % Math.max(1, h - 22)))); return ops; };
+const MRULES = [
+  [/rat_crown/, crownArt, "v", true],
+  [/death_rattle/, (w, h) => fit(SP.ic_skull, 32, 32, w, h), "v", true],
+  [/grave_fire/, (w, h) => fit(SP.ic_fire, 32, 32, w, h), "v", true],
+  [/rat_swarm|sig_rat_king/, swarm("foe_cave_rat"), "v", true, "@foe_cave_rat"],
+  [/bat_swarm|bat_bite/, swarm("fpet_bat"), "v", true, "@fpet_bat"],
+  [/spiderling|spider_bite/, swarm("foe_cave_spider"), "v", true, "@foe_cave_spider"],
+  [/scarab_swarm|flea_bite/, swarm("pet_bee"), "v", true],
+  [/stampede|tusk_gore/, from("foe_wild_boar"), "v", true, "@foe_wild_boar"],
+  [/pack_snarl|pounce|hunting_pack/, from("fpet_wolf"), "v", true, "@fpet_wolf"],
+  [/m_dive$|sky_dive/, from("fpet_hawk"), "v", true],
+  [/raise_dead/, from("foe_skeleton"), "v", true],
+  [/crossbow/, crossbow, "v", true],
+  [/bow/, bow, "v", true],
+  [/net|web|silk/, web, "v", true],
+  [/claw|talon|swipe|rend|trample/, (w, h) => (w * h > C * C ? paw(w, h) : claw(w, h)), "v", true],
+  [/banner/, banner, "v", true, "blood"],
+  [/tombstone/, tombstone, "v", true],
+  [/nest/, nest, "v", true],
+  [/roar|screech|war_cry|song|wail|howl|clap/, sound, "v", true],
+  [/egg|_sac$/, egg, "v", true, "nature"],
+  [/tentacle|tail_whip|tail_sting|bandage_lash|rain_lash/, tentacle, "v", false],
+  [/blood_drain|life_drain|blood_howl|sig_vampire/, dropArt("ic_blood"), "v", true],
+  [/bog_water/, dropArt("ic_water"), "v", true],
+  [/fang|tooth|bite|gnaw/, fang, "v", true],
+  [/feast|flesh|corpse|ghoul_matriarch/, meat, "v", true, "blood"],
+  [/punch|fist|slam|piston/, fist, "h"],
+  [/frenzy|rage|quake|doom_strike|brass_colossus|arc_cannon/, (w, h) => fit(SP.ic_boom, 32, 32, w, h), "v", true],
+  [/caltrops/, D([[3, 20], [12, 8], [22, 22], [26, 10], [8, 26]].flatMap(([x, y]) => [["poly", [[x, y - 5], [x + 3, y + 2], [x - 3, y + 2]], "g"], ["px", x, y - 4, "l"]])), "v", true],
+  [/obsidian|pebble|brimstone|granite|rock/, stone, "v", true],
+  [/firecracker|fire_trap|bomb/, bomb, "v", true, "fire"],
+  [/fire_pot|napalm_urn|curse_urn|pharaoh|sig_mummy/, urn, "v", true],
+  [/lich_tome|infernal_pact|seal/, book, "v", true],
+  [/lantern/, lantern, "v", true],
+  [/sludge/, keg, "v", true, "nature"],
+  [/spore|cap|bloom|toxic_bloom/, mushroom, "v", true],
+  [/regrowth|root|healing/, sprig, "v", true, "nature"],
+  [/cauldron|brew/, cauldron, "v", true],
+  [/acid|venom_sac|toad/, potion, "v", true, "nature"],
+  [/glob|ooze|jelly|slime/, (w, h) => fit([["ell", 16, 20, 13, 10, "A"], ["ell", 16, 14, 9, 8, "A"], ["ell", 12, 12, 3, 2, "C"], ["px", 13, 18, "k"], ["px", 19, 18, "k"]], 32, 32, w, h), "v", true, "nature"],
+  [/heart/, heart, "v", true, "fire"],
+  [/orb|ball_lightning|hex_bolt|shadow_bolt|ember_spark|static/, orb, "v", true],
+  [/ice_shard|frost/, shard, "v", true, "ice"],
+  [/cloud|storm|squall|gust|breath|maelstrom|tempest|mire|sand_storm|firestorm|dragon_fire|veil|aura|death_coil|wing_gust|feather_storm/, (w, h) => (w > h ? cloud(w, h) : portal(w, h)), "v", true],
+  [/coil|spark|tesla|node/, coil, "v", true, "shock"],
+  [/gear/, gear, "v", true],
+  [/overclock/, chip, "v", true],
+  [/doll/, idol, "v", true],
+  [/rewrap|bandage/, scroll, "v", true],
+  [/skin|hide|pelt|scale_armor|hard_scales|drake_scale|dragon_hide|black_plate|leather_guard|plate|wallow/, (w, h) => chest(w, h, { leather: true }), "v", true, "leather"],
+  [/shield|buckler|guard|bone_wall|jelly_wall/, (w, h) => (w > h ? roundShield(w, h) : shield(w, h)), "v", true],
+  [/razor_wing|feather/, feather, "v", true],
+  [/mining_pick/, pickaxe, "v", true],
+  [/drum/, drum, "h"],
+  [/dart|spear|glaive|fork|trident/, spear, "v"],
+  [/scythe/, scythe, "v"],
+  [/axe|cleave|cleaver/, (w, h) => (h > w ? cleaver(w, h) : axe(Math.max(w, 64), h)), "v", true],
+  [/maul|hammer|crusher/, hammer, "v"],
+  [/mace|club/, mace, "v"],
+  [/sig_/, sigil, "v", true],
+];
 
 // ---- which drawing each item gets: [regex on id, drawing, orientation "v" upright / "h" lying] ----
 const RULES = [
@@ -670,7 +749,8 @@ const round = (op) => JSON.parse(JSON.stringify(op, (k, v) => (typeof v === "num
 // ---- generate ----
 const only = process.argv[2] ? new RegExp(process.argv[2]) : null;   // optional: tag or id filter
 const art = {}, looks = {}, skipped = [];
-for (const [id, it] of Object.entries(d.items)) {
+for (const [id, it0] of Object.entries({ ...d.items, ...d.monster_items })) {
+  const it = { ...it0, c: it0.c || [[0, 0]], tags: it0.tags || [] };
   if (HAND.has(id) || (only && !only.test(id) && !it.tags.some((t) => only.test(t)))) continue;
   const w = Math.max(...it.c.map((p) => p[0])) + 1, h = Math.max(...it.c.map((p) => p[1])) + 1;
   if (it.c.length < w * h) {   // L / T / cross: its own drawing
@@ -679,7 +759,7 @@ for (const [id, it] of Object.entries(d.items)) {
     looks["it_" + id] = [EL[element(id, it)]];
     continue;
   }
-  const rule = RULES.find((r) => r[0].test(id));
+  const rule = (id.startsWith("m_") ? MRULES.find((r) => r[0].test(id)) : null) || RULES.find((r) => r[0].test(id));
   if (!rule) { skipped.push(id); continue; }
   const [, draw, orient, fixed, elx] = rule;
   const W = w * C, H = h * C;
