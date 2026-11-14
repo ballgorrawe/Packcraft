@@ -149,7 +149,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	if r.pet != "":
 		_sprite(r.pet_def().ic, 64 if wide else 40, 0.1, 0.62, Sprites.tex("pet_" + r.pet))
 	if not s.fpet.is_empty():
-		_sprite(s.fpet.ic, 64 if wide else 40, 0.9, 0.62)   # the monster's pet (Hard and up)
+		_sprite(s.fpet.ic, 64 if wide else 40, 0.9, 0.62, Sprites.tex("fpet_" + str(s.e.get("pet", ""))))   # the monster's pet (Hard and up)
 	combo_lbl = UI.lbl("", 30, UI.GOLD, true)
 	combo_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	combo_lbl.add_theme_constant_override("outline_size", 8)

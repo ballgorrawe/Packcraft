@@ -35,6 +35,8 @@ func _initialize() -> void:
 	for k in str(def.tr).split(","):
 		_check(str(el.tr).split(",").has(k), "%s has its skill %s" % [el.n, k])
 	_check(GameData.foe_names(20, true).size() == GameData.families.size(), "Endless meets every family")
+	for pid in GameData.foe_pets:
+		_check(Sprites.tex("fpet_" + pid) != null, "monster pet %s has a sprite" % pid)
 	print("MONSTER TEST: %s" % ("PASS" if fails == 0 else "%d FAIL" % fails))
 	quit()
 
