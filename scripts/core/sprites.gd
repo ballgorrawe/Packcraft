@@ -50,6 +50,35 @@ static func foe(name: String) -> Texture2D:
 	return null
 
 
+## A bitmap font whose glyphs are the sprites in data "glyphs" (emoji codepoint hex -> sprite id).
+## Put it before the emoji fonts in a fallback chain and those emoji draw as pixel art everywhere.
+static func glyph_font() -> FontFile:
+	_load()
+	var gl: Dictionary = _data.get("glyphs", {})
+	var ff := FontFile.new()
+	ff.fixed_size = N
+	ff.fixed_size_scale_mode = TextServer.FIXED_SIZE_SCALE_ENABLED
+	var sz := Vector2i(N, 0)
+	var atlas := Image.create(N * maxi(gl.size(), 1), N, false, Image.FORMAT_RGBA8)
+	var i := 0
+	for hex in gl:
+		var t := tex(gl[hex])
+		if t == null:
+			continue
+		atlas.blit_rect(t.get_image(), Rect2i(0, 0, N, N), Vector2i(i * N, 0))
+		var cp: int = str(hex).hex_to_int()
+		ff.set_glyph_advance(0, N, cp, Vector2(N + 2, 0))
+		ff.set_glyph_offset(0, sz, cp, Vector2(1, -N + 5))
+		ff.set_glyph_size(0, sz, cp, Vector2(N, N))
+		ff.set_glyph_uv_rect(0, sz, cp, Rect2(i * N, 0, N, N))
+		ff.set_glyph_texture_idx(0, sz, cp, 0)
+		i += 1
+	ff.set_texture_image(0, sz, 0, atlas)
+	ff.set_cache_ascent(0, N, N - 5)
+	ff.set_cache_descent(0, N, 5)
+	return ff
+
+
 static func _hit(op: Array, p: Vector2) -> bool:
 	match op[0]:
 		"ell": return pow((p.x - op[1]) / op[3], 2) + pow((p.y - op[2]) / op[4], 2) <= 1.0

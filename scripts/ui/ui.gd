@@ -37,6 +37,7 @@ static var _spark: Texture2D
 
 
 static func build_theme() -> Theme:
+	var pix := Sprites.glyph_font()   # chosen emoji drawn as pixel art (data/sprites.json "glyphs")
 	var emoji := SystemFont.new()
 	emoji.font_names = PackedStringArray(["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"])
 	var sym := SystemFont.new()
@@ -51,11 +52,11 @@ static func build_theme() -> Theme:
 	var f := SystemFont.new()
 	f.font_names = PackedStringArray(["Bricolage Grotesque", "Segoe UI", "Roboto", "Noto Sans", "Helvetica Neue", "Arial"])
 	f.font_weight = 600
-	f.fallbacks = [thai, emoji, emoji_b, sym]
+	f.fallbacks = [thai, pix, emoji, emoji_b, sym]
 	var fb := SystemFont.new()
 	fb.font_names = f.font_names
 	fb.font_weight = 800
-	fb.fallbacks = [thai_b, emoji, emoji_b, sym]
+	fb.fallbacks = [thai_b, pix, emoji, emoji_b, sym]
 	font = f
 	bold = fb
 	var pixel: Font = load("res://assets/fonts/PixelifySans.ttf")
@@ -66,8 +67,8 @@ static func build_theme() -> Theme:
 	var sr := FontVariation.new()
 	sr.base_font = srir
 	sr.variation_embolden = 0.5   # Sriracha has one weight: thicken it for headings
-	sr.fallbacks = [thai_b, emoji, emoji_b, sym]
-	cz.fallbacks = [sr, thai_b, emoji, emoji_b, sym]
+	sr.fallbacks = [thai_b, pix, emoji, emoji_b, sym]
+	cz.fallbacks = [sr, thai_b, pix, emoji, emoji_b, sym]
 	display = cz
 
 	var t := Theme.new()
