@@ -92,24 +92,24 @@ static func _hit(op: Array, p: Vector2) -> bool:
 	return false
 
 
-static func raster(ops: Array, pal: Dictionary) -> Image:
-	var img := Image.create(N, N, false, Image.FORMAT_RGBA8)
+static func raster(ops: Array, pal: Dictionary, w := N, h := N) -> Image:
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	for op in ops:
 		var col := Color(pal.get(op[-1], "#ff00ff"))
-		for y in N:
-			for x in N:
+		for y in h:
+			for x in w:
 				if _hit(op, Vector2(x + 0.5, y + 0.5)):
 					img.set_pixel(x, y, col)
 	var clear := Color(0, 0, 0, 0)
 	# volume: light on top-left edges, shade on bottom-right edges
 	var src: Image = img.duplicate()
-	for y in N:
-		for x in N:
+	for y in h:
+		for x in w:
 			var c: Color = src.get_pixel(x, y)
 			if c.a == 0:
 				continue
 			var ul: Color = src.get_pixel(x - 1, y - 1) if x > 0 and y > 0 else clear
-			var dr: Color = src.get_pixel(x + 1, y + 1) if x < N - 1 and y < N - 1 else clear
+			var dr: Color = src.get_pixel(x + 1, y + 1) if x < w - 1 and y < h - 1 else clear
 			if ul.a == 0:
 				img.set_pixel(x, y, c.lightened(0.15))
 			elif dr.a == 0:
@@ -117,13 +117,13 @@ static func raster(ops: Array, pal: Dictionary) -> Image:
 	# one dark outline around the whole shape
 	var out: Image = img.duplicate()
 	var line := Color(pal.get("K", "#24161c"))
-	for y in N:
-		for x in N:
+	for y in h:
+		for x in w:
 			if img.get_pixel(x, y).a > 0:
 				continue
 			for dv in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 				var q: Vector2i = Vector2i(x, y) + dv
-				if q.x >= 0 and q.y >= 0 and q.x < N and q.y < N and img.get_pixelv(q).a > 0:
+				if q.x >= 0 and q.y >= 0 and q.x < w and q.y < h and img.get_pixelv(q).a > 0:
 					out.set_pixel(x, y, line)
 					break
 	return out
