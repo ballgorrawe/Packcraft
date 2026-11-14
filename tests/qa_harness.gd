@@ -28,6 +28,7 @@ var tr_on := false
 var cs_on := false        # --mode=cstats: measure the pack on the training dummy on days 5, 10, 15
 var cs_marks := {}
 var tr_day := {}
+var path_slot := -1   # --pslot=N: the pro bot always takes its class's Nth path (balance per path)
 var tr_days: Array = []
 var tr_out := "user://bot_trace.json"
 
@@ -51,6 +52,7 @@ func _init() -> void:
 			"runs": runs = int(v)
 			"seed": repro_seed = int(v)
 			"boss": force_boss = v
+			"pslot": path_slot = int(v)
 			"out": tr_out = v
 			"cfg":
 				for pair in v.split(",", false):
@@ -839,7 +841,9 @@ func _pro_morning(r: RunState) -> void:
 	if tr_on:
 		tr_day = {"day": r.day, "gold0": r.gold, "hp0": snappedf(r.hp, 0.1), "mhp0": snappedf(r.mhp, 0.1), "lv": r.lv, "hearts": r.res, "steps": [], "bench": benches.map(func(e): return e.n)}
 	# path: try both, keep the stronger pack
-	if r.needs_path():
+	if r.needs_path() and path_slot >= 0:
+		r.choose_path(r.cls_def().paths[path_slot])
+	elif r.needs_path():
 		var best_p := ""
 		var best_v := -1.0
 		for p in r.cls_def().paths:

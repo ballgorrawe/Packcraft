@@ -48,7 +48,7 @@ func _fight(id: String, special: bool) -> Dictionary:
 	var it := r.make_item(id, "grid", 3, 3)
 	r.items.append(it)
 	# the class's own shop items with damage, around it (Spells, Beasts, Sea creatures, Mech...)
-	var pool := GameData.items.keys().filter(func(k): return GameData.items[k].cl == d.cl and GameData.items[k].shop and GameData.items[k].sig == 0 and GameData.items[k].cd > 0)
+	var pool := GameData.items.keys().filter(func(k): return GameData.items[k].cl == d.cl and GameData.items[k].shop and GameData.items[k].sig == 0 and GameData.items[k].pth == "" and GameData.items[k].cd > 0)   # path items left out: the marks were set without them
 	pool.sort()
 	for k in pool:
 		var p := r.make_item(k, "storage")

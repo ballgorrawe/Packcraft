@@ -539,13 +539,13 @@ func fire(idx: int) -> void:
 		dmg *= 1.0 + 0.06 * maxi(0, beasts_n - 1)
 	# path items (data "pth")
 	if _isp(d, "burn_feed"):
-		dmg += minf(12.0, fs.get("burn", 0.0) * 0.4)
+		dmg += minf(15.0, fs.get("burn", 0.0) * 0.5)
 	if _isp(d, "empty_dmg"):
 		dmg += minf(8.0, float(empty_tiles))
 	if _isp(d, "shatter"):
 		dmg += minf(16.0, fs.get("soaked", 0.0) * 2.0)
 	if _isp(d, "blood_scent") and fs.get("bleed", 0.0) > 0:
-		dmg *= 1.4
+		dmg *= 1.3
 	if _isp(d, "execute_low") and ehp < e.hp * 0.3:
 		dmg *= 1.5
 	var broadside := false
@@ -559,11 +559,11 @@ func fire(idx: int) -> void:
 		if _isp(d, "turret_volley"):
 			dealt += damage(x, dmg * 0.5, el)
 		if _isp(d, "aftershock"):
-			dealt += damage(x, dmg * 0.3, "Physical", 0, 2, "🪨")
+			dealt += damage(x, dmg * 0.25, "Physical", 0, 2, "🪨")
 		if _isp(d, "poison_harvest") and fs.get("poison", 0.0) > 0:
 			damage(x, fs.poison * 0.25, "Nature")
 		if _isp(d, "leech"):
-			heal(dealt * 0.15, x.i.uid)
+			heal(dealt * 0.12, x.i.uid)
 		if sp.has("spell_leech") and d.tags.has("Spell"):
 			heal(dealt * 0.1, x.i.uid)
 		if sp.has("shock_relay") and el == "Shock":
@@ -1105,7 +1105,7 @@ func _reflect() -> void:
 		var v := damage(null, total, GameData.statuses.thorns.el, 0, 2, "🌵", 1)   # Thorns hit back with Magic
 		stat_dmg["thorns"] = stat_dmg.get("thorns", 0.0) + v
 		if sp.has("thorn_shield"):   # Bramble Heart
-			gain_shield(1.0)
+			gain_shield(0.5)
 
 
 func _finish(w: bool) -> void:
