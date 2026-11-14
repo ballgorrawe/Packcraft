@@ -586,8 +586,16 @@ func _start_screen() -> Control:
 		tw.tween_property(hl, "position:y", 0.0, 0.45).set_trans(Tween.TRANS_SINE)
 		k += 1
 	v.add_child(party)
-	var door := UI.lbl("🔥  🚪  🔥", 54)
-	door.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var door := HBoxContainer.new()
+	door.alignment = BoxContainer.ALIGNMENT_CENTER
+	door.add_theme_constant_override("separation", 24)
+	for id in ["ui_torch", "ui_door", "ui_torch"]:
+		var pic := UI.icon(Sprites.tex(id), "🔥" if id == "ui_torch" else "🚪", 54 if id == "ui_torch" else 72)
+		door.add_child(pic)
+		if id == "ui_torch":   # flicker
+			var fl := pic.create_tween().set_loops()
+			fl.tween_property(pic, "modulate", Color(1.15, 1.0, 0.85), 0.25 + randf() * 0.2)
+			fl.tween_property(pic, "modulate", Color(0.9, 0.85, 0.8), 0.3 + randf() * 0.2)
 	v.add_child(door)
 	v.add_child(UI.spacer(false))
 	if _splash:
