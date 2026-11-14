@@ -17,6 +17,8 @@ var sel_mode := ""             # "rush" when the new run is a Boss Rush
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
+var show_pause := false        # the ⏸️ menu (resume / main menu / give up)
+var _pause_quit := false       # its give-up step, asking to confirm
 var arr_plan := {}             # 🪄 hint (puzzles): the best layout found, drawn as outlines until closed or done
 var arr_done := {}             # 🪄 (runs): the layout it just put in place, kept for ↩️ undo while nothing else moved
 var _arr_busy := false
@@ -360,7 +362,9 @@ func render() -> void:
 			UI.pop_in(body, 0.0, 30)
 		return
 	var ov: Control = null
-	if run.needs_path():
+	if show_pause:
+		ov = _pause_overlay()
+	elif run.needs_path():
 		ov = _path_choice_overlay()
 	elif run.phase == "afternoon":
 		ov = _road_overlay()
@@ -384,6 +388,8 @@ func render() -> void:
 		ov.add_child(so[0])
 	if ov != null:
 		screen.add_child(ov)
+		if not show_pause:
+			ov.add_child(_pause_button(true))   # popups cover the top bar, so they get their own
 		if fresh:
 			ov.modulate.a = 0
 			ov.create_tween().tween_property(ov, "modulate:a", 1.0, 0.25)
@@ -1892,6 +1898,7 @@ func _hud() -> Control:
 		hr.add_child(_level_badge())
 	hr.add_child(UI.spacer())
 	hr.add_child(_effects_button())
+	hr.add_child(_pause_button(false))
 	if run.mode != "puzzle":
 		var dl := UI.lbl(("♾️ " + tr("Day %d") % run.day) if run.endless else tr("Day %d/%d") % [run.day, RunState.TRIAL_DAYS if run.mode == "trial" else GameData.days], 16, UI.GOLD, true)
 		hr.add_child(dl)
@@ -2020,6 +2027,71 @@ func _effects_button() -> Control:
 		show_effects = true
 		render())
 	return p
+
+
+## ⏸️ chip: in the top bar, or floating top-left over a popup.
+func _pause_button(floating: bool) -> Control:
+	var open := func():
+		show_pause = true
+		_pause_quit = false
+		render()
+	if floating:
+		var x := UI.btn("⏸️", open, false, 22, "gray")
+		x.custom_minimum_size = Vector2(64, 64)
+		x.position = Vector2(16, 16)
+		return x
+	var p := UI.panel(Color(UI.BD, 0.3), UI.BD, 2, 40, 5)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.add_child(UI.plbl("⏸️", 16, Color.WHITE, true))
+	UI.on_tap(p, open)
+	return p
+
+
+## Pause menu: resume, leave for the main menu (a normal run stays saved for Continue), or give the run up.
+func _pause_overlay() -> Control:
+	var o := _overlay("⏸️ " + tr("Paused"), func():
+		show_pause = false
+		render())
+	var v: VBoxContainer = o[1]
+	var saved := run.mode not in ["trial", "puzzle"]   # trials and puzzles are never saved
+	if _pause_quit:
+		v.add_child(_mid(UI.wrap_lbl(tr("Give up this run? It ends here and cannot be continued."), 20, Color("#efe4cf"))))
+		v.add_child(_center(UI.big_btn("🏳️ " + tr("Give up"), func():
+			_send_play_log(run, "quit")
+			SaveGame.clear_run()
+			_leave_run(), "red", 26)))
+		v.add_child(_center(UI.btn("↩️ " + tr("Back"), func():
+			_pause_quit = false
+			render(), false, 22, "gray")))
+		return o[0]
+	v.add_child(_center(UI.big_btn("▶️ " + tr("Resume"), func():
+		show_pause = false
+		render(), "green", 26)))
+	v.add_child(_center(UI.big_btn("🏠 " + tr("Main menu"), func():
+		_autosave()
+		_leave_run(), "blue", 24)))
+	v.add_child(_mid(UI.wrap_lbl(tr("Your run is saved: pick CONTINUE on the main menu to carry on.") if saved else tr("Trials and puzzles are not saved."), 16, Color("#bfb39c"))))
+	if saved:
+		v.add_child(_center(UI.btn("🏳️ " + tr("Give up run"), func():
+			_pause_quit = true
+			render(), false, 20, "red")))
+	return o[0]
+
+
+func _mid(l: Label) -> Label:
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+func _leave_run() -> void:
+	var mode := run.mode
+	run = null
+	show_pause = false
+	_pending_sim = null
+	_clear_sel()
+	anim.clear()
+	title_step = 10 if mode == "trial" else 11 if mode == "puzzle" else 0
+	render()
 
 
 ## Popup with every effect on the run, explained (opened from the 📜 button).

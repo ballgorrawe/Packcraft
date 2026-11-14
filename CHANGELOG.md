@@ -4,6 +4,11 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.15.2
+- ⏸️ **ปุ่มพักเกม** ระหว่างเล่น (มุมบนข้าง 📜 หรือมุมซ้ายบนตอนมีหน้าต่างเปิดอยู่)
+- 🏠 กลับหน้าหลักได้ทุกเมื่อ รอบที่เล่นอยู่ถูกบันทึกไว้ กด เล่นต่อ ที่หน้าหลักเพื่อกลับมาเล่น
+- 🏳️ ยอมแพ้รอบนี้ได้ (มีถามยืนยัน) เพื่อเปลี่ยนคลาสหรือเริ่มใหม่
+
 ## v0.15.1
 - 📖 **หน้าโคเด็กซ์ครบขึ้น** https://ballgorrawe.github.io/Packcraft/codex.html
 - 🎨 ไอเทมทุกชิ้นแสดงเป็นภาพพิกเซลขนาดเท่าช่องจริง รวมไอเทมในกระเป๋ามอนและบอส
