@@ -6,6 +6,13 @@ const path = require("path");
 const root = path.resolve(__dirname, "../..");
 const out = process.argv[2] || path.join(root, "build/web/codex.html");
 const tmp = path.join(require("os").tmpdir(), "packcraft_codex_data.json");
+// refresh the monster numbers from the game's formulas when Godot is around (env GODOT, else the usual path)
+const godot = process.env.GODOT || "C:/Users/ChiNoMyA/Downloads/Godot_v4.4.1-stable_win64.exe/Godot_v4.4.1-stable_win64_console.exe";
+if (fs.existsSync(godot)) {
+  try {
+    execFileSync(godot, ["--headless", "--path", root, "--script", "res://tools/codex/foe_stats.gd", "--", path.join(root, "tools/codex/foe_stats.json")], { stdio: "ignore", timeout: 120000 });
+  } catch (e) { console.log("foe stats: kept the saved file (" + e.message.split("\n")[0] + ")"); }
+}
 execFileSync(process.execPath, [path.join(__dirname, "export.js"), root, tmp], { stdio: "inherit" });
 const tpl = fs.readFileSync(path.join(__dirname, "codex_template.html"), "utf8");
 const data = fs.readFileSync(tmp, "utf8").replace(/<\//g, "<\/");

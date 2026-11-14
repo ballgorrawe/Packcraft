@@ -16,10 +16,11 @@ const evoFrom = {}; for (const [k, v] of Object.entries(d.items)) if (v.evo) evo
 const relicOf = {}; for (const [k, p] of Object.entries(d.paths)) relicOf[p.relic] = k;
 const items = [];
 for (const [k, v] of Object.entries(d.items)) {
-  const src = []; if (v.shop) src.push("shop"); if (evoFrom[k]) src.push("evo"); if (made[k]) src.push(made[k].some((r) => r.c) ? "mw" : "recipe"); if (relicOf[k]) src.push("relic"); if (v.sig) src.push("sig"); if (!src.length) src.push("other");
+  const src = []; if (v.shop) src.push("shop"); if (evoFrom[k]) src.push("evo"); if (made[k]) src.push(made[k].some((r) => r.c) ? "mw" : "recipe"); if (relicOf[k]) src.push("relic"); if (v.sig) src.push("sig"); if (v.pth) src.push("path"); if (!src.length) src.push("other");
   const how = []; if (evoFrom[k]) how.push(["evo", [evoFrom[k], evoFrom[k]]]); for (const r of made[k] || []) how.push([r.c ? "mw" : "recipe", [r.a, r.b].concat(r.c ? [r.c] : [])]);
   const on = v.on || {};
-  items.push({ id: k, ic: v.ic, bd: v.bd || "", n: v.n, th: th(v.n), cl: v.cl || "", t: v.t, cost: v.cost, cells: v.c.length, tags: v.tags.map(th), cd: v.cd || 0, dmg: on.dmg || 0, sh: on.shield || 0, hl: on.heal || 0, el: on.el ? th(on.el) : "", d: v.d ? th(v.d) : "", src, how, evo: v.evo || "", path: relicOf[k] ? th(d.paths[relicOf[k]].n) : "", sig: v.sig || 0 });
+  items.push({ id: k, ic: v.ic, bd: v.bd || "", n: v.n, th: th(v.n), cl: v.cl || "", t: v.t, cost: v.cost, cells: v.c.length, tags: v.tags.map(th), cd: v.cd || 0, dmg: on.dmg || 0, sh: on.shield || 0, hl: on.heal || 0, el: on.el ? th(on.el) : "", d: v.d ? th(v.d) : "", src, how, evo: v.evo || "", path: relicOf[k] ? th(d.paths[relicOf[k]].n) : "", sig: v.sig || 0,
+    c: v.c, pth: v.pth ? { th: th(d.paths[v.pth].n), ic: d.paths[v.pth].ic } : null });
 }
 // ---- monsters
 const effect = (on) => {
@@ -32,7 +33,7 @@ const effect = (on) => {
   if (on.crit) out.push("🎯 " + Math.round(on.crit * 100) + "%");
   return out.join(" · ");
 };
-const mitem = (id) => { const m = d.monster_items[id]; return { ic: m.ic, ...two(m.n), t: m.t, cd: m.cd, fx: effect(m.on || {}) }; };
+const mitem = (id) => { const m = d.monster_items[id]; return { id, c: m.c || [[0, 0]], ic: m.ic, ...two(m.n), t: m.t, cd: m.cd, fx: effect(m.on || {}) }; };
 const bandOf = {}; for (const [b, fams] of Object.entries(d.foe_bands)) for (const f of fams) bandOf[f] = +b;
 const monsters = Object.entries(d.families).map(([fam, ids]) => {
   const el = d.elites[fam], st = d.foe_styles[fam], u = d.foe_ults[fam];
@@ -56,8 +57,10 @@ const traits = Object.entries(d.traits).map(([k, v]) => ({ ic: v.ic, ...two(v.n)
 const classes = Object.entries(d.classes).map(([k, c]) => ({
   id: k, ...two(c.n), ic: c.ic, col: c.col, sprite: "hero_" + k, d: th(c.d), stats: Object.entries(c.stats || {}).map(([s, v]) => [th(s), v]),
   comp: (c.comp || []).map(th), start: (c.st || []).map((s) => s[0]),
-  ult: c.ult ? { ic: c.ult.ic, ...two(c.ult.n), d: th(c.ult.d) } : null,
-  paths: c.paths.map((p) => { const pd = d.paths[p]; const mw = d.recipes.find((r) => r.path === p && r.c); return { ...two(pd.n), ic: pd.ic, d: th(pd.d), relic: pd.relic, mw: mw ? { parts: [mw.a, mw.b, mw.c], r: mw.r } : null }; }),
+  ult: c.ult ? { ic: c.ult.ic, ...two(c.ult.n), d: th(c.ult.d), need: c.ult.need } : null,
+  res: c.res ? { ic: c.res.ic, ...two(c.res.n), d: th(c.res.d) } : null,
+  paths: c.paths.map((p) => { const pd = d.paths[p]; const mw = d.recipes.find((r) => r.path === p && r.c); return { ...two(pd.n), ic: pd.ic, d: th(pd.d), relic: pd.relic, mw: mw ? { parts: [mw.a, mw.b, mw.c], r: mw.r } : null,
+    own: Object.keys(d.items).filter((k) => d.items[k].pth === p) }; }),
 }));
 const pets = Object.entries(d.pets).map(([k, p]) => ({ id: k, ...two(p.n), ic: p.ic, sprite: "pet_" + k, d: th(p.d) }));
 // ---- events, world rules, hazards, difficulties
@@ -69,9 +72,14 @@ evs.push({ id: "camp", ic: "🔥", ...two("Campfire"), d: th("Recover 50% HP"), 
 const mods = d.mods.map((m) => ({ ...two(m.n), d: th(m.d) }));
 const hazards = d.hazards.map((h) => ({ ic: h.ic, ...two(h.n), d: th(h.d) }));
 const statuses = Object.entries(d.statuses).map(([k, s]) => ({ ic: s.ic, ...two(s.n), d: th(s.d || ""), col: s.col }));
-const diffs = d.difficulties.map((x) => ({ ic: x.ic, ...two(x.n), d: th(x.d), hp: x.hp, dps: x.dps }));
+const diffs = d.difficulties.map((x) => ({ id: x.id, ic: x.ic, ...two(x.n), d: th(x.d), hp: x.hp, dps: x.dps }));
 const picks = (d.leveling.picks || []).map((p) => ({ ic: p.ic, ...two(p.n), d: th(p.d) }));
-const out = { items, cls: Object.fromEntries(Object.entries(d.classes).map(([k, c]) => [k, { n: th(c.n), ic: c.ic, col: c.col }])), tiers: d.tier_names.map(th), tcol: d.tier_colors,
+// monster numbers by difficulty and floor (tools/codex/foe_stats.gd, refreshed by build.js when Godot is found)
+const foeStats = JSON.parse(fs.readFileSync(P + "/tools/codex/foe_stats.json", "utf8"));
+const r1 = (v) => Math.round(v * 10) / 10;
+for (const rows of Object.values(foeStats.floors)) for (const r of rows) for (const k of Object.keys(r)) r[k] = r1(r[k]);
+const foePets = Object.entries(d.foe_pets || {}).map(([k, p]) => ({ id: k, ic: p.ic, ...two(p.n), d: th(p.d || ""), sprite: "fpet_" + k }));
+const out = { foeStats, foePets, items, cls: Object.fromEntries(Object.entries(d.classes).map(([k, c]) => [k, { n: th(c.n), ic: c.ic, col: c.col }])), tiers: d.tier_names.map(th), tcol: d.tier_colors,
   monsters, bosses, traits, classes, pets, events: evs, mods, hazards, statuses, diffs, picks, sprites: SP };
 fs.writeFileSync(process.argv[3], JSON.stringify(out));
 console.log("items", items.length, "monsters", monsters.length, "bosses", bosses.length, "events", evs.length, "bytes", fs.statSync(process.argv[3]).size);
