@@ -311,8 +311,167 @@ function mask(w, h) {
     ["px", cx - 6, 13, "e"], ["px", cx + 4, 13, "e"], ["rect", cx - 12, 6, 24, 3, "d"], ["rect", cx - 4, 2, 8, 5, "d"]];
 }
 
+// ---- batch 3: gems, potions, bombs, mechs, tools, spells, charms, relics ----
+const SP = JSON.parse(fs.readFileSync("data/sprites.json", "utf8")).sprites;
+const copy = (sid) => () => SP[sid];                                     // same footprint as an existing sprite
+const D = (ops, bw = 32, bh = 32) => (w, h) => fit(ops, bw, bh, w, h);   // a fixed design, fitted evenly
+const gem = D([["poly", [[10, 4], [22, 4], [29, 12], [16, 29], [3, 12]], "a"], ["poly", [[11, 5], [21, 5], [27, 12], [16, 27], [5, 12]], "A"], ["poly", [[11, 5], [21, 5], [24, 12], [8, 12]], "C"], ["poly", [[16, 12], [24, 12], [16, 27]], "a"], ["px", 13, 7, "w"], ["px", 14, 7, "w"]]);
+const crystal = D([["poly", [[16, 1], [23, 8], [23, 24], [16, 31], [9, 24], [9, 8]], "a"], ["poly", [[16, 2], [22, 8], [22, 24], [16, 30]], "A"], ["poly", [[16, 2], [10, 8], [10, 24], [16, 30]], "C"], ["rect", 12, 8, 1, 14, "w"]]);
+const orb = D([["ell", 16, 16, 12, 12, "a"], ["ell", 16, 16, 10, 10, "A"], ["ell", 12, 12, 4, 3, "C"], ["px", 11, 11, "w"], ["px", 25, 6, "C"], ["px", 5, 25, "C"]]);
+const potion = D([["rect", 13, 2, 6, 4, "m"], ["rect", 12, 6, 8, 7, "l"], ["ell", 16, 21, 11, 10, "l"], ["ell", 16, 22, 9, 8, "A"], ["rect", 8, 17, 16, 2, "C"], ["ell", 12, 20, 2, 3, "w"], ["rect", 14, 7, 4, 5, "c"]]);
+const vial = D([["rect", 12, 2, 8, 6, "m"], ["rect", 11, 8, 10, 4, "l"], ["rect", 12, 12, 8, 10, "l"], ["poly", [[12, 22], [20, 22], [27, 36], [27, 60], [5, 60], [5, 36]], "l"], ["poly", [[7, 38], [25, 38], [25, 58], [7, 58]], "A"], ["rect", 7, 38, 18, 2, "C"], ["rect", 9, 41, 2, 13, "w"]], 32, 64);
+const lantern = D([["rect", 13, 2, 6, 4, "d"], ["rect", 8, 6, 16, 4, "d"], ["rect", 9, 10, 14, 40, "A"], ["ell", 16, 30, 4, 8, "C"], ["rect", 9, 10, 2, 40, "d"], ["rect", 15, 10, 2, 40, "d"], ["rect", 21, 10, 2, 40, "d"], ["rect", 8, 50, 16, 4, "d"], ["rect", 11, 54, 10, 6, "d"]], 32, 64);
+const pouch = D([["ell", 16, 21, 11, 9, "m"], ["rect", 12, 8, 8, 5, "m"], ["poly", [[9, 3], [23, 3], [20, 9], [12, 9]], "m"], ["rect", 11, 10, 10, 2, "A"], ["ell", 12, 18, 2, 2, "b"], ["ell", 21, 22, 3, 3, "C"]]);
+const belt = D([["rect", 2, 18, 92, 8, "n"], ["rect", 2, 20, 92, 1, "b"], ["rect", 44, 16, 8, 12, "Y"], ...[14, 66].map((x) => [["rect", x - 4, 2, 8, 4, "m"], ["rect", x - 3, 6, 6, 4, "l"], ["ell", x, 20, 9, 9, "l"], ["ell", x, 21, 7, 7, "A"], ["ell", x - 3, 18, 1.5, 2.5, "w"]]).flat(), ["rect", 26, 6, 8, 18, "l"], ["rect", 27, 12, 6, 12, "C"], ["rect", 78, 6, 8, 18, "l"], ["rect", 79, 12, 6, 12, "a"]], 96, 32);
+const urn = D([["poly", [[10, 4], [22, 4], [20, 8], [26, 16], [24, 26], [20, 30], [12, 30], [8, 26], [6, 16], [12, 8]], "A"], ["rect", 10, 3, 12, 3, "a"], ["rect", 7, 15, 18, 3, "C"], ["ell", 11, 13, 1.5, 3, "w"], ["rect", 8, 23, 16, 1, "a"]]);
+const cauldron = D([["ell", 32, 38, 26, 20, "d"], ["rect", 6, 22, 52, 6, "g"], ["ell", 32, 24, 24, 5, "A"], ["ell", 26, 23, 4, 2, "C"], ["ell", 40, 22, 3, 2, "C"], ["rect", 12, 54, 6, 8, "d"], ["rect", 46, 54, 6, 8, "d"], ["ell", 30, 12, 3, 3, "A"], ["ell", 38, 6, 2, 2, "A"]], 64, 64);
+const bowl = D([["poly", [[4, 14], [60, 14], [50, 30], [14, 30]], "m"], ["ell", 32, 14, 28, 4, "A"], ["rect", 4, 13, 56, 2, "b"], ["ell", 26, 13, 4, 1.5, "C"], ["rect", 22, 22, 20, 2, "b"]], 64, 32);
+const mortar = D([["poly", [[4, 14], [60, 14], [50, 30], [14, 30]], "g"], ["ell", 32, 14, 28, 4, "A"], ["poly", [[40, 12], [56, 0], [60, 3], [44, 15]], "l"], ["rect", 4, 13, 56, 2, "d"]], 64, 32);
+const vat = D([["rect", 6, 6, 52, 24, "m"], ["rect", 6, 9, 52, 3, "d"], ["rect", 6, 24, 52, 3, "d"], ["ell", 32, 6, 26, 4, "A"], ["ell", 26, 5, 4, 1.5, "C"], ["rect", 52, 16, 8, 4, "g"]], 64, 32);
+const feather = D([["poly", [[27, 2], [30, 7], [20, 20], [9, 29], [7, 27], [14, 17]], "A"], ["poly", [[27, 2], [14, 17], [7, 27], [10, 21], [19, 9]], "C"], ["poly", [[28, 3], [29, 4], [7, 30], [6, 29]], "w"]]);
+const mushroom = D([["rect", 12, 17, 8, 12, "w"], ["rect", 12, 26, 8, 3, "l"], ["ell", 16, 14, 14, 9, "A"], ["rect", 2, 14, 28, 4, "A"], ["ell", 10, 10, 2.5, 2, "w"], ["ell", 20, 8, 3, 2, "w"], ["ell", 23, 14, 2, 1.5, "w"]]);
+const seed = D([["ell", 16, 20, 8, 9, "m"], ["ell", 16, 12, 10, 5, "n"], ["rect", 15, 3, 2, 6, "n"], ["ell", 13, 19, 2, 3, "b"], ["ell", 21, 5, 4, 2, "G"]]);
+const syringe = D([["poly", [[6, 24], [22, 8], [26, 12], [10, 28]], "l"], ["poly", [[8, 24], [20, 12], [24, 14], [12, 26]], "A"], ["poly", [[22, 8], [28, 2], [31, 5], [26, 12]], "d"], ["poly", [[6, 26], [1, 31], [2, 31], [7, 27]], "g"]]);
+const sprig = D([["rect", 15, 6, 2, 24, "D"], ["ell", 10, 12, 6, 3, "A"], ["ell", 22, 10, 6, 3, "A"], ["ell", 9, 20, 6, 3, "A"], ["ell", 23, 19, 6, 3, "A"], ["ell", 16, 5, 3, 4, "C"]]);
+const clover = D([["rect", 15, 16, 2, 14, "D"], ["ell", 11, 11, 6, 6, "A"], ["ell", 21, 11, 6, 6, "A"], ["ell", 11, 20, 6, 5, "A"], ["ell", 21, 20, 6, 5, "A"], ["ell", 16, 15, 2, 2, "C"]]);
+const wreath = (w, h) => { const m = Math.min(w, h), cx = w / 2, cy = h / 2, r = m / 2 - 6, ops = [];
+  for (let i = 0; i < 12; i++) ops.push(["ell", cx + Math.cos(i * Math.PI / 6) * r * (w > h ? 1.6 : 1), cy + Math.sin(i * Math.PI / 6) * r, 5, 3.5, i % 2 ? "G" : "D"]);
+  for (let i = 0; i < 6; i++) ops.push(["ell", cx + Math.cos(i * Math.PI / 3 + 0.3) * r * (w > h ? 1.6 : 1), cy + Math.sin(i * Math.PI / 3 + 0.3) * r, 1.8, 1.8, "A"]);
+  return ops; };
+const root = D([["rect", 14, 2, 4, 16, "n"], ["poly", [[14, 16], [6, 28], [9, 29], [16, 20]], "n"], ["poly", [[18, 16], [26, 28], [23, 29], [16, 20]], "n"], ["rect", 15, 18, 2, 12, "b"], ["ell", 20, 5, 5, 3, "G"], ["ell", 11, 8, 4, 2.5, "G"], ["px", 15, 6, "b"]]);
+const bomb = D([["ell", 15, 19, 11, 11, "x"], ["ell", 11, 15, 3, 3, "d"], ["rect", 12, 6, 7, 4, "d"], ["poly", [[17, 6], [21, 2], [23, 3], [19, 7]], "b"], ["ell", 23, 2.5, 2.5, 2.5, "C"], ["px", 25, 1, "y"], ["rect", 7, 21, 16, 2, "A"]]);
+const cluster = D([...[[16, 18], [32, 22], [48, 18]].map(([x, y]) => [["ell", x, y, 9, 9, "x"], ["ell", x - 3, y - 3, 2, 2, "d"], ["rect", x - 1, y - 12, 2, 4, "b"], ["ell", x, y - 13, 2, 2, "C"], ["rect", x - 6, y + 1, 12, 2, "A"]]).flat()], 64, 32);
+const payload = D([["poly", [[8, 32], [18, 16], [46, 16], [56, 32], [46, 48], [18, 48]], "g"], ["poly", [[46, 16], [58, 6], [60, 20], [52, 24]], "d"], ["poly", [[46, 48], [58, 58], [60, 44], [52, 40]], "d"],
+  ...[0, 1, 2, 3].map((i) => ["poly", [[20 + i * 7, 18], [24 + i * 7, 18], [20 + i * 7, 46], [16 + i * 7, 46]], "A"]), ["ell", 10, 32, 4, 6, "d"]], 64, 64);
+const keg = D([["ell", 16, 16, 11, 13, "m"], ["rect", 5, 8, 22, 2, "d"], ["rect", 5, 22, 22, 2, "d"], ["rect", 15, 3, 2, 26, "n"], ["ell", 16, 16, 3, 3, "A"], ["rect", 14, 0, 4, 4, "C"]]);
+const oilcan = D([["rect", 7, 12, 16, 17, "g"], ["poly", [[23, 14], [31, 7], [31, 10], [23, 19]], "g"], ["rect", 11, 7, 6, 5, "d"], ["rect", 7, 19, 16, 3, "A"], ["ell", 9, 15, 1, 2, "l"]]);
+const rocket = D([["poly", [[10, 10], [48, 10], [60, 16], [48, 22], [10, 22]], "l"], ["rect", 22, 10, 6, 12, "A"], ["poly", [[10, 10], [3, 3], [16, 10]], "r"], ["poly", [[10, 22], [3, 29], [16, 22]], "r"], ["poly", [[10, 13], [1, 16], [10, 19]], "o"], ["ell", 40, 16, 3, 3, "c"]], 64, 32);
+const battery = D([["rect", 9, 6, 14, 24, "d"], ["rect", 13, 3, 6, 3, "g"], ["rect", 10, 8, 12, 20, "A"], ["rect", 10, 8, 12, 6, "a"], ["poly", [[17, 12], [12, 20], [16, 20], [14, 27], [20, 17], [16, 17]], "C"]]);
+const magnet = D([["rect", 5, 4, 7, 16, "r"], ["rect", 20, 4, 7, 16, "r"], ["rect", 5, 18, 22, 8, "r"], ["rect", 5, 4, 7, 4, "l"], ["rect", 20, 4, 7, 4, "l"], ["px", 14, 4, "A"], ["px", 17, 2, "A"], ["px", 15, 8, "C"]]);
+const coil = D([["rect", 14, 2, 4, 28, "d"], ...[5, 9, 13, 17, 21, 25].map((y) => ["ell", 16, y, 9, 2, "Y"]), ["px", 4, 6, "A"], ["px", 27, 14, "A"], ["px", 5, 22, "C"]]);
+const core = D([["rect", 5, 5, 22, 22, "g"], ["rect", 7, 7, 18, 18, "d"], ["ell", 16, 16, 7, 7, "A"], ["ell", 14, 14, 2.5, 2.5, "C"], ["rect", 3, 14, 4, 4, "Y"], ["rect", 25, 14, 4, 4, "Y"], ["rect", 14, 3, 4, 4, "Y"], ["rect", 14, 25, 4, 4, "Y"]]);
+const gear = (() => { const ops = []; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ops.push(["rect", 16 + Math.cos(a) * 11 - 2.5, 16 + Math.sin(a) * 11 - 2.5, 5, 5, "g"]); }
+  ops.push(["ell", 16, 16, 10, 10, "g"], ["ell", 16, 16, 5, 5, "d"], ["ell", 16, 16, 2, 2, "A"]); return D(ops); })();
+const chip = D([["rect", 7, 7, 18, 18, "x"], ["rect", 9, 9, 14, 14, "d"], ["rect", 12, 12, 8, 8, "A"], ...[10, 14, 18, 22].flatMap((v) => [["rect", v - 1, 3, 2, 4, "Y"], ["rect", v - 1, 25, 2, 4, "Y"], ["rect", 3, v - 1, 4, 2, "Y"], ["rect", 25, v - 1, 4, 2, "Y"]])]);
+const drone = D([["rect", 2, 8, 10, 2, "d"], ["rect", 20, 8, 10, 2, "d"], ["ell", 7, 7, 6, 1.5, "l"], ["ell", 25, 7, 6, 1.5, "l"], ["rect", 6, 9, 2, 5, "d"], ["rect", 24, 9, 2, 5, "d"], ["ell", 16, 18, 10, 7, "g"], ["ell", 16, 19, 4, 3, "A"], ["ell", 15, 18, 1.5, 1.5, "C"], ["rect", 10, 25, 2, 4, "d"], ["rect", 20, 25, 2, 4, "d"]]);
+const turret = D([["poly", [[4, 62], [28, 62], [24, 50], [8, 50]], "d"], ["rect", 10, 22, 12, 28, "g"], ["rect", 10, 22, 3, 28, "l"], ["ell", 16, 18, 10, 8, "g"], ["rect", 16, 14, 16, 5, "d"], ["ell", 13, 17, 3, 3, "A"], ["rect", 8, 34, 16, 3, "A"], ["rect", 12, 8, 8, 4, "d"]], 32, 64);
+const castle = D([["rect", 6, 20, 52, 40, "g"], ...[6, 18, 30, 42, 52].map((x) => ["rect", x, 12, 6, 8, "g"]), ["rect", 24, 40, 16, 20, "x"], ["ell", 32, 40, 8, 6, "x"], ["rect", 12, 28, 6, 8, "x"], ["rect", 46, 28, 6, 8, "x"], ["rect", 26, 22, 30, 5, "d"], ["rect", 52, 18, 10, 12, "d"], ["ell", 20, 24, 3, 3, "A"]], 64, 64);
+const scales = D([["rect", 15, 6, 2, 22, "Y"], ["rect", 8, 28, 16, 3, "Y"], ["rect", 3, 7, 26, 2, "Y"], ["poly", [[4, 9], [1, 18], [7, 18]], "d"], ["poly", [[28, 9], [25, 18], [31, 18]], "d"], ["ell", 4, 18, 4, 2, "y"], ["ell", 28, 18, 4, 2, "y"], ["ell", 16, 5, 2, 2, "A"]]);
+const stone = D([["ell", 16, 18, 13, 9, "g"], ["ell", 13, 15, 6, 3, "l"], ["rect", 14, 18, 8, 1, "d"], ["rect", 9, 21, 5, 1, "d"], ["px", 20, 14, "A"]]);
+const hourglass = D([["rect", 7, 2, 18, 3, "n"], ["rect", 7, 27, 18, 3, "n"], ["poly", [[9, 5], [23, 5], [17, 16], [23, 27], [9, 27], [15, 16]], "c"], ["poly", [[11, 8], [21, 8], [16, 15]], "y"], ["poly", [[16, 18], [21, 26], [11, 26]], "y"], ["rect", 7, 5, 2, 22, "n"], ["rect", 23, 5, 2, 22, "n"], ["px", 16, 20, "A"]]);
+const clock = D([["ell", 16, 16, 13, 13, "A"], ["ell", 16, 16, 10, 10, "w"], ["rect", 15, 8, 2, 9, "x"], ["rect", 15, 15, 7, 2, "x"], ["px", 16, 7, "a"], ["px", 25, 16, "a"], ["px", 16, 25, "a"], ["px", 7, 16, "a"], ["rect", 14, 1, 4, 3, "Y"]]);
+const bell = D([["poly", [[16, 4], [24, 10], [26, 24], [6, 24], [8, 10]], "Y"], ["rect", 4, 24, 24, 3, "Y"], ["ell", 16, 28, 3, 2.5, "n"], ["rect", 15, 1, 2, 4, "n"], ["rect", 11, 10, 2, 12, "y"], ["rect", 6, 20, 20, 1, "A"]]);
+const horn = D([["poly", [[4, 26], [8, 22], [20, 14], [26, 4], [30, 6], [28, 16], [22, 22], [8, 28]], "w"], ["poly", [[26, 4], [30, 6], [28, 12], [24, 8]], "A"], ["rect", 10, 21, 3, 6, "Y"], ["rect", 17, 15, 3, 6, "Y"], ["ell", 4, 27, 2, 2, "n"]]);
+const book = D([["rect", 6, 4, 20, 24, "A"], ["rect", 6, 4, 3, 24, "a"], ["rect", 9, 25, 17, 3, "w"], ["rect", 13, 9, 10, 2, "C"], ["rect", 13, 13, 8, 1, "C"], ["ell", 18, 19, 3, 3, "C"]]);
+const scroll = D([["rect", 8, 6, 16, 20, "w"], ["ell", 16, 6, 9, 2.5, "m"], ["ell", 16, 26, 9, 2.5, "m"], ["rect", 11, 10, 10, 1, "n"], ["rect", 11, 14, 8, 1, "n"], ["rect", 11, 18, 10, 1, "n"], ["ell", 20, 22, 2, 2, "A"]]);
+const mirror = D([["rect", 14, 22, 4, 9, "n"], ["ell", 16, 12, 10, 11, "Y"], ["ell", 16, 12, 7.5, 8.5, "c"], ["poly", [[11, 9], [14, 6], [15, 7], [12, 10]], "w"], ["ell", 18, 15, 3, 3, "A"]]);
+const cloud = (W, H) => { const ops = [["ell", W * 0.3, 12, 11, 8, "l"], ["ell", W * 0.5, 9, 13, 9, "w"], ["ell", W * 0.7, 12, 11, 8, "l"], ["rect", W * 0.2, 12, W * 0.6, 8, "l"]];
+  for (let x = W * 0.25; x < W * 0.8; x += 8) ops.push(["rect", x, 23, 2, 5, "A"]);
+  ops.push(["poly", [[W * 0.55, 16], [W * 0.48, 26], [W * 0.53, 26], [W * 0.5, 31], [W * 0.6, 22], [W * 0.55, 22]], "C"]); return ops; };
+const pickaxe = D([["poly", [[6, 28], [24, 8], [26, 10], [8, 30]], "n"], ["poly", [[10, 4], [24, 2], [30, 14], [26, 12], [22, 6], [12, 7]], "g"], ["rect", 21, 6, 4, 4, "A"]]);
+const toolbox = D([["rect", 4, 12, 56, 18, "A"], ["rect", 4, 12, 56, 4, "a"], ["rect", 24, 4, 16, 3, "d"], ["rect", 24, 4, 3, 9, "d"], ["rect", 37, 4, 3, 9, "d"], ["rect", 28, 18, 8, 4, "Y"], ["poly", [[8, 12], [14, 0], [16, 1], [12, 12]], "l"], ["rect", 46, 4, 6, 8, "n"]], 64, 32);
+const runestone = D([["ell", 16, 17, 11, 13, "g"], ["ell", 13, 12, 5, 4, "l"], ["poly", [[16, 8], [20, 16], [16, 26], [12, 16]], "A"], ["poly", [[16, 11], [18, 16], [16, 22], [14, 16]], "C"], ["rect", 9, 16, 14, 1, "A"]]);
+const star = D([["poly", [[16, 2], [19.5, 12.1], [29.3, 12.7], [21.7, 18.9], [24.2, 29], [16, 23], [7.8, 29], [10.3, 18.9], [2.7, 12.7], [12.5, 12.1]], "A"], ["ell", 16, 16, 3.5, 3.5, "C"]]);
+const twinstars = D([["poly", [[10, 2], [12, 9], [18, 10], [12, 12], [10, 19], [8, 12], [2, 10], [8, 9]], "A"], ["poly", [[22, 12], [24.5, 19], [31, 21], [24.5, 23], [22, 30], [19.5, 23], [13, 21], [19.5, 19]], "C"]]);
+const comet = D([["poly", [[16, 62], [6, 22], [26, 22]], "a"], ["poly", [[16, 56], [10, 24], [22, 24]], "A"], ["ell", 16, 16, 10, 10, "A"], ["ell", 16, 16, 6, 6, "C"], ["ell", 14, 14, 2, 2, "w"]], 32, 64);
+const shard = D([["poly", [[16, 1], [24, 12], [20, 31], [12, 31], [8, 12]], "a"], ["poly", [[16, 2], [22, 12], [18, 30], [16, 30]], "A"], ["poly", [[16, 2], [10, 12], [14, 30], [16, 30]], "C"], ["rect", 13, 10, 1, 10, "w"]]);
+const wand = D([["poly", [[15, 22], [17, 22], [18, 62], [14, 62]], "n"], ["rect", 14, 54, 4, 3, "Y"], ["poly", [[16, 2], [19.5, 10], [28, 11], [21.5, 16], [23.5, 25], [16, 20], [8.5, 25], [10.5, 16], [4, 11], [12.5, 10]], "A"], ["ell", 16, 14, 2.5, 2.5, "C"]], 32, 64);
+const portal = (w, h) => { const cx = w / 2, cy = h / 2, rx = w / 2 - 3, ry = h / 2 - 3, ops = [];
+  for (let i = 0; i < 4; i++) ops.push(["ell", cx, cy, rx * (1 - i * 0.22), ry * (1 - i * 0.22), ["a", "A", "x", "C"][i]]);
+  for (let i = 0; i < 10; i++) { const a = i * 0.9; ops.push(["px", Math.floor(cx + Math.cos(a) * rx * (0.3 + i * 0.06)), Math.floor(cy + Math.sin(a) * ry * (0.3 + i * 0.06)), "w"]); }
+  return ops; };
+const orrery = D([["rect", 30, 40, 4, 18, "Y"], ["rect", 20, 56, 24, 5, "Y"], ["ell", 32, 28, 26, 8, "C"], ["ell", 32, 28, 23, 6, "x"], ["ell", 32, 28, 13, 13, "A"], ["ell", 28, 24, 4, 3, "C"], ["ell", 8, 24, 3, 3, "c"], ["ell", 56, 32, 3, 3, "r"]], 64, 64);
+const ring = D([["ell", 16, 19, 10, 10, "Y"], ["ell", 16, 19, 6.5, 6.5, "x"], ["ell", 16, 9, 5, 5, "A"], ["ell", 15, 8, 1.5, 1.5, "w"], ["px", 10, 14, "y"]]);
+const beads = D([...Array.from({ length: 12 }, (_, i) => ["ell", 16 + Math.cos(i * Math.PI / 6) * 10, 14 + Math.sin(i * Math.PI / 6) * 10, 2.5, 2.5, i % 3 ? "n" : "A"]), ["rect", 15, 24, 2, 5, "Y"], ["poly", [[16, 28], [19, 31], [13, 31]], "Y"]]);
+const idol = D([["ell", 16, 9, 7, 7, "A"], ["poly", [[9, 14], [23, 14], [25, 30], [7, 30]], "A"], ["rect", 7, 28, 18, 3, "a"], ["px", 13, 8, "C"], ["px", 18, 8, "C"], ["rect", 13, 11, 6, 1, "a"], ["rect", 11, 19, 10, 2, "a"]]);
+const anvil = D([["poly", [[2, 8], [28, 8], [28, 14], [20, 16], [12, 16], [6, 12]], "d"], ["rect", 12, 16, 8, 8, "d"], ["rect", 8, 24, 16, 5, "d"], ["rect", 2, 8, 26, 2, "g"], ["ell", 16, 5, 3, 2, "A"]]);
+const sigil = D([["ell", 16, 16, 13, 13, "Y"], ["ell", 16, 16, 10.5, 10.5, "A"], ["poly", [[16, 7], [19, 16], [16, 25], [13, 16]], "C"], ["rect", 8, 15, 16, 2, "C"], ["px", 9, 9, "w"]]);
+const fang = D([["poly", [[8, 4], [24, 4], [22, 14], [16, 30], [10, 14]], "w"], ["poly", [[16, 4], [24, 4], [22, 14], [16, 30]], "l"], ["rect", 7, 3, 18, 3, "n"], ["ell", 16, 3, 2, 2, "A"]]);
+const bucket = D([["poly", [[5, 10], [27, 10], [24, 29], [8, 29]], "g"], ["ell", 16, 10, 11, 3, "A"], ["rect", 5, 15, 22, 2, "d"], ["rect", 7, 24, 18, 2, "d"], ["ell", 16, 6, 11, 6, "d"], ["ell", 16, 6, 9, 4.5, "x"]]);
+const target = D([["ell", 16, 16, 13, 13, "w"], ["ell", 16, 16, 10, 10, "A"], ["ell", 16, 16, 6.5, 6.5, "w"], ["ell", 16, 16, 3, 3, "A"], ["poly", [[17, 15], [29, 3], [30, 4], [18, 16]], "n"], ["poly", [[27, 2], [31, 2], [31, 6]], "C"]]);
+const quiver = D([["poly", [[10, 6], [20, 6], [22, 30], [8, 30]], "n"], ["rect", 9, 12, 12, 2, "b"], ["rect", 12, 2, 1, 8, "l"], ["rect", 16, 1, 1, 9, "l"], ["poly", [[11, 0], [14, 0], [12.5, 4]], "A"], ["poly", [[15, 0], [18, 0], [16.5, 4]], "C"], ["rect", 9, 22, 12, 2, "A"]]);
+const meat = D([["rect", 4, 20, 10, 4, "w"], ["ell", 4, 19, 3, 3, "w"], ["ell", 4, 25, 3, 3, "w"], ["ell", 19, 14, 11, 10, "A"], ["ell", 17, 12, 7, 5, "C"], ["ell", 22, 17, 2, 1.5, "w"]]);
+const nugget = D([["ell", 16, 18, 12, 9, "a"], ["ell", 15, 17, 10, 8, "A"], ["ell", 21, 14, 5, 4, "A"], ["ell", 12, 14, 3, 2, "C"], ["px", 20, 12, "w"]]);
+const totem = D([["rect", 8, 8, 16, 54, "m"], ["poly", [[2, 10], [8, 8], [8, 14]], "A"], ["poly", [[30, 10], [24, 8], [24, 14]], "A"], ...[14, 32, 50].flatMap((y) => [["rect", 11, y - 3, 3, 3, "x"], ["rect", 18, y - 3, 3, 3, "x"], ["rect", 12, y + 3, 8, 2, "n"], ["rect", 8, y + 7, 16, 2, "a"]]), ["ell", 16, 6, 8, 4, "A"]], 32, 64);
+const crownArt = D(SP.ic_crown || []);
+
 // ---- which drawing each item gets: [regex on id, drawing, orientation "v" upright / "h" lying] ----
 const RULES = [
+  // batch 3 (fixed designs, fitted evenly into the footprint)
+  [/forge_bellows|stoke_bellows/, copy("it_bellows"), "v", true],
+  [/phoenix_crown/, crownArt, "v", true],
+  [/gold_scale|gilded_scale/, scales, "v", true],
+  [/whetstone|quake_stone/, stone, "v", true, "stone"],
+  [/hourglass|chrono/, hourglass, "v", true],
+  [/tide_clock|verdict_bell|tide_bell/, bell, "v", true],
+  [/clock/, clock, "v", true],
+  [/horn|whistle/, horn, "v", true],
+  [/ledger|_log$|tome|codex/, book, "v", true],
+  [/plans|chart/, scroll, "v", true],
+  [/mirror/, mirror, "v", true],
+  [/lantern|censer|pyre/, lantern, "v", true],
+  [/rain_cloud|thunderhead|toxic_rain|hailstorm/, cloud, "h", true],
+  [/armor_breaker/, pickaxe, "v", true],
+  [/oil_can/, oilcan, "v", true],
+  [/powder_keg|fuse_kit/, keg, "v", true],
+  [/upgrade_bench/, toolbox, "v", true],
+  [/cluster_bomb|timed_barrage/, cluster, "v", true],
+  [/doomsday_payload/, payload, "v", true],
+  [/rocket|bunker_buster/, rocket, "v", true],
+  [/bomb|blast|napalm/, bomb, "v", true],
+  [/spore/, mushroom, "v", true],
+  [/seed/, seed, "v", true],
+  [/feather|plume|time_ember|phoenix_ember/, feather, "v", true],
+  [/antidote|crimson_brand/, syringe, "v", true],
+  [/potion_belt/, belt, "v", true],
+  [/herb_pouch|coin_purse/, pouch, "v", true],
+  [/cauldron/, cauldron, "v", true],
+  [/mortar/, mortar, "v", true],
+  [/feeding_bowl/, bowl, "v", true],
+  [/brewing_vat/, vat, "v", true],
+  [/urn|holy_relic|panacea_pot|warm_elixir/, urn, "v", true],
+  [/vial|flask|draught|acid|catalyst|elixir|ambrosia|healing_brew/, (w, h) => (h > w ? vial(w, h) : potion(w, h)), "v", true],
+  [/potion/, potion, "v", true],
+  [/battery/, battery, "v", true],
+  [/capacitor|static_coil/, magnet, "v", true],
+  [/flux_coil/, coil, "v", true],
+  [/core|tesla_engine/, core, "v", true],
+  [/gear_box/, gear, "v", true],
+  [/chip/, chip, "v", true],
+  [/drone/, drone, "v", true],
+  [/siege_walker/, golem, "v"],
+  [/doom_turret|citadel/, castle, "v", true],
+  [/turret|flechette/, turret, "v", true],
+  [/rune/, runestone, "v", true],
+  [/wand/, wand, "v", true],
+  [/comet|shooting_star/, comet, "v", true],
+  [/twin_stars/, twinstars, "v", true],
+  [/star_orb|arcane_bolt|lucky_spark|soul_gem/, orb, "v", true],
+  [/barrage|starstorm|arcane_storm|event_horizon|void_sigil|rift/, portal, "v", true],
+  [/orrery/, orrery, "v", true],
+  [/frost_shard|ice_lance|absolute_zero|eternal_ice/, shard, "v", true, "ice"],
+  [/frost_barrier|mana_shield|aegis_ward/, roundShield, "v", true],
+  [/ring$|band$/, ring, "v", true],
+  [/beads/, beads, "v", true],
+  [/idol/, idol, "v", true],
+  [/anvil/, anvil, "v", true],
+  [/sigil/, sigil, "v", true],
+  [/alpha_fang/, fang, "v", true],
+  [/chum/, bucket, "v", true, "blood"],
+  [/siren_pearl/, (w, h) => shell(w, h, { pearl: true }), "v", true, "sea"],
+  [/death_mark/, target, "v", true, "blood"],
+  [/quiver/, quiver, "v", true],
+  [/raw_meat|prime_steak/, meat, "v", true, "blood"],
+  [/nugget/, nugget, "v", true, "gold"],
+  [/big_ruby/, gem, "v", true, "blood"],
+  [/totem/, totem, "v", true],
+  [/clover|moss/, clover, "v", true, "nature"],
+  [/herbal|thorn_vine/, sprig, "v", true, "nature"],
+  [/wreath|briar_crown|crown_of_thorns/, wreath, "v", true, "nature"],
+  [/root/, root, "v", true, "nature"],
+  [/heart/, heart, "v", true],
+  [/crystal|prism/, crystal, "v", true],
+  [/gem|magma_core/, gem, "v", true],
   // batch 2: armour and shields
   [/mountain_aegis|world_wall/, mountain, "v", true],
   [/medic_shield/, shield, "v", false, "medic"],
