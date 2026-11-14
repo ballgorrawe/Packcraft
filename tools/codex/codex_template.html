@@ -1,0 +1,203 @@
+<title>PackCraft Codex</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Noto+Sans+Thai:wght@400;600;700&display=swap">
+<style>
+/* layout: sticky tab bar + filters over dense card grids, like the in-game book */
+:root{
+  --bg:#f3eee4; --panel:#fffaf0; --ink:#2b2117; --mute:#7a6a55; --line:#d9ccb4; --accent:#b8621f; --chip:#efe5d2; --sprite:#3a2818;
+  --display:"Pixelify Sans", "Noto Sans Thai", system-ui, sans-serif;
+  --body:"Noto Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#17120d;--panel:#221a12;--ink:#efe4cf;--mute:#a8957a;--line:#3d3022;--accent:#f0a050;--chip:#2e2318;--sprite:#2a1d12;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17120d;--panel:#221a12;--ink:#efe4cf;--mute:#a8957a;--line:#3d3022;--accent:#f0a050;--chip:#2e2318;--sprite:#2a1d12;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px}
+.wrap{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;display:flex;flex-direction:column;gap:12px}
+h1{font-family:var(--display);font-size:28px;margin:0;letter-spacing:.5px;text-wrap:balance}
+h2{font-family:var(--display);font-size:20px;margin:8px 0 0}
+.sub{color:var(--mute);margin:0}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tabs button{font:inherit;font-weight:600;white-space:nowrap;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+input{flex:1 1 200px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.count{color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.wide{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--tc,var(--line));border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.top{display:flex;gap:10px;align-items:center}
+.ic{font-size:30px;line-height:1;position:relative}
+.ic .bd{position:absolute;right:-6px;bottom:-4px;font-size:13px}
+canvas.spr{width:56px;height:56px;image-rendering:pixelated;background:var(--sprite);border-radius:6px;flex:none}
+canvas.big{width:72px;height:72px}
+.nm{font-weight:700;font-size:15px;line-height:1.25}
+.en{color:var(--mute);font-size:12px}
+.row{display:flex;flex-wrap:wrap;gap:4px}
+.chip{background:var(--chip);border-radius:4px;padding:1px 6px;font-size:12px;white-space:nowrap}
+.tier{color:var(--tc);font-weight:700}
+.stats{font-variant-numeric:tabular-nums;font-size:13px}
+.d{font-size:12.5px;opacity:.9;line-height:1.5}
+.how,.list{font-size:12.5px;color:var(--mute);line-height:1.6}
+.list b{color:var(--ink);font-weight:600}
+.how button{font:inherit;background:none;border:0;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+.empty{color:var(--mute);padding:30px 0;text-align:center}
+.rules{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 16px;line-height:1.7;max-width:75ch}
+.rules h3{margin:10px 0 2px;font-size:15px}
+.rules p{margin:0}
+.elite{border-top:1px dashed var(--line);padding-top:6px;display:flex;flex-direction:column;gap:4px}
+</style>
+<div class="wrap">
+  <header><h1>📖 PackCraft Codex</h1><p class="sub">ข้อมูลทั้งหมดในเกม: ไอเทม มอน บอส คลาส สัตว์เลี้ยง อีเวนต์ กฎโลก และกติกา (ดึงจากไฟล์เกมเวอร์ชันล่าสุด)</p></header>
+  <div class="bar">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="filters" id="filters">
+      <input id="q" type="search" placeholder="ค้นหาชื่อ ไทย/อังกฤษ" aria-label="ค้นหา">
+      <select id="fc" aria-label="คลาส"></select>
+      <select id="ft" aria-label="ระดับ"></select>
+      <select id="fs" aria-label="วิธีได้มา">
+        <option value="">ทุกวิธีได้มา</option><option value="shop">ซื้อในร้าน</option><option value="evo">อีโว (2 ชิ้นเหมือนกัน)</option>
+        <option value="recipe">สูตรรวมร่าง</option><option value="mw">สุดยอดฝีมือ</option><option value="relic">เรลิกของสาย</option><option value="sig">ไอเทมประจำคลาส</option>
+      </select>
+      <select id="so" aria-label="เรียง"><option value="t">เรียง: ระดับ</option><option value="cost">เรียง: ราคา</option><option value="dmg">เรียง: ดาเมจ</option><option value="n">เรียง: ชื่อ</option></select>
+      <span class="count" id="cnt"></span>
+    </div>
+  </div>
+  <main id="view"></main>
+</div>
+<script>
+const D=__DATA__;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const by={};for(const it of D.items)by[it.id]=it;
+
+// ---- pixel sprites: the game's own shapes, drawn the same way (lit top-left, shaded bottom-right, outlined)
+const SP=D.sprites;
+function hex(h){h=h.replace("#","");return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function hit(op,x,y){switch(op[0]){
+  case"ell":return ((x-op[1])/op[3])**2+((y-op[2])/op[4])**2<=1;
+  case"rect":return x>=op[1]&&x<op[1]+op[3]&&y>=op[2]&&y<op[2]+op[4];
+  case"px":return Math.floor(x)===Math.floor(op[1])&&Math.floor(y)===Math.floor(op[2]);
+  case"poly":{let c=false;const p=op[1];for(let i=0,j=p.length-1;i<p.length;j=i++){const[xi,yi]=p[i],[xj,yj]=p[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}}return false;}
+const sprCache={};
+function spriteURL(id){
+  if(!SP.sprites[id])return null;if(sprCache[id])return sprCache[id];
+  const N=32,pal=Object.assign({},SP.palette,(SP.looks[id]||[{}])[0]);const px=new Array(N*N).fill(null);
+  for(const op of SP.sprites[id]){const col=hex(pal[op[op.length-1]]||"#ff00ff");for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(hit(op,x+.5,y+.5))px[y*N+x]=col;}
+  const src=px.slice();const at=(x,y)=>x<0||y<0||x>=N||y>=N?null:src[y*N+x];
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const c=src[y*N+x];if(!c)continue;
+    if(!at(x-1,y-1))px[y*N+x]=c.map(v=>Math.round(v+(255-v)*.15));else if(!at(x+1,y+1))px[y*N+x]=c.map(v=>Math.round(v*.75));}
+  const fin=px.slice();const line=hex(pal.K);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){if(px[y*N+x])continue;if([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>{const X=x+dx,Y=y+dy;return X>=0&&Y>=0&&X<N&&Y<N&&px[Y*N+X];}))fin[y*N+x]=line;}
+  const cv=document.createElement("canvas");cv.width=N;cv.height=N;const g=cv.getContext("2d");const img=g.createImageData(N,N);
+  fin.forEach((c,i)=>{if(c){img.data[i*4]=c[0];img.data[i*4+1]=c[1];img.data[i*4+2]=c[2];img.data[i*4+3]=255;}});g.putImageData(img,0,0);
+  return sprCache[id]=cv.toDataURL();
+}
+const spr=(id,emoji,big)=>{const u=spriteURL(id);return u?`<img class="spr${big?" big":""}" src="${u}" alt="" style="image-rendering:pixelated;width:${big?72:56}px;height:${big?72:56}px;background:var(--sprite);border-radius:6px;flex:none">`:`<span class="ic">${emoji||"❔"}</span>`;};
+const name=o=>`<div><div class="nm">${esc(o.th)}</div><div class="en">${esc(o.en)}</div></div>`;
+const itemLink=id=>by[id]?`<button data-q="${esc(by[id].th)}">${by[id].ic} ${esc(by[id].th)}</button>`:esc(id);
+
+// ---- tabs
+const TABS=[["items","🎒 ไอเทม"],["monsters","👺 มอน"],["bosses","💀 บอส"],["classes","⚔️ คลาสและสาย"],["pets","🐾 สัตว์เลี้ยง"],["events","🎲 อีเวนต์"],["world","🌐 กฎโลกและความยาก"],["rules","📜 สถานะและกติกา"]];
+let tab="items";try{tab=localStorage.getItem("codextab")||"items";}catch(e){}
+if(location.hash&&TABS.some(t=>t[0]===location.hash.slice(1)))tab=location.hash.slice(1);
+$("tabs").innerHTML=TABS.map(([k,l])=>`<button role="tab" data-tab="${k}">${l}</button>`).join("");
+$("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(b){tab=b.dataset.tab;try{localStorage.setItem("codextab",tab);}catch(err){}draw();}});
+
+// ---- items
+const SRC={shop:"🛒 ร้าน",evo:"✨ อีโว",recipe:"🔗 สูตร",mw:"👑 สุดยอดฝีมือ",relic:"🗝️ เรลิก",sig:"🎁 ประจำคลาส",other:"อื่นๆ"};
+$("fc").innerHTML='<option value="">ทุกคลาส</option><option value="-">ใช้ได้ทุกคลาส</option>'+Object.entries(D.cls).map(([k,c])=>`<option value="${k}">${c.ic} ${c.n}</option>`).join("");
+$("ft").innerHTML='<option value="">ทุกระดับ</option>'+D.tiers.slice(0,7).map((t,i)=>`<option value="${i}">${t}</option>`).join("");
+try{const s=JSON.parse(localStorage.getItem("codexf")||"{}");for(const k in s)if($(k))$(k).value=s[k];}catch(e){}
+function itemCard(it){
+  const c=it.cl?D.cls[it.cl]:null;const tc=D.tcol[it.t]||"#888";
+  const st=[];if(it.dmg)st.push(`⚔️ ${it.dmg}${it.el?" "+esc(it.el):""}`);if(it.sh)st.push(`🛡️ ${it.sh}`);if(it.hl)st.push(`💚 ${it.hl}`);if(it.cd)st.push(`⏱️ ${it.cd} วิ`);
+  const how=it.how.map(([k,ids])=>`${SRC[k]}: ${ids.map(itemLink).join(" + ")}`);
+  if(it.evo)how.push(`วาง 2 ชิ้นติดกัน อีโวเป็น ${itemLink(it.evo)}`);
+  if(it.src.includes("relic"))how.push(`🗝️ ได้เมื่อเลือกสาย ${esc(it.path)}`);
+  if(it.sig)how.push(it.sig==1?"🎁 ปลดเมื่อชนะครั้งแรกกับคลาสนี้":"🎁 ปลดเมื่อความชำนาญคลาสนี้ถึงเลเวล 5");
+  return `<article class="card" style="--tc:${tc}"><div class="top"><span class="ic">${it.ic}${it.bd?`<span class="bd">${it.bd}</span>`:""}</span><div><div class="nm">${esc(it.th)}</div><div class="en">${esc(it.n)}</div></div></div>
+  <div class="row"><span class="chip tier">${esc(D.tiers[it.t])}</span><span class="chip">${c?c.ic+" "+esc(c.n):"ทุกคลาส"}</span>${it.src.includes("shop")?`<span class="chip">🪙 ${it.cost}</span>`:""}<span class="chip">⬛ ${it.cells} ช่อง</span>${it.src.map(s=>`<span class="chip">${SRC[s]}</span>`).join("")}</div>
+  ${st.length?`<div class="stats">${st.join(" · ")}</div>`:""}
+  ${it.tags.length?`<div class="row">${it.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div>`:""}
+  ${it.d?`<div class="d">${esc(it.d)}</div>`:""}
+  ${how.length?`<div class="how">${how.join("<br>")}</div>`:""}</article>`;
+}
+function drawItems(q){
+  const fc=$("fc").value,ft=$("ft").value,fs=$("fs").value,so=$("so").value;
+  try{localStorage.setItem("codexf",JSON.stringify({fc,ft,fs,so}));}catch(e){}
+  let L=D.items.filter(it=>(!fc||(fc=="-"?!it.cl:it.cl==fc))&&(ft===""||it.t==ft)&&(!fs||it.src.includes(fs))&&(!q||(it.th+" "+it.n+" "+it.tags.join(" ")).toLowerCase().includes(q)));
+  L.sort((a,b)=>so=="n"?a.th.localeCompare(b.th,"th"):so=="cost"?a.cost-b.cost:so=="dmg"?b.dmg-a.dmg:(a.t-b.t)||a.th.localeCompare(b.th,"th"));
+  $("cnt").textContent=`${L.length} / ${D.items.length} ชิ้น`;
+  return `<div class="grid">${L.length?L.map(itemCard).join(""):'<div class="empty">ไม่พบไอเทม ลองล้างคำค้นหรือตัวกรอง</div>'}</div>`;
+}
+// ---- monsters and bosses
+const mlist=items=>`<div class="list">${items.map(m=>`${m.ic} <b>${esc(m.th)}</b> <span class="chip">ระดับ ${m.t}</span> ทุก ${m.cd} วิ: ${esc(m.fx)}`).join("<br>")}</div>`;
+const BAND={1:"ชั้น 1-5",6:"ชั้น 6-10",11:"ชั้น 11-15"};
+function drawMonsters(q){
+  const L=D.monsters.filter(m=>!q||(m.th+m.en+(m.elite?m.elite.th+m.elite.en:"")).toLowerCase().includes(q));
+  let html="";
+  for(const b of [1,6,11]){const g=L.filter(m=>m.band==b);if(!g.length)continue;
+    html+=`<h2>${BAND[b]}</h2><div class="grid wide">`+g.map(m=>`<article class="card"><div class="top">${spr(m.sprite,m.ic)}${name(m)}</div>
+      <div class="row"><span class="chip">${m.style.ic} ${esc(m.style.th)}</span></div><div class="d">${esc(m.style.d)}</div>
+      ${mlist(m.items)}
+      ${m.ult?`<div class="how">💥 ท่าไม้ตาย (ระดับ Nightmare ขึ้นไป): <b>${m.ult.ic} ${esc(m.ult.th)}</b> ${esc(m.ult.d)}</div>`:""}
+      ${m.elite?`<div class="elite"><div class="top">${spr(m.elite.sprite,m.elite.ic)}<div><div class="nm">⭐ อีลิท: ${esc(m.elite.th)}</div><div class="en">${esc(m.elite.en)}</div></div></div>
+        <div class="d">${esc(m.elite.d)}</div><div class="row">${m.elite.traits.map(t=>`<span class="chip" title="${esc(t.d)}">${t.ic} ${esc(t.th)}</span>`).join("")}</div>
+        <div class="list">ไอเทมประจำตัว: ${m.elite.item.ic} <b>${esc(m.elite.item.th)}</b> ทุก ${m.elite.item.cd} วิ: ${esc(m.elite.item.fx)}</div></div>`:""}
+    </article>`).join("")+`</div>`;}
+  $("cnt").textContent=`${L.length} ตระกูล`;
+  return html||'<div class="empty">ไม่พบมอน</div>';
+}
+function drawBosses(q){
+  const L=D.bosses.filter(b=>!q||(b.th+b.en).toLowerCase().includes(q)).sort((a,b)=>a.floor-b.floor);
+  $("cnt").textContent=`${L.length} บอส`;
+  return `<div class="grid wide">`+L.map(b=>`<article class="card"><div class="top">${spr(b.sprite,b.ic,true)}${name(b)}</div>
+    <div class="row"><span class="chip">บอสชั้น ${b.floor}</span><span class="chip">❤️ ${b.hp}</span><span class="chip">⚔️ ${b.atk} / ${b.cd} วิ</span>${b.imm?`<span class="chip">🛡️ ต้าน ${esc(b.imm)}</span>`:""}${b.weak?`<span class="chip">💥 แพ้ ${esc(b.weak)}</span>`:""}</div>
+    ${b.mech?`<div class="d"><b>${b.mech.ic} ${esc(b.mech.th)}</b>: ${esc(b.mech.d)}</div>`:""}
+    <div class="how">กระเป๋าบอส:</div>${mlist(b.pack)}
+    <div class="how">ดรอป: ${b.drops.map(x=>`${x.ic} ${esc(x.th)} (${x.w})`).join(", ")}</div></article>`).join("")+`</div>`;
+}
+// ---- classes, pets, events
+function drawClasses(q){
+  const L=D.classes.filter(c=>!q||(c.th+c.en+c.paths.map(p=>p.th+p.en).join("")).toLowerCase().includes(q));
+  $("cnt").textContent=`${L.length} คลาส`;
+  return `<div class="grid wide">`+L.map(c=>`<article class="card" style="--tc:${c.col}"><div class="top">${spr(c.sprite,c.ic,true)}${name(c)}</div>
+    <div class="d">${esc(c.d)}</div><div class="row">${c.stats.map(([s,v])=>`<span class="chip">${esc(s)} ${"■".repeat(v)}</span>`).join("")}</div>
+    <div class="how">เริ่มด้วย: ${c.start.map(itemLink).join(", ")}</div>
+    ${c.ult?`<div class="d"><b>${c.ult.ic} ท่าไม้ตาย ${esc(c.ult.th)}</b>: ${esc(c.ult.d)}</div>`:""}
+    <div class="list">${c.paths.map(p=>`<b>${p.ic} ${esc(p.th)}</b>: ${esc(p.d)}<br>เรลิก: ${itemLink(p.relic)}${p.mw?` · สุดยอดฝีมือ: ${p.mw.parts.map(itemLink).join(" + ")} = ${itemLink(p.mw.r)}`:""}`).join("<br><br>")}</div>
+    ${c.comp.length?`<div class="how">${c.comp.map(esc).join("<br>")}</div>`:""}</article>`).join("")+`</div>`;
+}
+function simple(list,label,big){return `<div class="grid">`+list.map(x=>`<article class="card"><div class="top">${x.sprite?spr(x.sprite,x.ic,big):`<span class="ic">${x.ic||""}</span>`}${name(x)}</div><div class="d">${esc(x.d)}</div>${x.extra||""}</article>`).join("")+`</div>`;}
+function drawPets(q){const L=D.pets.filter(p=>!q||(p.th+p.en).toLowerCase().includes(q));$("cnt").textContent=`${L.length} ตัว`;return simple(L);}
+function drawEvents(q){const L=D.events.filter(p=>!q||(p.th+p.en).toLowerCase().includes(q));$("cnt").textContent=`${L.length} แบบ`;
+  return `<p class="sub">อีเวนต์เจอตั้งแต่ชั้น 3 เป็นทางเลือกแทนการสู้ · บ่อนพนันสุ่ม 1 ใน 3 เกมทุกครั้ง</p>`+simple(L);}
+function drawWorld(q){$("cnt").textContent="";
+  return `<h2>ระดับความยาก</h2>`+simple(D.diffs.map(x=>({...x,extra:`<div class="row"><span class="chip">❤️ มอน ×${x.hp}</span><span class="chip">⚔️ มอน ×${x.dps}</span></div>`})))+
+  `<h2>กฎโลก (สุ่ม 1 อย่างต่อรัน)</h2>`+simple(D.mods)+`<h2>อันตรายประจำชั้น (บางชั้นตั้งแต่ชั้น 3)</h2>`+simple(D.hazards)+
+  `<h2>สกิลของมอน</h2>`+simple(D.traits.map(t=>({...t,d:t.d||"—"})));}
+function drawRules(){$("cnt").textContent="";
+  return `<h2>สถานะ</h2>`+simple(D.statuses)+`<h2>โบนัสเลเวล (เลือก 1 ใน 3 ทุก 5 เลเวล)</h2>`+simple(D.picks)+
+  `<h2>กติกา</h2><div class="rules">
+  <h3>🎒 กระเป๋าและการวาง</h3><p>ลากของจากร้านเข้ากระเป๋าเพื่อซื้อ ลากกลับไปร้านเพื่อขาย ลากลงกล่องเพื่อเก็บ แตะของที่วางแล้วซ้ำเพื่อหมุน ของที่วางติดกันเสริมพลังกัน (✨) 🪄 จัดกระเป๋าให้อัตโนมัติ กด ↩️ ย้อนได้</p>
+  <h3>✨ อีโว รวมร่าง สุดยอดฝีมือ</h3><p>ของชิ้นเดียวกัน 2 ชิ้นวางติดกัน คืนนั้นอีโวเป็นของใหม่ · คู่สูตรวางติดกัน คืนนั้นรวมร่าง · หลังเลือกสาย (หลังบอสชั้น 5) ได้เรลิกของสาย วางให้ติดกับของ 2 ชิ้นตามสูตรแล้วกลายเป็นสุดยอดฝีมือ ได้ 1 ชิ้นต่อเกม</p>
+  <h3>⚔️ การต่อสู้</h3><p>กระเป๋าสู้เอง ไอเทมแต่ละชิ้นชาร์จแล้วทำงานตามเวลา ทุกครั้งที่ใช้ไอเทมเติมเกจท่าไม้ตาย · มอนที่ต้านธาตุรับดาเมจธาตุนั้นแค่ 20% · มอนที่แพ้ธาตุรับ 150% · โล่กันดาเมจก่อนเลือด</p>
+  <h3>❤️ หัวใจและเลือด</h3><p>เลือดติดตัวข้ามชั้น · แพ้ไฟต์เสียหัวใจ 1 ดวงแล้วฟื้นที่ 50% · หัวใจหมดคือจบเกม · ล้มบอสได้หัวใจคืน 1 ดวง (มีสูงสุด 3 ดวง, โหมดไม่รู้จบ 5 ดวง)</p>
+  <h3>⭐ เลเวล</h3><p>ได้ EXP จากการชนะ: สู้ธรรมดา 3, อีลิทและซุ่มโจมตี 4, บอสและมินิบอส 5 · ทุกเลเวลเพิ่ม HP และดาเมจ · ทุก 5 เลเวลเลือกโบนัส 1 อย่าง</p>
+  <h3>🗺️ เส้นทาง</h3><p>15 ชั้น บอสที่ชั้น 5, 10, 15 · มินิบอสชั้น 3, 8, 13 · อีลิทและซุ่มโจมตีให้ของระดับหายากขึ้นไปและ +1 ช่องกระเป๋า · มอนแบ่งตามช่วงชั้น 1-5, 6-10, 11-15 แต่ละตระกูลมีอีลิทเฉพาะตัว</p>
+  <h3>🏅 ความชำนาญ</h3><p>ทุกรันได้ XP ของคลาสนั้นทั้งชนะและแพ้ · 10 เลเวล · ได้แต้มทักษะ (เอียงร้านไปสายที่ชอบ, ของเริ่มต้น, สุ่มร้านฟรี) และของแต่งทุกเลเวล</p>
+  <h3>🎮 โหมดอื่น</h3><p>♾️ ไม่รู้จบ: เล่นต่อหลังชั้น 15 บอสทุก 5 ชั้น · 👑 ล่าบอส: อีเวนต์ 10 ชั้น แล้วบอส 5 ตัวติด · 🎓 ด่านฝึกคลาส · 🧩 ปริศนาจัดกระเป๋า</p>
+  </div>`;}
+function draw(){
+  for(const b of $("tabs").children)b.setAttribute("aria-selected",b.dataset.tab===tab);
+  for(const id of ["fc","ft","fs","so"])$(id).hidden=tab!=="items";
+  const q=$("q").value.trim().toLowerCase();
+  $("view").innerHTML={items:drawItems,monsters:drawMonsters,bosses:drawBosses,classes:drawClasses,pets:drawPets,events:drawEvents,world:drawWorld,rules:drawRules}[tab](q);
+}
+for(const id of ["q","fc","ft","fs","so"])$(id).addEventListener("input",draw);
+$("view").addEventListener("click",e=>{const b=e.target.closest("button[data-q]");if(b){tab="items";$("q").value=b.dataset.q;$("fc").value="";$("ft").value="";$("fs").value="";draw();window.scrollTo({top:0});}});
+draw();
+</script>
