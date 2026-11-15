@@ -854,6 +854,10 @@ func _pro_morning(r: RunState) -> void:
 			if not s.is_empty():
 				_pro_put(relic, s)
 			var v := _pro_value(r, benches)
+			# a path whose Masterwork is already partly built is worth more: the full build is the aim
+			var gs: Array = r.mw_goal().get("steps", [])
+			if not gs.is_empty():
+				v += float(pro_cfg.get("pathgoal", 1.5)) * gs.filter(func(q): return q.done).size() / float(gs.size())
 			r.items.erase(relic)
 			r.path = ""
 			if tr_on:
@@ -900,14 +904,33 @@ func _pro_morning(r: RunState) -> void:
 		if not bought:
 			break
 	_unlock_all(r)
-	# relics and storage items into their best spots
+	# relics and storage items into their best spots (Masterwork pieces too: they fuse only in the pack)
+	var keep: Dictionary = _pro_build_tags(r).keep
 	for it in r.storage_items():
 		it.loc = "held"
 		var s := _pro_spot(r, it)
-		if not s.is_empty() and (s.g > 0.05 or it.def().relic):
+		# a Masterwork piece with no room: make room by moving the weakest other items to storage
+		var guard := 0
+		while s.is_empty() and keep.has(it.id) and guard < 4:
+			guard += 1
+			var weak: PItem = null
+			var wv := 99.0
+			for g in r.grid_items():
+				if g.def().relic or keep.has(g.id):
+					continue
+				var c := _pro_contrib(r, g)
+				if c < wv:
+					wv = c
+					weak = g
+			if weak == null:
+				break
+			weak.loc = "storage"
+			s = _pro_spot(r, it)
+		if not s.is_empty() and (s.g > 0.05 or it.def().relic or keep.has(it.id)):
 			_pro_put(it, s)
 		else:
 			it.loc = "storage"
+	_pro_assemble_mw(r)
 	# rearrange: every pack item moves to its best spot (a few passes, kept only if the fight agrees)
 	var passes := int(pro_cfg.get("place", 1.0))
 	var snap := r.grid_items().map(func(g): return [g, g.x, g.y, g.rot])
@@ -924,6 +947,72 @@ func _pro_morning(r: RunState) -> void:
 			sn[0].rot = sn[3]
 		r.calc()
 	_pro_shop(r, benches)
+
+
+## Pieces that would fuse or evolve tonight (Masterwork first, then recipes and same-item pairs) but do not
+## touch: lay them out together first, then put the rest of the pack back around them, strongest first.
+## Moving one item at a time never opens a spot beside a piece in a full pack, so they stayed apart.
+const ASSEMBLE_MAX := 3
+
+func _pro_assemble_mw(r: RunState) -> void:
+	var linked := {}
+	for l in r.links():
+		for k in ["a", "b", "c"]:
+			if l.get(k) != null:
+				linked[l[k]] = true
+	var used := {}
+	var groups := []
+	var mw := GameData.path_mw(r.path)
+	# the Masterwork, then the fusions on the way to it (the 👑 goal), then any other fusion or evolution
+	var on_road := {}
+	for st in r.mw_goal().get("steps", []):
+		if st.t == "link" and not st.done:
+			on_road[st.r] = true
+	var road := GameData.recipes.filter(func(rc): return not rc.mw and on_road.has(rc.r))
+	var recs := ([mw] if not mw.is_empty() and not r.mw_done else []) + road + GameData.recipes.filter(func(rc): return not rc.mw and not on_road.has(rc.r))
+	for rc in recs:
+		if groups.size() >= ASSEMBLE_MAX or not r.recipe_ok(rc) or not r.in_class_pool(rc.r):
+			continue
+		var ids: Array = [rc.a, rc.b] + ([rc.c] if str(rc.get("c", "")) != "" else [])
+		var parts := []
+		for id in ids:
+			var found: PItem = null
+			for it in r.items:
+				if it.id == id and it.loc in ["grid", "storage"] and not parts.has(it) and not used.has(it):
+					found = it
+					break
+			if found == null:
+				break
+			parts.append(found)
+		if parts.size() < ids.size() or parts.all(func(p): return linked.has(p)):
+			continue
+		for p in parts:
+			used[p] = true
+		groups.append(parts)
+	if groups.is_empty():
+		return
+	var others := r.grid_items().filter(func(g): return not used.has(g))
+	var order := others.map(func(g): return [g, _pro_contrib(r, g)])
+	order.sort_custom(func(x, y): return x[1] > y[1])
+	for g in r.grid_items():
+		g.loc = "storage"
+	for grp in groups:
+		for p in grp:
+			p.loc = "held"
+			var s := _pro_spot(r, p)
+			if s.is_empty():
+				p.loc = "storage"
+			else:
+				_pro_put(p, s)
+	for o in order:
+		var g: PItem = o[0]
+		g.loc = "held"
+		var s2 := _pro_spot(r, g)
+		if s2.is_empty():
+			g.loc = "storage"
+		else:
+			_pro_put(g, s2)
+	r.calc()
 
 
 func _pro_rearrange(r: RunState) -> void:
@@ -961,7 +1050,7 @@ func _pro_shop(r: RunState, benches: Array) -> void:
 				var e0: Dictionary = r.shop[i]
 				if e0.has("bag") or e0.price <= r.gold or e0.price > r.gold + income_next:
 					continue
-				var fv0 := _pro_fusion_value(r, e0.id)
+				var fv0 := _pro_fusion_value(r, e0.id) + (6.0 if build.need.has(e0.id) else 0.0)   # save up for a missing Masterwork piece
 				if fv0 > 0.5 and (target.is_empty() or fv0 / e0.price > target.score):
 					target = {"i": i, "id": e0.id, "price": e0.price, "score": fv0 / e0.price, "fv": fv0}
 		for i in r.shop.size():
@@ -978,7 +1067,7 @@ func _pro_shop(r: RunState, benches: Array) -> void:
 				var weak: PItem = null
 				var wv := 99.0
 				for g in r.grid_items():
-					if g.def().relic or g == tmp:
+					if g.def().relic or g == tmp or build.keep.has(g.id):
 						continue
 					var c := _pro_contrib(r, g)
 					if c < wv:
@@ -1067,7 +1156,7 @@ func _pro_shop(r: RunState, benches: Array) -> void:
 		break
 	# storage: sell what cannot help (keep fusion partners, starters and relics)
 	for it in r.storage_items():
-		if it.def().relic or it.starter:
+		if it.def().relic or it.starter or build.keep.has(it.id):
 			continue
 		if not it.def().tags.has("Treasure") and _pro_seed_bonus(r, it.id) > 0.0 and r.storage_items().filter(func(q): return _pro_seed_bonus(r, q.id) > 0.0).size() <= 2:
 			continue
@@ -1185,7 +1274,16 @@ func _pro_build_tags(r: RunState) -> Dictionary:
 			for t in GameData.items[id].tags:
 				if t != "Weapon":
 					tags[t] = true
-	return {"tags": tags, "parts": parts}
+	# the 👑 goal panel: what is still missing for the path's Masterwork, and every piece on the way
+	var goal := r.mw_goal()
+	var keep := {}
+	for st in goal.get("steps", []):
+		for k in ["id", "r"]:
+			if st.has(k):
+				keep[st[k]] = true
+		for q in st.get("ids", []):
+			keep[q] = true
+	return {"tags": tags, "parts": parts, "need": goal.get("need", {}), "keep": keep}
 
 
 ## Future value of an item for this build (on top of what it adds today).
@@ -1199,6 +1297,8 @@ func _pro_build_bonus(r: RunState, id: String, build: Dictionary) -> float:
 			break
 	if build.parts.has(id):
 		b += float(pro_cfg.get("cap", 3.0))
+	if build.get("need", {}).has(id):
+		b += float(pro_cfg.get("goal", 10.0))   # the full build is the aim: Masterwork pieces come first
 	if r.recipe_partner_owned(id):
 		b += float(pro_cfg.get("fuse", 3.0))
 	else:

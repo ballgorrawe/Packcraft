@@ -11,7 +11,7 @@ var porg := Vector2i.ZERO   # top-left unlocked tile; the fight view shows only 
 
 var sim: CombatSim
 var run: RunState
-var speed := 1
+var speed := 1.0              # fight speed: 0.5, 1, 2 or 4 (99 while skipping)
 var _acc := 0.0
 var _end_wait := -1.0
 var _t := 0.0
@@ -177,7 +177,9 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	ur.add_child(res_lbl)
 	hv.add_child(ur)
 	var ulr := UI.hbox(8)
-	ult_lbl = UI.lbl(r.cls_def().ult.ic + " " + tr(r.cls_def().ult.n), roundi(14 * ks), Color("#fde68a"), true)
+	var ud: Dictionary = s.ult_def
+	var ut: String = (ud.ic + " " + tr(ud.n) + ("" if s.ult_k >= 1.0 else "  ·  " + tr("weak"))) if not ud.is_empty() else "⭐ " + tr("No Ultimate yet")
+	ult_lbl = UI.lbl(ut, roundi(14 * ks), Color("#fde68a") if s.ult_k >= 1.0 else Color("#cbb98a"), true)
 	ulr.add_child(ult_lbl)
 	ult_bar = _bar(Color("#ffd84a"), roundi(16 * ks))
 	ult_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -224,18 +226,19 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	v.add_child(log_lbl)
 
 	# the chosen speed is remembered in settings, so every fight starts at it
-	var saved: int = int(SaveGame.get_setting("combat_speed", 1))
-	speed = saved if saved in [1, 2, 4] else 1
+	const SPEEDS := [0.5, 1.0, 2.0, 4.0]
+	var saved := float(SaveGame.get_setting("combat_speed", 1.0))
+	speed = saved if saved in SPEEDS else 1.0
 	var sp := UI.hbox(8)
 	var sbs: Array[Button] = []
-	for k in [1, 2, 4]:
-		var kk: int = k
-		var sb := UI.btn("%d×" % k, func():
+	for k in SPEEDS:
+		var kk: float = k
+		var sb := UI.btn(("%s×" % ("0.5" if kk < 1.0 else str(int(kk)))), func():
 			speed = kk
 			SaveGame.set_setting("combat_speed", kk)
 			for i in sbs.size():
-				sbs[i].theme_type_variation = "Btn_blue" if [1, 2, 4][i] == kk else "Btn_gray", false, 20, "blue" if k == speed else "gray")
-		sb.custom_minimum_size.x = 80
+				sbs[i].theme_type_variation = "Btn_blue" if SPEEDS[i] == kk else "Btn_gray", false, 20, "blue" if k == speed else "gray")
+		sb.custom_minimum_size.x = 72
 		sbs.append(sb)
 		sp.add_child(sb)
 	sp.add_child(UI.spacer())
@@ -343,10 +346,16 @@ func _show_ult_info(on: bool) -> void:
 func _fill_ult_info() -> void:
 	if _ult_info_lbl == null:
 		return
-	var u: Dictionary = run.cls_def().ult
+	var u: Dictionary = sim.ult_def
 	var rd := sim.res_def()
-	var t := "[b][color=#ffe14a]%s %s[/color][/b]\n%s\n" % [u.ic, tr(u.n), tr(u.d)]
-	t += "[color=#fde68a]⚡ " + tr("Charges +1 every time one of your items triggers.") + " [b]%d / %d[/b][/color]\n\n" % [floori(sim.ult), sim.ult_need]
+	var t := ""
+	if u.is_empty():
+		t = "[b][color=#ffe14a]⭐ %s[/color][/b]\n%s\n\n" % [tr("No Ultimate yet"), tr("Choose your path to get its Ultimate.")]
+	else:
+		t = "[b][color=#ffe14a]%s %s[/color][/b]\n%s\n" % [u.ic, tr(u.n), tr(u.d)]
+		if sim.ult_k < 1.0:
+			t += "[color=#fdba74]" + tr("Weak until you make your path's Masterwork: %d%% power, charges slower.") % roundi(sim.ult_k * 100) + "[/color]\n"
+		t += "[color=#fde68a]⚡ " + tr("Charges +1 every time one of your items triggers.") + " [b]%d / %d[/b][/color]\n\n" % [floori(sim.ult), sim.ult_need]
 	t += "[b][color=#7dd3fc]%s %s: %d[/color][/b]\n%s" % [rd.ic, tr(rd.n), sim.resv, tr(rd.d)]
 	if not _wide:
 		t += "\n[color=#9ca3af][i]" + tr("Tap again to close.") + "[/i][/color]"
@@ -596,13 +605,10 @@ func _process(delta: float) -> void:
 		return
 	if _foe_info:
 		return   # paused while you read what the monster does
-	_acc += delta
+	_acc += delta * speed   # 0.5× steps every other tick, 4× four per tick
 	while _acc >= CombatSim.TICK and not sim.done:
 		_acc -= CombatSim.TICK
-		for _k in speed:
-			sim.step()
-			if sim.done:
-				break
+		sim.step()
 	_handle(sim.take_events())
 	_refresh()
 	pack.queue_redraw()

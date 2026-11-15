@@ -37,6 +37,9 @@ var ult := 0.0                # ultimate meter (item triggers)
 var ult_need := 24
 var ult_lock := 0             # ticks the Ultimate bar cannot fill after it fired
 var ults := 0
+var ult_def := {}           # the path's Ultimate this fight ({} = none: no path chosen yet)
+var ult_k := 1.0            # its power: 1 with the path's Masterwork in the pack, less without
+var _pierce_all := false    # World Cleave: this hit ignores Armor
 var sp := {}                # specials present in the pack
 var turrets := 0
 var gold_mult := 1.0
@@ -122,7 +125,9 @@ func _init(r: RunState, n: Dictionary, is_preview := false) -> void:
 	php = r.hp
 	mhp = r.mhp
 	rg = r.regen()
-	ult_need = maxi(5, roundi(r.cls_def().ult.need * (1.0 - r.pv("ult"))))
+	ult_def = r.ult_def()
+	ult_k = r.ult_power()
+	ult_need = maxi(5, roundi(float(ult_def.get("need", 24)) * (1.0 if ult_k >= 1.0 else RunState.ULT_BASE_NEED) * (1.0 - r.pv("ult"))))
 	shield = r.pv("shield")   # pet: start the fight shielded
 	for k in GameData.statuses:
 		var s: Dictionary = GameData.statuses[k]
@@ -323,7 +328,7 @@ func _defense_mult(is_mag: bool, pierce: float) -> float:
 
 ## Armor Pierce of a hit: the item's own, Arsenal turrets (all of it), Forgeblade Heat.
 func _pierce(x) -> float:
-	var p := 1.0 if sp.has("colossus_pierce") else 0.0   # Colossus: every Physical hit, Titan strikes too
+	var p := 1.0 if sp.has("colossus_pierce") or _pierce_all else 0.0   # Colossus: every Physical hit, Titan strikes too
 	if x == null:
 		return p
 	p += x.f.get("pierce", 0.0)
@@ -615,7 +620,7 @@ func fire(idx: int) -> void:
 	var rd := res_def()
 	if rd.gain == "trigger_tag" and d.tags.has(rd.tag) and not _echoing:
 		_gain_res("trigger_tag", 1.0)
-	if ult_lock <= 0 and not _echoing:   # Starcaller echoes do not charge the Ultimate
+	if ult_lock <= 0 and not _echoing and not ult_def.is_empty():   # Starcaller echoes do not charge the Ultimate
 		ult += 1.0
 	if ult >= ult_need:
 		ult = 0.0
@@ -719,57 +724,112 @@ func _charge(idx: int, sec: float) -> void:
 
 
 func fire_ult() -> void:
-	var u: Dictionary = run.cls_def().ult
+	var u := ult_def
+	var k := ult_k   # the path's Masterwork in the pack: full power, else RunState.ULT_BASE
 	ults += 1
 	_ev({"t": "ult", "n": u.n, "ic": u.ic})
 	_log(I18n.t("%s %s!") % [u.ic, I18n.t(u.n)])
 	var on: Dictionary = u.on
-	var dmg: float = on.dmg + on.dmg_per_res * resv
+	var dmg: float = (on.dmg + on.dmg_per_res * resv) * k
+	var hits := 1
+	var heal_dmg := 0.0   # part of the damage dealt that heals you
 	match u.sp:
-		"shield_slam":
-			dmg += shield * 3.0
+		"solar_flare":
+			dmg += 2.0 * fs.get("burn", 0.0) * k
+			fs["burn"] = 0.0
+		"pierce_all":
+			_pierce_all = true
+		"heal_pct":
+			heal(mhp * 0.25 * k)
 		"double_poison":
 			if fs.get("poison", 0.0) > 0:
-				add_status("poison", fs.poison * 0.5)
-		"full_charge":
+				add_status("poison", fs.poison * k)
+		"midas":
+			dmg += minf(120.0, 1.5 * float(run.gold)) * k
+		"fire_bomb", "fire_turret", "fire_ranged", "fire_beast":
+			var tag: String = {"fire_bomb": "Bomb", "fire_turret": "Turret", "fire_ranged": "Ranged", "fire_beast": "Beast"}[u.sp]
+			var times := 2 if u.sp == "fire_turret" and k >= 1.0 else 1
+			var n := 0
+			for _t in times:
+				for idx in items.size():
+					var y: Dictionary = items[idx]
+					if y.d.tags.has(tag) and not y.d.once and y.lock <= 0:
+						y.p = 0.0
+						fire(idx)
+						n += 1
+			if u.sp == "fire_ranged":
+				dodge += 2 if k >= 1.0 else 1
+			if u.sp == "fire_beast" and n > 0:
+				add_status("bleed", 3.0 * n * k)
+		"full_charge", "charge_rune", "charge_sea":
+			var tag2: String = {"full_charge": "", "charge_rune": "Rune", "charge_sea": "Sea"}[u.sp]
 			for y in items:
-				if not y.d.once and y.lock <= 0:
+				if not y.d.once and y.lock <= 0 and (tag2 == "" or y.d.tags.has(tag2)):
 					y.p = y.cd
+		"volley5":
+			hits = 5
+		"titan_slam":
+			dmg += mhp * 0.3 * k
+		"stun25":
+			freeze_t = maxi(freeze_t, roundi(25 * k))
+		"hemorrhage":
+			var bl: float = fs.get("bleed", 0.0)
+			if bl > 0:
+				add_status("bleed", bl * k)
+				heal(fs.get("bleed", 0.0) * 0.5)
 		"shadowstep":
 			dodge += 1
 			next_crit = true
+		"freeze30":
+			freeze_t = maxi(freeze_t, roundi(30 * k))
+		"void_cost":
+			php = maxf(1.0, php - php * 0.1)
 		"supernova":
 			resv = 0   # all Mana spent (the damage above already counted it)
-			freeze_t = 20
-		"maelstrom":
-			freeze_t = 15
-			if resv > 0:
-				damage(null, 2.0 * mini(resv, 15), "Water", 0, 2, u.ic)
-		"judgement":
-			var hi := maxf(dmg_phys, dmg_mag)
-			var balanced := hi > 0 and minf(dmg_phys, dmg_mag) >= hi * 0.7
-			var k := 2.0 if balanced else 1.0
-			damage(null, 15.0 * k, "Physical", 0, 2, u.ic)
-			damage(null, 15.0 * k, "Arcane", 0, 2, u.ic)
-			if balanced:
-				heal(12)
-				_log(I18n.t("⚖️ Perfect balance: Judgement strikes twice as hard!"))
+			freeze_t = maxi(freeze_t, 20)
+		"drain_half":
+			heal_dmg = 0.5
+		"shield_smite":
+			gain_shield(on.shield * k)
+			dmg += shield
+		"spirit_bloom":
+			var n2 := 0
+			for y in items:
+				if y.d.tags.has("Beast") or y.d.tags.has("Totem"):
+					n2 += 1
+			if n2 > 0:
+				heal(5.0 * n2 * k)
 		"alpha_roar":
 			var beasts := 0
-			for bi in items.size():
-				if items[bi].d.tags.has("Beast"):
+			for y in items:
+				if y.d.tags.has("Beast"):
 					beasts += 1
 			if beasts > 0:
-				gain_shield(2.0 * beasts)
+				gain_shield(2.0 * beasts * k)
+		"maelstrom":
+			freeze_t = maxi(freeze_t, 15)
+			if resv > 0:
+				damage(null, 2.0 * mini(resv, 15) * k, "Water", 0, 2, u.ic)
 	if dmg > 0:
-		var v := damage(null, dmg, on.el if on.el != "" else "Physical", 0, 2, u.ic)
-		_num("foe", u.ic + " " + GameData._num(v), Color("#ffe14a"), true)
-	for k in on.st:
-		add_status(k, on.st[k])
+		var tot := 0.0
+		for _h in hits:
+			tot += damage(null, dmg, on.el if on.el != "" else "Physical", 0, 2, u.ic)
+		_pierce_all = false
+		_num("foe", u.ic + " " + GameData._num(tot), Color("#ffe14a"), true)
+		if heal_dmg > 0:
+			heal(tot * heal_dmg)
+	_pierce_all = false
+	for st in on.st:
+		if st == "thorns":
+			hs["thorns"] = hs.get("thorns", 0.0) + on.st[st] * k
+		else:
+			add_status(st, on.st[st] * k)
+	if on.shield > 0 and u.sp != "shield_smite":
+		gain_shield(on.shield * k)
 	if on.heal > 0:
-		heal(on.heal)
+		heal(on.heal * k)
 	if not on.haste.is_empty():
-		hastes.append({"v": on.haste[0], "t": roundi(on.haste[1] * 10)})
+		hastes.append({"v": on.haste[0] * k, "t": roundi(on.haste[1] * 10)})
 
 
 func step() -> void:

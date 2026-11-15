@@ -17,6 +17,8 @@ var sel_mode := ""             # "rush" when the new run is a Boss Rush
 var show_how := false
 var show_book := false
 var show_effects := false      # the 📜 popup (what affects this run)
+var _replay_sim: CombatSim = null   # watching the last fight again (from the night screen)
+var show_goal := false         # the 👑 Masterwork goal panel
 var show_pause := false        # the ⏸️ menu (resume / main menu / give up)
 var _pause_quit := false       # its give-up step, asking to confirm
 var arr_plan := {}             # 🪄 hint (puzzles): the best layout found, drawn as outlines until closed or done
@@ -72,6 +74,7 @@ var _pending_sim: CombatSim = null
 
 
 func _ready() -> void:
+	RunState.keep_replay = true   # each fight keeps what it needs to be watched again
 	GameData.ensure_loaded()
 	I18n.setup(SaveGame.get_setting("lang", "th" if OS.get_locale_language() == "th" else "en"))
 	theme = UI.build_theme()
@@ -354,10 +357,17 @@ func render() -> void:
 		var cvw := CombatView.new().setup(run, _pending_sim, _wide)
 		cvw.finished.connect(_on_combat_done)
 		body = cvw
+	elif _replay_sim != null:
+		# a replay: the fight again from the start, then back to the night screen (nothing changes)
+		var rvw := CombatView.new().setup(_replay_sim.run, _replay_sim, _wide)
+		rvw.finished.connect(func(_w):
+			_replay_sim = null
+			render())
+		body = rvw
 	else:
 		body = _run_screen(fresh)
 	m.add_child(body)
-	if run == null or run.end_state != "" or (run.phase == "evening" and _pending_sim != null):
+	if run == null or run.end_state != "" or (run.phase == "evening" and _pending_sim != null) or _replay_sim != null:
 		if fresh:
 			UI.pop_in(body, 0.0, 30)
 		return
@@ -378,6 +388,8 @@ func render() -> void:
 		ov = _book_overlay()
 	elif show_effects:
 		ov = _effects_overlay()
+	elif show_goal:
+		ov = _goal_overlay()
 	if ov != null and not foe_info_e.is_empty():
 		ov.add_child(_foe_info_overlay())
 	if ov != null and _all_stats_cs != null and run.phase == "night":
@@ -835,7 +847,12 @@ func _hero_screen() -> Control:
 	skv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sk.add_child(skv)
 	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.res.ic, tr(c.res.n), tr(c.res.d)], 20 if _wide else 16, Color("#efe4cf")))
-	skv.add_child(UI.wrap_lbl("%s %s: %s" % [c.ult.ic, tr(c.ult.n), tr(c.ult.d)], 20 if _wide else 16, UI.GOLD))
+	var ults := []
+	for pid in c.paths:
+		var pu: Dictionary = GameData.paths[pid].get("ult", {})
+		if not pu.is_empty():
+			ults.append("%s %s" % [pu.ic, tr(pu.n)])
+	skv.add_child(UI.wrap_lbl("⭐ " + tr("Ultimate: comes with your path (%s), full power once its Masterwork is made.") % " · ".join(ults), 20 if _wide else 16, UI.GOLD))
 	cv.add_child(sk)
 	(pic if _wide else cv).add_child(_goals_panel(sel_cls, 18 if _wide else 15))   # PC: under the portrait, where there is room
 	# how it is usually built
@@ -1895,6 +1912,8 @@ func _hud() -> Control:
 		hr.add_child(UI.lbl("❤️".repeat(run.res) + "🖤".repeat(maxi(0, run.max_hearts() - run.res)), 18))
 		hr.add_child(_level_badge())
 	hr.add_child(UI.spacer())
+	if run.path != "" and run.mode in ["", "rush"]:
+		hr.add_child(_goal_button())
 	hr.add_child(_effects_button())
 	hr.add_child(_pause_button(false))
 	if run.mode != "puzzle":
@@ -2027,6 +2046,75 @@ func _effects_button() -> Control:
 	return p
 
 
+## 👑 chip: steps done toward the path's Masterwork; opens the goal panel.
+func _goal_button() -> Control:
+	var g := run.mw_goal()
+	var steps: Array = g.get("steps", [])
+	var n_done := steps.filter(func(s): return s.done).size()
+	var full := run.has_mw()
+	var col: Color = UI.GOLD if full else UI.BD
+	var p := UI.panel(Color(col, 0.3), col, 2, 40, 5)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.add_child(UI.plbl("👑" + ("" if full else " %d/%d" % [n_done, steps.size()]), 16, Color.WHITE, true))
+	UI.on_tap(p, func():
+		show_goal = true
+		render())
+	return p
+
+
+## The road to the path's Masterwork: what to buy, put together and fuse, ticked off as you go,
+## and what the path's Ultimate does now and once the Masterwork is made.
+func _goal_overlay() -> Control:
+	var o := _overlay("👑 " + tr("Masterwork goal"), func():
+		show_goal = false
+		render(), _wide)
+	var v: VBoxContainer = o[1]
+	var g := run.mw_goal()
+	if g.is_empty():
+		return o[0]
+	var rd: Dictionary = GameData.items[g.r]
+	var card := UI.card(Color(UI.PN, 0.96), UI.GOLD, 18, 14)
+	var cv := UI.vbox(10)
+	card.add_child(cv)
+	var hh := UI.hbox(12)
+	hh.add_child(UI.add_badge(UI.icon(Sprites.item(g.r), rd.ic, 56), rd.bd, 56))
+	var tv := UI.vbox(4)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv.add_child(UI.title(tr(rd.n), 26, UI.GOLD))
+	tv.add_child(UI.wrap_lbl(GameData.describe_lines(g.r)[0], 15, Color("#efe4cf")))
+	hh.add_child(tv)
+	cv.add_child(hh)
+	var u := run.ult_def()
+	if not u.is_empty():
+		var full := run.has_mw()
+		cv.add_child(_rich("[color=#fde68a][b]⭐ %s %s[/b][/color]  %s" % [u.ic, tr(u.n), tr(u.d)], 16, Color("#efe4cf")))
+		cv.add_child(UI.wrap_lbl(tr("Ultimate at full power!") if full else tr("Ultimate now: %d%% power, charges slower. Make the Masterwork for full power.") % roundi(RunState.ULT_BASE * 100), 15, UI.GOOD if full else Color("#fdba74")))
+	v.add_child(card)
+	var sc := UI.card(Color(UI.PN, 0.96), UI.BD, 18, 14)
+	var sv := UI.vbox(8)
+	sc.add_child(sv)
+	sv.add_child(UI.title("🧭 " + tr("Steps"), 22))
+	for s in g.steps:
+		var tick := "✅ " if s.done else "⬜ "
+		var t := ""
+		match s.t:
+			"buy":
+				t = tr("Buy %s") % (Sprites.item_bb(s.id) + " " + tr(GameData.items[s.id].n)) + (" ×%d" % s.n if s.n > 1 else "") + (("  (%d/%d)" % [s.have, s.n]) if s.n > 1 and not s.done else "")
+			"link":
+				var nm := func(id: String) -> String: return Sprites.item_bb(id) + " " + tr(GameData.items[id].n)
+				if s.evo:
+					t = tr("Put two %s together: tonight they evolve into %s") % [nm.call(s.ids[0]), nm.call(s.r)]
+				else:
+					t = tr("Put %s next to %s: tonight they fuse into %s") % [nm.call(s.ids[0]), nm.call(s.ids[1]), nm.call(s.r)]
+			"mw":
+				var nm2 := func(id: String) -> String: return Sprites.item_bb(id) + " " + tr(GameData.items[id].n)
+				t = tr("Put %s, %s and %s together: tonight they become the Masterwork %s") % [nm2.call(s.ids[0]), nm2.call(s.ids[1]), nm2.call(s.ids[2]), nm2.call(s.r)]
+		sv.add_child(_rich(tick + t, 16, UI.MU if s.done else Color.WHITE))
+	sv.add_child(UI.wrap_lbl(tr("👑 in the shop marks a part you still need; the shop always has at least one."), 14, UI.MU))
+	v.add_child(sc)
+	return o[0]
+
+
 ## ⏸️ chip: in the top bar, or floating top-left over a popup.
 func _pause_button(floating: bool) -> Control:
 	var open := func():
@@ -2095,6 +2183,7 @@ func _leave_run() -> void:
 	var mode := run.mode
 	run = null
 	show_pause = false
+	show_goal = false
 	_pending_sim = null
 	_clear_sel()
 	anim.clear()
@@ -2346,6 +2435,8 @@ func _shop_card(e: Dictionary, i: int) -> Control:
 	top.custom_minimum_size.y = 20
 	if e.get("sale", false):
 		top.add_child(UI.plbl("-50%", 14, Color("#ff7b7f"), true))
+	elif run.mw_goal().get("need", {}).has(e.id):
+		top.add_child(UI.plbl("👑", 16))   # a part still missing for your path's Masterwork
 	elif run.recipe_partner_owned(e.id):
 		top.add_child(UI.plbl("🔗", 16))
 	top.add_child(UI.spacer())
@@ -2790,6 +2881,10 @@ func _path_choice_overlay() -> Control:
 		for r in GameData.recipes:
 			if r.path == pid:
 				pv.add_child(UI.wrap_lbl("👑 " + tr("Masterwork: %s = %s + %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n), tr(GameData.items[r.c].n)] if r.c != "" else "👑 " + tr("Masterwork: %s = %s + %s") % [tr(GameData.items[r.r].n), tr(GameData.items[r.a].n), tr(GameData.items[r.b].n)], 16, UI.AC))
+		var pu: Dictionary = pd.get("ult", {})
+		if not pu.is_empty():
+			pv.add_child(UI.wrap_lbl("⭐ %s %s: %s" % [pu.ic, tr(pu.n), tr(pu.d)], 16, Color("#fde68a")))
+			pv.add_child(UI.wrap_lbl(tr("Your Ultimate from now on. Weak (%d%%) until the Masterwork is in your pack.") % roundi(RunState.ULT_BASE * 100), 14, UI.MU))
 		if _wide:
 			pv.add_child(UI.spacer(false))   # buttons line up along the bottom
 			p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3063,6 +3158,12 @@ func _night_overlay() -> Control:
 		_clear_sel()
 		render(), "green", 28)
 	nb.disabled = choosing
+	if fight and run.has_meta("replay"):
+		var rb := UI.btn("🎬 " + tr("Watch the fight again"), func():
+			_replay_sim = run.replay_sim()
+			render(), false, 20, "blue")
+		rb.custom_minimum_size.y = 56
+		v.add_child(rb)
 	if r.victory and run.mode == "":
 		# beat the day-15 boss: claim the win, or keep going in Endless (+2 Hearts, max 5)
 		var eb := UI.big_btn("♾️ " + tr("Keep going (Endless)") + "  +2 ❤️", func():

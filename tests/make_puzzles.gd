@@ -3,6 +3,8 @@ extends SceneTree
 ## fight with. Each puzzle's foe is tuned so a good layout wins with stars to spare while a careless
 ## one (items dropped in order) loses; a puzzle that can't be tuned that way is left out.
 ## Run: godot --headless --path . --script res://tests/make_puzzles.gd -- --boards=<dir with f_*/pro_*.out>
+## Or: ... -- --retune   re-tunes the puzzles already in data/puzzles.json (same ids, packs and foes) after a
+## combat change; a puzzle that can no longer be tuned keeps its old numbers.
 
 const LESSONS := [
 	{"id": "l01", "n": "Touching items help", "d": "Whetstones sharpen the weapons they touch. Put each one between blades.", "cls": "rogue", "w": 4, "h": 3, "items": ["rogue_dagger", "rogue_dagger", "bloodied_shiv", "whetstone", "whetstone", "whetstone"], "foe": {"fam": "Goblin", "day": 5}},
@@ -13,7 +15,7 @@ const LESSONS := [
 	{"id": "l06", "n": "Break the armor", "d": "Armored monsters take less Physical damage. An Armor Breaker lets the weapons it touches pierce it.", "cls": "warden", "w": 4, "h": 3, "items": ["armor_breaker", "stone_fist", "stone_fist", "rock_club", "pebble_sling"], "foe": {"fam": "Skeleton", "day": 7, "tr": "armored"}},
 		{"id": "l07", "n": "Charge them up", "d": "A Battery and a Capacitor charge the items they touch. Put them where they reach the most weapons.", "cls": "tinker", "w": 4, "h": 3, "items": ["battery", "capacitor", "volt_rifle", "spark_pistol", "spark_pistol"], "foe": {"fam": "Cave Rat", "day": 7}},
 		{"id": "l08", "n": "Spell support", "d": "Mana Crystals and the Mana Prism speed up the Spells they touch. Every Spell should touch at least one.", "cls": "weaver", "w": 4, "h": 3, "items": ["mana_prism", "mana_crystal", "mana_crystal", "arcane_bolt", "arcane_bolt", "star_orb"], "foe": {"fam": "Goblin", "day": 7}},
-	{"id": "l09", "n": "Lead the pack", "d": "A Spirit Totem makes the Beasts it touches hit harder. Two totems, three beasts: make every beast touch both.", "cls": "beast", "w": 4, "h": 3, "items": ["spirit_totem", "spirit_totem", "wolf_pup", "fox_kit", "stray_kitten"], "foe": {"fam": "Bandit", "day": 7}},
+	{"id": "l09", "n": "Lead the pack", "d": "A Spirit Totem makes the Beasts it touches hit harder. Two totems, three beasts: make every beast touch both.", "cls": "beast", "w": 3, "h": 3, "items": ["spirit_totem", "spirit_totem", "wolf_pup", "fox_kit", "stray_kitten", "leather_vest"], "foe": {"fam": "Bandit", "day": 7}},
 		{"id": "l10", "n": "A signature item", "d": "The Twin-Fang Ring strikes again when a Weapon touching it crits; a Shadow Cloak makes the weapons it touches crit more. Build a crit corner.", "cls": "rogue", "w": 4, "h": 3, "items": ["fang_ring", "shadow_cloak", "shadow_dagger", "executioners_blade", "bloodied_shiv"], "foe": {"fam": "Goblin", "day": 8}},
 ]
 
@@ -30,6 +32,12 @@ func _initialize() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--boards="):
 			boards_dir = a.substr(9)
+		if a == "--retune":
+			_retune()
+			return
+		if a.begins_with("--lesson="):
+			_remake_lesson(a.substr(9))
+			return
 	for spec in LESSONS:
 		var tiles := []
 		for y in spec.h:
@@ -38,11 +46,50 @@ func _initialize() -> void:
 		var p := {"id": spec.id, "ch": 1, "n": spec.n, "d": spec.d, "cls": spec.cls, "day": spec.foe.day, "tiles": tiles, "items": spec.items}
 		_tune(p, _lesson_foe(spec))
 	_challenges()
+	_write()
+	quit()
+
+
+func _retune() -> void:
+	var old: Array = JSON.parse_string(FileAccess.get_file_as_string("res://data/puzzles.json")).puzzles
+	for q in old:
+		var p: Dictionary = q.duplicate(true)
+		var base: Dictionary = p.foe
+		var n := out.size()
+		_tune(p, base)
+		if out.size() == n:
+			out.append(q)   # could not be re-tuned: keep it as it was
+	_write()
+	quit()
+
+
+## Re-makes one lesson from LESSONS in place (same id), keeping every other puzzle.
+func _remake_lesson(id: String) -> void:
+	var old: Array = JSON.parse_string(FileAccess.get_file_as_string("res://data/puzzles.json")).puzzles
+	for spec in LESSONS:
+		if spec.id != id:
+			continue
+		var tiles := []
+		for y in spec.h:
+			for x in spec.w:
+				tiles.append([3 + x, 2 + y])
+		var p := {"id": spec.id, "ch": 1, "n": spec.n, "d": spec.d, "cls": spec.cls, "day": spec.foe.day, "tiles": tiles, "items": spec.items}
+		_tune(p, _lesson_foe(spec))
+	if out.is_empty():
+		print("not remade: %s" % id)
+		quit()
+		return
+	var made: Dictionary = out[0]
+	out = old.map(func(q): return made if q.id == id else q)
+	_write()
+	quit()
+
+
+func _write() -> void:
 	var f := FileAccess.open("res://data/puzzles.json", FileAccess.WRITE)
 	f.store_string(JSON.stringify({"_doc": "Made by tests/make_puzzles.gd. Each foe is tuned so `best` wins with stars and a careless layout loses.", "puzzles": out}, " "))
 	f.close()
 	print("PUZZLES MADE: %d (lessons %d)" % [out.size(), out.filter(func(q): return q.ch == 1).size()])
-	quit()
 
 
 func _lesson_foe(spec: Dictionary) -> Dictionary:

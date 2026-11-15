@@ -123,12 +123,14 @@ static func ensure_loaded() -> void:
 				"per": float(res.per), "eff": res.eff, "etag": str(res.get("etag", "")), "v": float(res.v),
 				"cap": float(res.get("cap", 99.0)), "d": res.d, "v2": float(res.get("v2", 0.0)),
 			},
-			"ult": {"n": c.ult.n, "ic": c.ult.ic, "need": int(c.ult.need), "on": _norm_on(c.ult.get("on", {})), "sp": str(c.ult.get("sp", "")), "d": c.ult.d},
 			"paths": c.paths, "sp": str(c.get("sp", "")), "hp": float(c.get("hp", 0)),
 		}
 		class_keys.append(k)
 	for k in d.paths:
 		paths[k] = d.paths[k]
+		var u: Dictionary = d.paths[k].get("ult", {})
+		if not u.is_empty():   # the path's Ultimate (weaker until its Masterwork is made)
+			paths[k].ult = {"n": u.n, "ic": u.ic, "need": int(u.need), "on": _norm_on(u.get("on", {})), "sp": str(u.get("sp", "")), "d": u.d}
 	path_day = int(d.get("path_day", 4))
 	foe_hp_mult = float(d.get("foe_hp_mult", 1.0))
 	foe_atk_mult = float(d.get("foe_atk_mult", 1.0))
@@ -161,6 +163,14 @@ static func ensure_loaded() -> void:
 	W = int(d.grid_w)
 	H = int(d.grid_h)
 	loaded = true
+
+
+## The path's Masterwork recipe {a, b, c, r, path}, or {} if it has none.
+static func path_mw(path_id: String) -> Dictionary:
+	for r in recipes:
+		if r.path == path_id and str(r.get("c", "")) != "":
+			return r
+	return {}
 
 
 static func _cells(arr) -> Array:

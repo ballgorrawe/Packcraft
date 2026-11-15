@@ -12,8 +12,12 @@ func _initialize() -> void:
 		var d: Dictionary = GameData.items[id]
 		if d.sig <= 0:
 			continue
-		var with_it := _fight(id, true)
-		var without := _fight(id, false)
+		# three monsters each way: one fight alone is too noisy for small mechanics
+		var with_it := {"score": 0.0}
+		var without := {"score": 0.0}
+		for sd in [11, 12, 13]:
+			with_it.score += _fight(id, true, sd).score
+			without.score += _fight(id, false, sd).score
 		_check(with_it.score > without.score, "%s: it changes the fight (%.0f vs %.0f)" % [id, with_it.score, without.score])
 	# locked items stay out of the shop
 	var r := RunState.new("rogue", "", "normal")
@@ -35,8 +39,8 @@ func _initialize() -> void:
 
 ## One 20-second fight against a sturdy dummy: the item plus class items around it. Without its
 ## special the item keeps its stats, so the difference is the mechanic alone.
-func _fight(id: String, special: bool) -> Dictionary:
-	seed(11)
+func _fight(id: String, special: bool, sd := 11) -> Dictionary:
+	seed(sd)
 	var d: Dictionary = GameData.items[id]
 	var r := RunState.new(d.cl, "", "normal")
 	r.day = 8

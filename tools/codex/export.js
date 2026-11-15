@@ -57,9 +57,9 @@ const traits = Object.entries(d.traits).map(([k, v]) => ({ ic: v.ic, ...two(v.n)
 const classes = Object.entries(d.classes).map(([k, c]) => ({
   id: k, ...two(c.n), ic: c.ic, col: c.col, sprite: "hero_" + k, d: th(c.d), stats: Object.entries(c.stats || {}).map(([s, v]) => [th(s), v]),
   comp: (c.comp || []).map(th), start: (c.st || []).map((s) => s[0]),
-  ult: c.ult ? { ic: c.ult.ic, ...two(c.ult.n), d: th(c.ult.d), need: c.ult.need } : null,
   res: c.res ? { ic: c.res.ic, ...two(c.res.n), d: th(c.res.d) } : null,
   paths: c.paths.map((p) => { const pd = d.paths[p]; const mw = d.recipes.find((r) => r.path === p && r.c); return { ...two(pd.n), ic: pd.ic, d: th(pd.d), relic: pd.relic, mw: mw ? { parts: [mw.a, mw.b, mw.c], r: mw.r } : null,
+    ult: pd.ult ? { ic: pd.ult.ic, ...two(pd.ult.n), d: th(pd.ult.d), need: pd.ult.need } : null,
     own: Object.keys(d.items).filter((k) => d.items[k].pth === p) }; }),
 }));
 const pets = Object.entries(d.pets).map(([k, p]) => ({ id: k, ...two(p.n), ic: p.ic, sprite: "pet_" + k, d: th(p.d) }));

@@ -8,7 +8,7 @@ const MAX_HEARTS := 3
 const ENDLESS_HEARTS := 5
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
 const LOOT_PARTNER_BIAS := 0.35 # chance loot is a recipe partner of something you own
-const PATH_BIAS := 0.3          # chance a shop roll picks one of the chosen path's own items (data "pth")
+const PATH_BIAS := 0.5          # chance a shop roll picks one of the chosen path's own items (data "pth")
 const ELITE_FROM_DAY := 2       # no Elite nodes on day 1
 const EVENTS_FROM_DAY := 3      # days 1-2 are fights only (events come later and scale with the day)
 const MINI_DAYS := [3, 8, 13]   # a mini-boss guards these floors (the climb before each boss)
@@ -153,6 +153,72 @@ func diff_def() -> Dictionary:
 
 func path_def() -> Dictionary:
 	return GameData.paths.get(path, {})
+
+
+## The path's Ultimate ({} before a path is chosen). Without the path's Masterwork in the pack
+## it works at ULT_BASE power and needs ULT_BASE_NEED times the triggers.
+const ULT_BASE := 0.75
+const ULT_BASE_NEED := 1.2
+
+func ult_def() -> Dictionary:
+	return path_def().get("ult", {})
+
+
+func has_mw() -> bool:
+	var mw := GameData.path_mw(path)
+	return not mw.is_empty() and grid_items().any(func(i): return i.id == mw.r)
+
+
+func ult_power() -> float:
+	return 1.0 if has_mw() else ULT_BASE
+
+
+## The road to the path's Masterwork, worked out from the recipes (as the class trials do):
+## {r, ids, steps: [{t: "buy"|"link"|"mw", id/ids, r, n, have, done, evo}], need: {shop id: count still to buy}}.
+func mw_goal() -> Dictionary:
+	var mw := GameData.path_mw(path)
+	if mw.is_empty():
+		return {}
+	var steps := []
+	var need := {}
+	var all_done := owns(mw.r)
+	var walk := func(self_ref: Callable, node: Dictionary, up_done: bool) -> void:
+		var done := up_done or owns(node.id)
+		if node.kids.is_empty():
+			if not done:
+				need[node.id] = need.get(node.id, 0) + 1
+			return
+		for kid in node.kids:
+			self_ref.call(self_ref, kid, done)
+		steps.append({"t": "link", "ids": node.kids.map(func(k): return k.id), "r": node.id, "evo": node.get("evo", false), "done": done})
+	for part in [mw.a, mw.b]:
+		walk.call(walk, _trial_tree(part), all_done)
+	var buys := []
+	var seen_ids := {}
+	for part in [mw.a, mw.b]:
+		for id in _leaves(_trial_tree(part)):
+			if seen_ids.has(id):
+				continue
+			seen_ids[id] = true
+			var n := int(need.get(id, 0))
+			var have := mini(n, count_owned(id))
+			buys.append({"t": "buy", "id": id, "n": n, "have": have, "done": n == 0 or have >= n})
+	steps = buys + steps
+	steps.append({"t": "mw", "ids": [mw.a, mw.b, mw.c], "r": mw.r, "done": all_done})
+	for id in need.keys():
+		need[id] = maxi(0, int(need[id]) - count_owned(id))
+		if need[id] == 0:
+			need.erase(id)
+	return {"r": mw.r, "ids": [mw.a, mw.b, mw.c], "steps": steps, "need": need}
+
+
+static func _leaves(node: Dictionary) -> Array:
+	if node.kids.is_empty():
+		return [node.id]
+	var out := []
+	for k in node.kids:
+		out += _leaves(k)
+	return out
 
 
 ## True on the path day until the player has picked one of the two class paths.
@@ -817,8 +883,27 @@ func fill_shop() -> void:
 	while shop.size() < 5:
 		var id := roll_item()
 		shop.append({"id": id, "price": int(GameData.items[id].cost)})
+	_mw_part_in_shop()
 	shop.append({"bag": true, "n": 3 if day >= 8 else 2, "price": bag_price(3 if day >= 8 else 2)})
 	shop.append({"bag": true, "n": 4, "price": bag_price(4)})
+
+
+## After the path is chosen, the shop always holds at least one item still missing for its Masterwork.
+func _mw_part_in_shop() -> void:
+	if mode != "" or path == "":
+		return
+	var need: Dictionary = mw_goal().get("need", {})
+	var ok := need.keys().filter(func(k): return GameData.items[k].shop and not locked.has(k))
+	if ok.is_empty() or shop.any(func(e): return ok.has(e.get("id", ""))):
+		return
+	var free := []
+	for i in shop.size():
+		if not shop[i].get("lock", false) and not shop[i].has("bag"):
+			free.append(i)
+	if free.is_empty():
+		return
+	var id: String = ok.pick_random()
+	shop[free.pick_random()] = {"id": id, "price": int(GameData.items[id].cost)}
 
 
 func reroll_cost() -> int:
@@ -1565,6 +1650,25 @@ func travel() -> bool:
 
 
 ## Returns a CombatSim for fights, or null when the node resolves straight to night.
+## The game keeps what it needs to replay each fight (bots and tests do not).
+static var keep_replay := false
+
+## Fights the last fight again, the same way: same pack, same monster, same dice. Null if none kept.
+func replay_sim() -> CombatSim:
+	if not has_meta("replay"):
+		return null
+	var rp: Dictionary = get_meta("replay")
+	var rc := RunState.from_dict(rp.run)
+	if rc == null:
+		return null
+	rc.calc()
+	rc.hp = float(rp.run.get("hp", rc.hp))
+	seed(int(rp.gseed))
+	var cs := CombatSim.new(rc, rp.n.duplicate(true))
+	cs._rng.state = rp.rng
+	return cs
+
+
 func choose(i: int) -> CombatSim:
 	var n: Dictionary = nodes[i]
 	cur_node = i
@@ -1573,7 +1677,14 @@ func choose(i: int) -> CombatSim:
 		calc()
 		sync_hp()
 		phase = "evening"
+		var snap := {}
+		var gs := randi()
+		if keep_replay:
+			snap = to_dict()   # the run as the fight starts, to watch it again (main.gd: Replay)
+		seed(gs)
 		var cs := CombatSim.new(self, n)
+		if keep_replay:
+			set_meta("replay", {"run": snap, "n": n.duplicate(true), "rng": cs._rng.state, "gseed": gs})
 		if mode == "puzzle":
 			cs._rng.seed = PUZZLE_SEED   # the same layout always fights the same way
 			seed(PUZZLE_SEED)            # (some fight rolls use the global dice)

@@ -194,8 +194,8 @@ function drawClasses(q){
     <div class="d">${esc(c.d)}</div><div class="row">${c.stats.map(([s,v])=>`<span class="chip">${esc(s)} ${"■".repeat(v)}</span>`).join("")}</div>
     <div class="how">เริ่มด้วย: ${c.start.map(itemLink).join(", ")}</div>
     ${c.res?`<div class="d"><b>${c.res.ic} ${esc(c.res.th)}</b> (ทรัพยากรประจำคลาส): ${esc(c.res.d)}</div>`:""}
-    ${c.ult?`<div class="d"><b>${c.ult.ic} ท่าไม้ตาย ${esc(c.ult.th)}</b> (ใช้ไอเทม ${c.ult.need} ครั้งเพื่อชาร์จ): ${esc(c.ult.d)}</div>`:""}
-    <div class="list">${c.paths.map(p=>`<b>${p.ic} ${esc(p.th)}</b>: ${esc(p.d)}<br>เรลิก: ${itemLink(p.relic)}${p.own.length?` · ของสาย: ${p.own.map(itemLink).join(", ")}`:""}${p.mw?` · สุดยอดฝีมือ: ${p.mw.parts.map(itemLink).join(" + ")} = ${itemLink(p.mw.r)}`:""}`).join("<br><br>")}</div>
+    <div class="d">⭐ ท่าไม้ตายมาจากสายที่เลือก: ได้ทันทีตอนเลือกสาย (พลัง 60% ชาร์จช้ากว่า 30%) และเต็มพลังเมื่อมีสุดยอดฝีมือของสายในกระเป๋า</div>
+    <div class="list">${c.paths.map(p=>`<b>${p.ic} ${esc(p.th)}</b>: ${esc(p.d)}<br>เรลิก: ${itemLink(p.relic)}${p.own.length?` · ของสาย: ${p.own.map(itemLink).join(", ")}`:""}${p.mw?` · สุดยอดฝีมือ: ${p.mw.parts.map(itemLink).join(" + ")} = ${itemLink(p.mw.r)}`:""}${p.ult?`<br>⭐ ท่าไม้ตาย <b>${p.ult.ic} ${esc(p.ult.th)}</b> (ใช้ไอเทม ${p.ult.need} ครั้งเพื่อชาร์จ): ${esc(p.ult.d)}`:""}`).join("<br><br>")}</div>
     ${c.comp.length?`<div class="how">${c.comp.map(esc).join("<br>")}</div>`:""}</article>`).join("")+`</div>`;
 }
 function simple(list,label,big){return `<div class="grid">`+list.map(x=>`<article class="card"><div class="top">${x.sprite?spr(x.sprite,x.ic,big):`<span class="ic">${x.ic||""}</span>`}${name(x)}</div><div class="d">${esc(x.d)}</div>${x.extra||""}</article>`).join("")+`</div>`;}
