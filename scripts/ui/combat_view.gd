@@ -654,7 +654,7 @@ func _handle(evs: Array) -> void:
 				if not quiet:
 					_lunge(foe, -70)
 					if ev.has("uid"):
-						_projectile(ev.get("icon", "💥"), mpack.get_global_rect().position + mpack.item_center(ev.uid) - fxl.get_global_rect().position, _center_of(hero))
+						_projectile(ev.get("icon", "💥"), mpack.get_global_rect().position + mpack.item_center(ev.uid) - fxl.get_global_rect().position, _center_of(hero), int(ev.uid))
 				if ev.ab > 0:
 					php_bar.pulse_shield()
 				var r := snappedf(ev.dm - ev.ab, 0.1)
@@ -746,7 +746,7 @@ func _hit_anim(ev: Dictionary, quiet: bool) -> void:
 		return
 	if ev.melee:
 		_lunge(hero, 70)
-	_projectile(ev.icon, _item_pos(ev.uid), _center_of(foe))
+	_projectile(ev.icon, _item_pos(ev.uid), _center_of(foe), ev.uid)
 	create_tween().tween_callback(land).set_delay(0.22)
 
 
@@ -762,8 +762,9 @@ func _flash_lbl(l: Label) -> void:
 	tw.tween_property(l, "modulate", Color.WHITE, 0.18)
 
 
-func _projectile(icon: String, from: Vector2, to: Vector2) -> void:
-	var p := UI.lbl(icon, 28)
+func _projectile(icon: String, from: Vector2, to: Vector2, uid := 0) -> void:
+	var p := UI.icon(_uid_art(uid), icon, 28)   # the item's pixel art when it has one
+	p.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fxl.add_child(p)
 	p.position = from - Vector2(16, 18)
@@ -772,6 +773,19 @@ func _projectile(icon: String, from: Vector2, to: Vector2) -> void:
 	tw.tween_property(p, "position", to - Vector2(16, 18), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_property(p, "rotation", TAU, 0.22)
 	tw.chain().tween_callback(p.queue_free)
+
+
+## Pixel art of the hero's or the monster's item with this uid (null if none).
+func _uid_art(uid: int) -> Texture2D:
+	if uid == 0:
+		return null
+	for x in sim.items:
+		if x.i.uid == uid:
+			return Sprites.item(x.i.id)
+	for f in sim.fi:
+		if f.uid == uid:
+			return Sprites.item(f.id)
+	return null
 
 
 ## Floating number: slams in oversized, settles, drifts up and fades. Big hits are huge.

@@ -2132,7 +2132,7 @@ func go_night(n: Dictionary, win: bool, cs: CombatSim) -> void:
 			var id := roll_tiered(rank() + 1, 2, LOOT_PARTNER_BIAS)
 			items.append(make_item(id, "storage"))
 			hp = maxf(1.0, hp - 15)
-			r.lines.append(I18n.t("🗿 The shrine drains 15 HP and gives you %s %s (in storage).") % [GameData.items[id].ic, I18n.t(GameData.items[id].n)])
+			r.lines.append(I18n.t("🗿 The shrine drains 15 HP and gives you %s %s (in storage).") % [Sprites.item_bb(id), I18n.t(GameData.items[id].n)])
 			r.rew.append({"k": "loot", "id": id})
 			r.rew.append({"k": "hp", "v": -15})
 		"camp":
@@ -2254,7 +2254,7 @@ func _grow_items(lines: Array) -> void:
 			for nb in neighbours(it):
 				if nb.def().cd > 0:
 					nb.grow_main(v)
-			parts.append("%s %d/%d" % [it.def().ic, it.gc, int(gr.get("max", 12))])
+			parts.append("%s %d/%d" % [Sprites.item_bb(it.id), it.gc, int(gr.get("max", 12))])
 		else:
 			var k := str(gr.get("k", ""))
 			var icon := ""
@@ -2264,7 +2264,7 @@ func _grow_items(lines: Array) -> void:
 				"heal": it.gh += v
 				"": icon = it.grow_main(v)
 				_: it.gst[k] = it.gst.get(k, 0.0) + v
-			parts.append("%s %d/%d" % [it.def().ic, it.gc, int(gr.get("max", 12))])
+			parts.append("%s %d/%d" % [Sprites.item_bb(it.id), it.gc, int(gr.get("max", 12))])
 	if not parts.is_empty():
 		lines.append("🌱 " + I18n.t("Grew: %s") % ", ".join(parts))
 

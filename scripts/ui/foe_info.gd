@@ -29,6 +29,7 @@ static func build(e: Dictionary, width: float) -> Control:
 	var p := UI.panel(Color("#1a1511", 0.98), Color("#c084fc"), 3, 18, 16)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE   # a tap on it reaches whatever closes it
 	var rt := RichTextLabel.new()
+	rt.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST   # inline pixel art of its items
 	rt.bbcode_enabled = true
 	rt.fit_content = true
 	rt.scroll_active = false
@@ -97,7 +98,7 @@ static func text(e: Dictionary) -> String:
 			if not on.haste.is_empty():
 				parts.append("💨 +%d%%" % roundi(on.haste[0] * 100))
 			var every := ("⏱ " + I18n.t("every %ss") % GameData._num(snappedf(d.cd * cdm, 0.1))) if d.cd > 0 else ""
-			t += "\n%s %s%s  %s  [color=#9ca3af]%s[/color]" % [d.ic, I18n.t(d.n), (" ×%d" % seen[id]) if seen[id] > 1 else "", "  ".join(parts), every]
+			t += "\n%s %s%s  %s  [color=#9ca3af]%s[/color]" % [Sprites.item_bb(id, 22), I18n.t(d.n), (" ×%d" % seen[id]) if seen[id] > 1 else "", "  ".join(parts), every]
 	return t
 
 

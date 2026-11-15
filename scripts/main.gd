@@ -1275,8 +1275,8 @@ func _trial_screen() -> Control:
 
 
 ## One trial step as a line of text.
-func _trial_step_text(s: Dictionary) -> String:
-	var nm := func(id: String) -> String: return GameData.items[id].ic + " " + tr(GameData.items[id].n)
+func _trial_step_text(s: Dictionary, rich := true) -> String:
+	var nm := func(id: String) -> String: return (Sprites.item_bb(id) + " " if rich else "") + tr(GameData.items[id].n)
 	match s.t:
 		"buy":
 			return "🛒 " + tr("Buy %s") % nm.call(s.id) + (" ×%d" % s.n if s.n > 1 else "")
@@ -1308,7 +1308,7 @@ func _trial_steps_panel() -> Control:
 	var open := todo.filter(func(x): return not x.done)
 	v.add_child(UI.lbl("📋 " + tr("Trial · day %d of %d") % [run.day, RunState.TRIAL_DAYS] + "   ✔ %d/%d" % [todo.size() - open.size(), todo.size()], 16, Color("#bfe3ff"), true))
 	for st in open.slice(0, 3):
-		v.add_child(UI.wrap_lbl(_trial_step_text(st.step), 15, Color.WHITE))
+		v.add_child(_rich(_trial_step_text(st.step), 15, Color.WHITE))
 	if open.is_empty():
 		v.add_child(UI.wrap_lbl("✅ " + tr("All done for today: head out!"), 15, UI.GOOD))
 	return p
@@ -1400,14 +1400,12 @@ func _end_screen() -> Control:
 		run.set_meta("mst", {"g": g, "from": lv.from, "to": lv.to})
 		run.set_meta("sig_new", _refresh_locks())
 	for id in run.get_meta("sig_new", []):
-		line += "\n🎁 " + tr("New item unlocked: %s") % (GameData.items[id].ic + " " + tr(GameData.items[id].n))
+		line += "\n🎁 " + tr("New item unlocked: %s") % (Sprites.item_bb(id, 24) + " " + tr(GameData.items[id].n))
 	var mg: Dictionary = run.get_meta("mst")
 	line += "\n🏅 " + tr("+%d Mastery XP for %s") % [mg.g, tr(run.cls_def().n)]
 	for l in range(int(mg.from) + 1, int(mg.to) + 1):
 		line += "\n🎉 " + tr("Mastery %d!") % l + "  " + _mastery_reward_text(run.cls, l)
-	var s := UI.wrap_lbl(line, 20 if _wide else 18)
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(s)
+	v.add_child(_rich("[center]" + line + "[/center]", 20 if _wide else 18, UI.TX))
 	v.add_child(_end_header())
 	if _wide:
 		# PC: the pack and the buffs side by side
@@ -1538,12 +1536,12 @@ func _end_buffs_panel() -> Control:
 		rows.append(["%s %s" % [pd2.ic, tr(pd2.n)], rtxt, Color("#fdba74")])
 	for it in run.grid_items():
 		if GameData.recipes.any(func(rc): return str(rc.get("c", "")) != "" and rc.r == it.id):
-			rows.append(["👑 " + tr("Masterwork"), "%s %s" % [it.def().ic, tr(it.def().n)], UI.GOLD])
+			rows.append(["👑 " + tr("Masterwork"), "%s %s" % [Sprites.item_bb(it.id), tr(it.def().n)], UI.GOLD])
 	var grown := []
 	for it in run.grid_items():
 		var gr: Dictionary = it.def().get("grow", {})
 		if not gr.is_empty() and it.gc > 0:
-			grown.append("%s %s %d/%d" % [it.def().ic, tr(it.def().n), it.gc, int(gr.get("max", 12))])
+			grown.append("%s %s %d/%d" % [Sprites.item_bb(it.id), tr(it.def().n), it.gc, int(gr.get("max", 12))])
 	if not grown.is_empty():
 		rows.append(["⭐ " + tr("Growing items"), ", ".join(grown), Color("#a7f3d0")])
 	if str(run.mod.get("n", "")) != "":
@@ -1554,7 +1552,7 @@ func _end_buffs_panel() -> Control:
 		nm.custom_minimum_size.x = 210 if _wide else 190
 		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		hb.add_child(nm)
-		var d := UI.wrap_lbl(r[1], fs - 1, Color("#efe4cf"))
+		var d := _rich(r[1], fs - 1, Color("#efe4cf"))
 		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hb.add_child(d)
 		cv.add_child(hb)
@@ -1581,7 +1579,7 @@ func _run_screen(fresh: bool) -> Control:
 		if fresh:
 			for st in run.trial_steps():
 				if st.step.t == "tip":
-					toast(_trial_step_text(st.step), Color("#7dd3fc"), 6.0)
+					toast(_trial_step_text(st.step, false), Color("#7dd3fc"), 6.0)
 
 	# backpack
 	var gp := UI.card(Color("#3a2818", 0.96), Color("#7a5232"), 22, 10)
@@ -2078,6 +2076,16 @@ func _pause_overlay() -> Control:
 	return o[0]
 
 
+## Wrapping rich text that can hold inline item art (Sprites.item_bb).
+func _rich(bb: String, size: int, col: Color) -> RichTextLabel:
+	var r := UI.rich(bb, size)
+	r.add_theme_color_override("default_color", col)
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	r.custom_minimum_size.x = 60
+	return r
+
+
 func _mid(l: Label) -> Label:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return l
@@ -2152,7 +2160,7 @@ func _arrange_panel() -> Control:
 		var d: float = r[2] - r[1]
 		rates.add_child(_chip("%s %.1f » %.1f (%+.1f)" % [r[0], r[1], r[2], d], r[3] if d >= -0.05 else UI.BAD))
 	v.add_child(rates)
-	var nm := func(id: String) -> String: return GameData.items[id].ic + " " + tr(GameData.items[id].n)
+	var nm := func(id: String) -> String: return Sprites.item_bb(id) + " " + tr(GameData.items[id].n)
 	var lines := []   # [text, colour]
 	for e in hint_moves():
 		if e[1] == "storage":
@@ -2178,7 +2186,7 @@ func _arrange_panel() -> Control:
 	var lv := UI.vbox(4)
 	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for ln in lines:
-		lv.add_child(UI.wrap_lbl(ln[0], 16, ln[1]))
+		lv.add_child(_rich(ln[0], 16, ln[1]))
 	sc.add_child(lv)
 	v.add_child(sc)
 	var close := UI.btn("✖️ " + tr("Close the hint"), func():
@@ -2434,7 +2442,7 @@ func _inspector_popup() -> Control:
 	var tv := UI.vbox(4)
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(tv)
-	tv.add_child(UI.title("%s %s" % [d.ic, tr(d.n)], 26))
+	tv.add_child(UI.title(tr(d.n), 26))
 	var tags := " · ".join(d.tags.map(func(t): return tr(t)))
 	var tp := UI.panel(Color(col, 0.25), col, 2, 99, 6)
 	tp.add_child(UI.lbl(tr(GameData.tier_names[d.tier]) + " · " + tags, 15, Color.WHITE, true))
@@ -2637,7 +2645,7 @@ func _item_info_card(t: Dictionary) -> Control:
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(tv)
-	tv.add_child(UI.plbl("%s %s" % [d.ic, tr(d.n)], 26, Color.WHITE, true))
+	tv.add_child(UI.plbl(tr(d.n), 26, Color.WHITE, true))
 	var tags := " · ".join(d.tags.map(func(x): return tr(x)))
 	tv.add_child(UI.plbl(tr(GameData.tier_names[d.tier]) + " · " + tags, 15, col.lightened(0.3), true))
 	for line in GameData.describe_lines(id):
@@ -3014,7 +3022,7 @@ func _night_overlay() -> Control:
 		if covered.any(func(p): return l.begins_with(p)):
 			continue
 		var fp := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 12)
-		fp.add_child(UI.wrap_lbl(l, 18))
+		fp.add_child(_rich(l, 18, UI.TX))
 		v.add_child(fp)
 		UI.pop_in(fp, 0.2 + 0.12 * k, 30)
 		k += 1
@@ -3415,7 +3423,7 @@ func _event_result(v: VBoxContainer) -> void:
 	for l in ev.lines:
 		if l.begins_with("💥") or l.begins_with("📦") or l.begins_with("🗿"):
 			var p := UI.card(Color(UI.PN, 0.95), UI.BD, 18, 12)
-			p.add_child(UI.wrap_lbl(l, 18))
+			p.add_child(_rich(l, 18, UI.TX))
 			v.add_child(p)
 
 
@@ -3453,7 +3461,7 @@ func _ev_smith(v: VBoxContainer) -> void:
 		any = true
 		var nx: Dictionary = GameData.items[it.def().evo]
 		var itr: PItem = it
-		fl.add_child(_item_pick_card(it, "» " + nx.ic + " " + tr(nx.n), false, func():
+		fl.add_child(_item_pick_card(it, "» " + tr(nx.n), false, func():
 			if run.ev_smith(itr):
 				render()
 			else:

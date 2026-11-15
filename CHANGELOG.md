@@ -4,6 +4,10 @@ The newest version is on top. When a version goes live on GitHub Pages, its sect
 Discord #update channel automatically (.github/workflows/discord-patch-notes.yml). Write each line as a
 short bullet in Thai; keep a section under ~1500 characters (Discord's limit is 2000).
 
+## v0.15.4
+- 🎨 ไอคอนไอเทมในข้อความเป็นภาพพิกเซลแล้ว: ขั้นตอนบททดสอบ คำแนะนำจัดกระเป๋า 🪄 ข้อมูลกระเป๋ามอน หน้าจบรอบ ของที่โตขึ้นตอนพัก และศาลเจ้า
+- ⚔️ ไอเทมที่พุ่งออกตอนสู้ (ทั้งของเราและของมอน) เป็นภาพพิกเซลแทนอิโมจิ
+
 ## v0.15.3
 - 📖 สมุดสูตรเปิดให้ดูครบทุกสูตรแล้ว ไม่มี ❓ ปิดไว้ แตะดูรายละเอียดของได้ทุกชิ้น
 - 🎨 เปลี่ยนไอคอนอิโมจิเป็นภาพพิกเซลในหน้าผสมของ/วิวัฒนาการ รางวัลหลังสู้ อีเวนต์ (แท่นบูชา พ่อค้า ช่างตีเหล็ก หม้อปรุง) สรุปผลไอเทมหลังสู้ และกระเป๋าเริ่มต้นของคลาส

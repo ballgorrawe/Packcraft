@@ -52,6 +52,18 @@ static func foe(name: String) -> Texture2D:
 
 ## An item's art ("it_<id>") over its real footprint (N px a cell), turned like GameData.shape(id, rot);
 ## null while the item has no art yet.
+## An item's pixel art inline in a RichTextLabel ("[img]" + name), or its emoji when it has no art.
+## [img] loads by path, so the texture takes over a made-up path the resource cache then hands back.
+static func item_bb(id: String, h := 20) -> String:
+	var t := item(id)
+	if t == null:
+		return str(GameData.items[id].ic)
+	var p := "res://__item_art/%s.png" % id
+	if t.resource_path != p:
+		t.take_over_path(p)
+	return "[img height=%d]%s[/img]" % [h, p]
+
+
 static func item(id: String, rot := 0) -> Texture2D:
 	var key := "it_%s#%d" % [id, posmod(rot, 4)]
 	if _cache.has(key):
