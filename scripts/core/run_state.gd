@@ -4,6 +4,7 @@ extends RefCounted
 ## class paths, nodes and night resolution. Pure logic, no UI, so it can be tested headless.
 
 const RESIST := 0.2          # damage multiplier when the foe resists that element (80% less)
+const BOSS_RESIST := 0.5     # bosses resist less (50%): a class built on one element must still be able to win
 const MAX_HEARTS := 3
 const ENDLESS_HEARTS := 5
 const COMBAT_DROP := 0.25       # chance a normal fight drops an item
@@ -2398,9 +2399,14 @@ func next_day() -> void:
 
 # ---------------------------------------------------------------- forecasts
 
+## How much less the foe takes from the element it resists, as shown on screen (80 or 50).
+static func resist_pct(e: Dictionary) -> int:
+	return roundi((1.0 - (BOSS_RESIST if str(e.get("tier", "")) == "boss" else RESIST)) * 100)
+
+
 static func elem_mult(e: Dictionary, dt: String) -> float:
 	if dt != "" and dt == e.imm:
-		return RESIST
+		return BOSS_RESIST if str(e.get("tier", "")) == "boss" else RESIST
 	if dt != "" and dt == e.weak:
 		return 1.5
 	return 1.0

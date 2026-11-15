@@ -11,6 +11,7 @@
 .art{image-rendering:pixelated;flex:none;background:var(--sprite);border-radius:6px;padding:3px}
 .mart{image-rendering:pixelated;vertical-align:middle;margin-right:2px}
 .tblw{overflow-x:auto;margin:6px 0 14px}
+.patch{max-width:900px}.patch .notes{margin:6px 0 10px;padding-left:18px}.patch .notes li{margin:3px 0}.patch h3{margin:10px 0 4px;font-size:15px}.pg{margin:6px 0}.chg{list-style:none;padding:0;margin:4px 0;font-size:13px;font-variant-numeric:tabular-nums}.chg li{padding:2px 0}.chg .up{color:#16a34a}.chg .down{color:#dc2626}.chg .new{color:var(--accent)}
 .tbl{border-collapse:collapse;font-size:13px;min-width:100%}
 .tbl th,.tbl td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 .tbl th:first-child,.tbl td:first-child{text-align:left}
@@ -114,7 +115,7 @@ const name=o=>`<div><div class="nm">${esc(o.th)}</div><div class="en">${esc(o.en
 const itemLink=id=>by[id]?`<button data-q="${esc(by[id].th)}">${by[id].ic} ${esc(by[id].th)}</button>`:esc(id);
 
 // ---- tabs
-const TABS=[["items","🎒 ไอเทม"],["monsters","👺 มอน"],["bosses","💀 บอส"],["classes","⚔️ คลาสและสาย"],["pets","🐾 สัตว์เลี้ยง"],["events","🎲 อีเวนต์"],["world","🌐 กฎโลกและความยาก"],["rules","📜 สถานะและกติกา"]];
+const TABS=[["patch","📢 อัปเดต"],["items","🎒 ไอเทม"],["monsters","👺 มอน"],["bosses","💀 บอส"],["classes","⚔️ คลาสและสาย"],["pets","🐾 สัตว์เลี้ยง"],["events","🎲 อีเวนต์"],["world","🌐 กฎโลกและความยาก"],["rules","📜 สถานะและกติกา"]];
 let tab="items";try{tab=localStorage.getItem("codextab")||"items";}catch(e){}
 if(location.hash&&TABS.some(t=>t[0]===location.hash.slice(1)))tab=location.hash.slice(1);
 $("tabs").innerHTML=TABS.map(([k,l])=>`<button role="tab" data-tab="${k}">${l}</button>`).join("");
@@ -206,13 +207,21 @@ function drawWorld(q){$("cnt").textContent="";
   return `<h2>ระดับความยาก</h2>`+simple(D.diffs.map(x=>({...x,extra:`<div class="row"><span class="chip">❤️ มอน ×${x.hp}</span><span class="chip">⚔️ มอน ×${x.dps}</span></div>`})))+
   `<h2>กฎโลก (สุ่ม 1 อย่างต่อรัน)</h2>`+simple(D.mods)+`<h2>อันตรายประจำชั้น (บางชั้นตั้งแต่ชั้น 3)</h2>`+simple(D.hazards)+
   `<h2>สกิลของมอน</h2>`+simple(D.traits.map(t=>({...t,d:t.d||"—"})));}
+function drawPatch(q){
+  const L=(D.patches||[]).map(p=>({...p,changes:p.changes.filter(c=>!q||c.t.toLowerCase().includes(q))})).filter(p=>!q||p.changes.length||p.notes.some(n=>n.toLowerCase().includes(q)));
+  $("cnt").textContent=`${L.length} เวอร์ชัน`;
+  const IC={up:"⬆️",down:"⬇️",new:"🆕",chg:"🔁"};
+  return L.map(p=>{const groups={};for(const c of p.changes)(groups[c.g]=groups[c.g]||[]).push(c);
+    return `<article class="card patch"><div class="top"><div class="nm">${esc(p.v)}</div>${p.live?"":'<span class="chip">กำลังจะมา</span>'}</div>
+    <ul class="notes">${p.notes.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>
+    ${p.changes.length?`<h3>🔢 ตัวเลขที่เปลี่ยน (${p.changes.length})</h3>`+Object.entries(groups).map(([g,cs])=>`<div class="pg"><b>${esc(g)}</b><ul class="chg">${cs.map(c=>`<li class="${c.k}">${IC[c.k]} ${esc(c.t)}</li>`).join("")}</ul></div>`).join(""):""}</article>`;}).join("");}
 function drawRules(){$("cnt").textContent="";
   return `<h2>สถานะ</h2>`+simple(D.statuses)+`<h2>โบนัสเลเวล (เลือก 1 ใน 3 ทุก 5 เลเวล)</h2>`+simple(D.picks)+
   `<h2>กติกา</h2><div class="rules">
   <h3>🎒 กระเป๋าและการวาง</h3><p>ลากของจากร้านเข้ากระเป๋าเพื่อซื้อ ลากกลับไปร้านเพื่อขาย ลากลงกล่องเพื่อเก็บ แตะของที่วางแล้วซ้ำเพื่อหมุน ของที่วางติดกันเสริมพลังกัน (✨) 🪄 จัดกระเป๋าให้อัตโนมัติ กด ↩️ ย้อนได้</p>
-  <h3>✨ อีโว รวมร่าง สุดยอดฝีมือ</h3><p>ของชิ้นเดียวกัน 2 ชิ้นวางติดกัน คืนนั้นอีโวเป็นของใหม่ · คู่สูตรวางติดกัน คืนนั้นรวมร่าง · หลังเลือกสาย (หลังบอสชั้น 5) ได้เรลิกของสาย วางให้ติดกับของ 2 ชิ้นตามสูตรแล้วกลายเป็นสุดยอดฝีมือ ได้ 1 ชิ้นต่อเกม</p>
-  <h3>🧭 ของสาย</h3><p>ทุกสายมีของประจำสาย 2 ชิ้น (กลางเกมและท้ายเกม) ขายในร้านของคลาสนั้น · เมื่อเลือกสายแล้ว ร้านออกของสายนั้นบ่อยขึ้น (30% ต่อช่อง)</p>
-  <h3>⚔️ การต่อสู้</h3><p>กระเป๋าสู้เอง ไอเทมแต่ละชิ้นชาร์จแล้วทำงานตามเวลา ทุกครั้งที่ใช้ไอเทมเติมเกจท่าไม้ตาย · มอนที่ต้านธาตุรับดาเมจธาตุนั้นแค่ 20% · มอนที่แพ้ธาตุรับ 150% · โล่กันดาเมจก่อนเลือด</p>
+  <h3>✨ อีโว รวมร่าง สุดยอดฝีมือ</h3><p>ของชิ้นเดียวกัน 2 ชิ้นวางติดกัน คืนนั้นอีโวเป็นของใหม่ · คู่สูตรวางติดกัน คืนนั้นรวมร่าง · หลังเลือกสาย (หลังบอสชั้น 5) ได้เรลิกของสาย เรลิก + ของประจำสาย 2 ชิ้นวางติดกัน คืนนั้นกลายเป็นสุดยอดฝีมือ ได้ 1 ชิ้นต่อเกม · ปุ่ม 👑 บอกขั้นตอน</p>
+  <h3>🧭 ของสาย</h3><p>ทุกสายมีของประจำสาย 2 ชิ้น (กลางเกมและท้ายเกม) ขายในร้านของคลาสนั้น · เมื่อเลือกสายแล้ว ร้านออกของสายนั้นบ่อยขึ้น (50% ต่อช่อง) และมีชิ้นส่วนสุดยอดฝีมือที่ยังขาดอย่างน้อย 1 ชิ้น (ป้าย 👑)</p>
+  <h3>⚔️ การต่อสู้</h3><p>กระเป๋าสู้เอง ไอเทมแต่ละชิ้นชาร์จแล้วทำงานตามเวลา ทุกครั้งที่ใช้ไอเทมเติมเกจท่าไม้ตาย (ท่าไม้ตายมาจากสาย: ได้ตอนเลือกสาย พลัง 75% และเต็มพลังเมื่อมีสุดยอดฝีมือ) · มอนที่ต้านธาตุรับดาเมจธาตุนั้นแค่ 20% (บอส 50%) · มอนที่แพ้ธาตุรับ 150% · โล่กันดาเมจก่อนเลือด</p>
   <h3>❤️ หัวใจและเลือด</h3><p>เลือดติดตัวข้ามชั้น · แพ้ไฟต์เสียหัวใจ 1 ดวงแล้วฟื้นที่ 50% · หัวใจหมดคือจบเกม · ล้มบอสได้หัวใจคืน 1 ดวง (มีสูงสุด 3 ดวง, โหมดไม่รู้จบ 5 ดวง)</p>
   <h3>⭐ เลเวล</h3><p>ได้ EXP จากการชนะ: สู้ธรรมดา 3, อีลิทและซุ่มโจมตี 4, บอสและมินิบอส 5 · ทุกเลเวลเพิ่ม HP และดาเมจ · ทุก 5 เลเวลเลือกโบนัส 1 อย่าง</p>
   <h3>🗺️ เส้นทาง</h3><p>15 ชั้น บอสที่ชั้น 5, 10, 15 · มินิบอสชั้น 3, 8, 13 · อีลิทและซุ่มโจมตีให้ของระดับหายากขึ้นไปและ +1 ช่องกระเป๋า · มอนแบ่งตามช่วงชั้น 1-5, 6-10, 11-15 แต่ละตระกูลมีอีลิทเฉพาะตัว</p>
@@ -224,7 +233,7 @@ function draw(){
   for(const id of ["fc","ft","fs","so"])$(id).hidden=tab!=="items";
   $("fd").hidden=tab!=="monsters"&&tab!=="bosses";
   const q=$("q").value.trim().toLowerCase();
-  $("view").innerHTML={items:drawItems,monsters:drawMonsters,bosses:drawBosses,classes:drawClasses,pets:drawPets,events:drawEvents,world:drawWorld,rules:drawRules}[tab](q);
+  $("view").innerHTML={patch:drawPatch,items:drawItems,monsters:drawMonsters,bosses:drawBosses,classes:drawClasses,pets:drawPets,events:drawEvents,world:drawWorld,rules:drawRules}[tab](q);
 }
 for(const id of ["q","fc","ft","fs","so","fd"])$(id).addEventListener("input",draw);
 $("view").addEventListener("click",e=>{const b=e.target.closest("button[data-q]");if(b){tab="items";$("q").value=b.dataset.q;$("fc").value="";$("ft").value="";$("fs").value="";draw();window.scrollTo({top:0});}});

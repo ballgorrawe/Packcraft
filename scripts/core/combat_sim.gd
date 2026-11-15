@@ -735,7 +735,7 @@ func fire_ult() -> void:
 	var heal_dmg := 0.0   # part of the damage dealt that heals you
 	match u.sp:
 		"solar_flare":
-			dmg += 2.0 * fs.get("burn", 0.0) * k
+			dmg += 3.0 * fs.get("burn", 0.0) * k
 			fs["burn"] = 0.0
 		"pierce_all":
 			_pierce_all = true
@@ -748,7 +748,7 @@ func fire_ult() -> void:
 			dmg += minf(120.0, 1.5 * float(run.gold)) * k
 		"fire_bomb", "fire_turret", "fire_ranged", "fire_beast":
 			var tag: String = {"fire_bomb": "Bomb", "fire_turret": "Turret", "fire_ranged": "Ranged", "fire_beast": "Beast"}[u.sp]
-			var times := 2 if u.sp == "fire_turret" and k >= 1.0 else 1
+			var times := (3 if k >= 1.0 else 2) if u.sp == "fire_turret" else 1
 			var n := 0
 			for _t in times:
 				for idx in items.size():
@@ -766,8 +766,8 @@ func fire_ult() -> void:
 			for y in items:
 				if not y.d.once and y.lock <= 0 and (tag2 == "" or y.d.tags.has(tag2)):
 					y.p = y.cd
-		"volley5":
-			hits = 5
+		"volley5", "volley6":
+			hits = 6 if u.sp == "volley6" else 5
 		"titan_slam":
 			dmg += mhp * 0.3 * k
 		"stun25":

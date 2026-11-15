@@ -79,7 +79,7 @@ func setup(r: RunState, s: CombatSim, wide := false) -> CombatView:
 	en.add_child(UI.lbl(tr(s.e.n), roundi(20 * ks), Color.WHITE, true))
 	var badges := []
 	if s.e.imm != "":
-		badges.append("🛡 %s%s -80%%" % [GameData.elem_icon(s.e.imm), tr(s.e.imm)])
+		badges.append("🛡 %s%s -%d%%" % [GameData.elem_icon(s.e.imm), tr(s.e.imm), RunState.resist_pct(s.e)])
 	if s.e.weak != "":
 		badges.append("💥 %s%s +50%%" % [GameData.elem_icon(s.e.weak), tr(s.e.weak)])
 	var style_txt := GameData.foe_style_txt(s.e)

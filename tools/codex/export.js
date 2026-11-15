@@ -79,7 +79,8 @@ const foeStats = JSON.parse(fs.readFileSync(P + "/tools/codex/foe_stats.json", "
 const r1 = (v) => Math.round(v * 10) / 10;
 for (const rows of Object.values(foeStats.floors)) for (const r of rows) for (const k of Object.keys(r)) r[k] = r1(r[k]);
 const foePets = Object.entries(d.foe_pets || {}).map(([k, p]) => ({ id: k, ic: p.ic, ...two(p.n), d: th(p.d || ""), sprite: "fpet_" + k }));
-const out = { foeStats, foePets, items, cls: Object.fromEntries(Object.entries(d.classes).map(([k, c]) => [k, { n: th(c.n), ic: c.ic, col: c.col }])), tiers: d.tier_names.map(th), tcol: d.tier_colors,
+const patches = require("./patches.js")(P, T);   // CHANGELOG + every number changed per version
+const out = { patches, foeStats, foePets, items, cls: Object.fromEntries(Object.entries(d.classes).map(([k, c]) => [k, { n: th(c.n), ic: c.ic, col: c.col }])), tiers: d.tier_names.map(th), tcol: d.tier_colors,
   monsters, bosses, traits, classes, pets, events: evs, mods, hazards, statuses, diffs, picks, sprites: SP };
 fs.writeFileSync(process.argv[3], JSON.stringify(out));
 console.log("items", items.length, "monsters", monsters.length, "bosses", bosses.length, "events", evs.length, "bytes", fs.statSync(process.argv[3]).size);

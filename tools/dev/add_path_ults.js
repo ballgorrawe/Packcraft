@@ -3,16 +3,16 @@
 const fs = require("fs");
 const U = [
   // [path, name, thai name, icon, need, on, sp, d, thai d]
-  ["inferno", "Solar Flare", "เปลวสุริยะ", "☀️", 22, {el: "Fire", st: {burn: 10}}, "solar_flare", "Detonates all Burn on the enemy for twice its stacks as Fire damage, then adds 10 Burn.", "ระเบิด Burn ทั้งหมดบนศัตรูเป็นดาเมจไฟ 2 เท่าของจำนวน Burn แล้วติด Burn 10"],
-  ["forgeblade", "World Cleave", "ผ่าโลก", "🪓", 22, {dmg: 40, dmg_per_res: 4, el: "Physical"}, "pierce_all", "Deals 40 + 4 per Heat Physical damage that ignores Armor.", "ดาเมจกายภาพ 40 + 4 ต่อ Heat ทะลุเกราะทั้งหมด"],
+  ["inferno", "Solar Flare", "เปลวสุริยะ", "☀️", 22, {el: "Fire", st: {burn: 12}}, "solar_flare", "Detonates all Burn on the enemy for three times its stacks as Fire damage, then adds 12 Burn.", "ระเบิด Burn ทั้งหมดบนศัตรูเป็นดาเมจไฟ 3 เท่าของจำนวน Burn แล้วติด Burn 12"],
+  ["forgeblade", "World Cleave", "ผ่าโลก", "🪓", 22, {dmg: 60, dmg_per_res: 5, el: "Physical", shield: 15}, "pierce_all", "Deals 60 + 5 per Heat Physical damage that ignores Armor, and gives 15 Shield.", "ดาเมจกายภาพ 60 + 5 ต่อ Heat ทะลุเกราะทั้งหมด และได้ Shield 15"],
   ["phoenix", "Rebirth Flame", "เปลวเกิดใหม่", "🪶", 22, {st: {burn: 6}}, "heal_pct", "Heals 25% of your Max HP and adds 6 Burn.", "ฮีล 25% ของ Max HP และติด Burn 6"],
   ["plague", "Pandemic", "โรคระบาด", "🦠", 24, {heal: 12}, "double_poison", "Doubles the Poison on the enemy and heals you for 12.", "Poison บนศัตรูเพิ่มเป็น 2 เท่า และฮีล 12"],
   ["transmuter", "Midas Touch", "สัมผัสไมดาส", "💰", 24, {el: "Physical", st: {bleed: 6}, heal: 10}, "midas", "Deals 1.5 damage per gold you hold (max 120), adds 6 Bleed and heals you for 10.", "ดาเมจ 1.5 ต่อทองที่ถือ (สูงสุด 120) ติด Bleed 6 และฮีล 10"],
   ["bombardier", "Carpet Bomb", "ทิ้งระเบิดปูพรม", "💣", 24, {st: {burn: 8}, heal: 8}, "fire_bomb", "Every Bomb goes off at once, then adds 8 Burn and heals you for 8.", "ระเบิดทุกชิ้นทำงานทันที แล้วติด Burn 8 และฮีล 8"],
-  ["overclock", "Overdrive", "โอเวอร์ไดรฟ์", "⚡", 24, {haste: [0.5, 4]}, "full_charge", "Every item charges fully, then +50% Haste for 4 seconds.", "ไอเทมทุกชิ้นชาร์จเต็ม แล้ว Haste +50% นาน 4 วินาที"],
-  ["arsenal", "Full Barrage", "ระดมยิง", "🎯", 24, {}, "fire_turret", "Every Turret fires twice at once.", "Turret ทุกชิ้นยิงทันที 2 รอบ"],
-  ["voltmaster", "Thunderstorm", "พายุฟ้าคะนอง", "🌩️", 24, {dmg: 12, el: "Shock"}, "volley5", "Five lightning bolts, 12 Shock damage each.", "สายฟ้า 5 ครั้ง ครั้งละ 12 ดาเมจ Shock"],
-  ["thorns", "Iron Thicket", "พงหนามเหล็ก", "🌵", 16, {shield: 30, st: {thorns: 12}}, "", "Gain 12 Thorns and 30 Shield.", "ได้ Thorns 12 และ Shield 30"],
+  ["overclock", "Overdrive", "โอเวอร์ไดรฟ์", "⚡", 24, {haste: [0.6, 5], shield: 15}, "full_charge", "Every item charges fully, then +60% Haste for 5 seconds and 15 Shield.", "ไอเทมทุกชิ้นชาร์จเต็ม แล้ว Haste +60% นาน 5 วินาที และได้ Shield 15"],
+  ["arsenal", "Full Barrage", "ระดมยิง", "🎯", 24, {dmg: 25, el: "Physical"}, "fire_turret", "Every Turret fires three times at once, then a 25 damage shell.", "Turret ทุกชิ้นยิงทันที 3 รอบ แล้วยิงกระสุน 25 ดาเมจ"],
+  ["voltmaster", "Thunderstorm", "พายุฟ้าคะนอง", "🌩️", 24, {dmg: 18, el: "Shock"}, "volley6", "Six lightning bolts, 18 Shock damage each.", "สายฟ้า 6 ครั้ง ครั้งละ 18 ดาเมจ Shock"],
+  ["thorns", "Iron Thicket", "พงหนามเหล็ก", "🌵", 16, {shield: 40, st: {thorns: 16}}, "", "Gain 16 Thorns and 40 Shield.", "ได้ Thorns 16 และ Shield 40"],
   ["colossus", "Titan Slam", "ทุบไททัน", "🗿", 16, {el: "Physical"}, "titan_slam", "Deals damage equal to 30% of your Max HP.", "ดาเมจเท่ากับ 30% ของ Max HP"],
   ["earthshaker", "Earthquake", "แผ่นดินไหว", "🌋", 16, {dmg: 20, el: "Physical"}, "stun25", "Deals 20 Physical damage and stuns the enemy's items for 2.5 seconds.", "ดาเมจกายภาพ 20 และสตันไอเทมศัตรู 2.5 วินาที"],
   ["crimson", "Hemorrhage", "เลือดทะลัก", "🩸", 30, {}, "hemorrhage", "Doubles the Bleed on the enemy and heals you for half of it.", "Bleed บนศัตรูเพิ่มเป็น 2 เท่า และฮีลครึ่งหนึ่งของ Bleed"],
@@ -29,7 +29,7 @@ const U = [
   ["packlord", "Alpha Roar", "คำรามจ่าฝูง", "🦁", 60, {heal: 10, haste: [0.6, 4]}, "alpha_roar", "Heal 10, gain 2 Shield per Beast and +60% Haste for 4 seconds.", "ฮีล 10 ได้ Shield 2 ต่อ Beast และ Haste +60% นาน 4 วินาที"],
   ["bloodwater", "Blood Tide", "กระแสเลือด", "🦈", 52, {st: {bleed: 10}}, "charge_sea", "Adds 10 Bleed and every Sea creature charges fully.", "ติด Bleed 10 และสัตว์ทะเลทุกตัวชาร์จเต็ม"],
   ["siren", "Maelstrom Call", "เรียกน้ำวน", "🌀", 52, {dmg: 15, el: "Physical", heal: 12}, "maelstrom", "Deal 15 Physical + 2 Water damage per Tide (counts up to 15 Tide), freeze the enemy's items for 1.5 seconds and heal 12.", "ดาเมจกายภาพ 15 + น้ำ 2 ต่อ Tide (นับสูงสุด 15) แช่แข็งไอเทมศัตรู 1.5 วินาที และฮีล 12"],
-  ["cannoneer", "Broadside", "ยิงกราด", "💥", 52, {dmg: 12, el: "Physical"}, "volley5", "Five cannon shots, 12 Physical damage each.", "ยิง 5 นัด นัดละ 12 ดาเมจกายภาพ"],
+  ["cannoneer", "Broadside", "ยิงกราด", "💥", 52, {dmg: 20, el: "Physical"}, "volley5", "Five cannon shots, 20 Physical damage each.", "ยิง 5 นัด นัดละ 20 ดาเมจกายภาพ"],
 ];
 const gp = "data/game_data.json";
 let g = fs.readFileSync(gp, "utf8");
